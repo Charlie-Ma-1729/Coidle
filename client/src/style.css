@@ -266,3 +266,5 @@ input[type="range"] { width: 100%; accent-color: var(--pink); }
 .cb-head { display: grid; gap: 2px; }
 .cb-event { display: grid; gap: 6px; padding: 8px 0; border-top: 1px solid var(--line); }
 .banner { padding: 8px 14px; font-size: 0.85rem; text-align: center; background: rgba(255, 107, 107, 0.15); color: var(--red); }
+
+.linklike { background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; color: inherit; font: inherit; }

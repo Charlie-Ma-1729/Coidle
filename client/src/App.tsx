@@ -2,8 +2,10 @@ import { useEffect } from "preact/hooks";
 import { EVENT_BY_ID, guestTodoCount, isPaused, presetOfSpeed } from "@coidle/shared";
 import { ClockBanner } from "./components/ClockBanner";
 import { Toasts } from "./components/ui";
+import { Tutorial, markTourSeen, shouldShowTour, tourOpen } from "./components/Tutorial";
 import { clockText, dateText } from "./format";
 import { goTo, tab, type Tab } from "./nav";
+import { Admin } from "./screens/Admin";
 import { Auth } from "./screens/Auth";
 import { Floor } from "./screens/Floor";
 import { Guests } from "./screens/Guests";
@@ -23,6 +25,9 @@ const TABS: { id: Tab; icon: string; label: string }[] = [
 
 function MallShell() {
   const s = state.value;
+  useEffect(() => {
+    if (shouldShowTour(user.value?.id, mallId.value)) tourOpen.value = true;
+  }, [mallId.value]);
   // 總覽徽章：待決的一般事件；面對客人的事（客訴、評價、客人事件）算在「客人」分頁
   const badges: Partial<Record<Tab, number>> = {
     overview: s ? s.pending.filter((p) => EVENT_BY_ID[p.defId]?.category !== "guest").length : 0,
@@ -31,6 +36,14 @@ function MallShell() {
   };
   return (
     <div class="app">
+      {tourOpen.value && (
+        <Tutorial
+          onDone={() => {
+            markTourSeen(user.value?.id, mallId.value);
+            tourOpen.value = false;
+          }}
+        />
+      )}
       <header class="topbar">
         <span class="brand">COIDLE</span>
         <span class="mall-name">{mallInfo.value?.name}</span>
@@ -88,7 +101,8 @@ export function App() {
   }, []);
 
   let body;
-  if (!authReady.value) body = <p class="empty" style={{ paddingTop: "40vh" }}>載入中…</p>;
+  if (typeof location !== "undefined" && location.hash === "#admin") body = <Admin />;
+  else if (!authReady.value) body = <p class="empty" style={{ paddingTop: "40vh" }}>載入中…</p>;
   else if (!user.value) body = <Auth />;
   else if (mallId.value === null) body = <Lobby />;
   else body = <MallShell />;

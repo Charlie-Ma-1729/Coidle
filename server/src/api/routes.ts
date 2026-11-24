@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { ROLE_IDS, speedPreset, type MeResponse, type RoleId } from "@coidle/shared";
 import type { ContentService, ContentKind } from "../ai/service";
@@ -106,6 +107,44 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     };
   });
 
+  app.post("/api/me/profile", async (req) => {
+    const user = requireUser(req, repo, now());
+    const name = str(body(req).displayName, "暱稱", 1, 20);
+    repo.setDisplayName(user.id, name);
+    for (const m of repo.mallsOfUser(user.id)) service.announceMembersOf(m.id);
+    return { ok: true, displayName: name };
+  });
+
+  app.post("/api/me/password", async (req) => {
+    const user = requireUser(req, repo, now());
+    const b = body(req);
+    const current = typeof b.current === "string" ? b.current : "";
+    const next = typeof b.next === "string" ? b.next : "";
+    const key = `pw|${user.id}`;
+    const f = failures.get(key);
+    if (f && f.resetAt > now() && f.n >= 8) throw new ServiceError(429, "嘗試次數過多，請稍後再試");
+    if (!(await verifyPassword(current, user.pass_hash))) {
+      failures.set(key, { n: (f && f.resetAt > now() ? f.n : 0) + 1, resetAt: now() + 15 * 60_000 });
+      throw new ServiceError(403, "目前的密碼不正確");
+    }
+    if (next.length < 8 || next.length > 72) throw new ServiceError(400, "新密碼長度需在 8–72 字之間");
+    if (next === current) throw new ServiceError(400, "新密碼不能和舊密碼一樣");
+    repo.setPassHash(user.id, await hashPassword(next));
+    // 其他裝置全部登出；目前這個保留
+    const token = sessionToken(req);
+    repo.deleteSessionsOfUser(user.id, token ? hashToken(token) : undefined);
+    return { ok: true };
+  });
+
+  app.post("/api/me/delete", async (req, reply) => {
+    const user = requireUser(req, repo, now());
+    const password = typeof body(req).password === "string" ? (body(req).password as string) : "";
+    if (!(await verifyPassword(password, user.pass_hash))) throw new ServiceError(403, "密碼不正確");
+    service.deleteAccount(user.id);
+    reply.clearCookie(COOKIE_NAME, { path: "/" });
+    return { ok: true };
+  });
+
   // ── 商場
   app.post("/api/malls", async (req) => {
     const user = requireUser(req, repo, now());
@@ -166,6 +205,36 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     if (typeof role !== "string" || !ROLE_IDS.includes(role)) throw new ServiceError(400, "職位無效");
     repo.setRole(mallId, user.id, role as RoleId);
     return { members: service.members(mallId) };
+  });
+
+  app.post("/api/malls/:id/leave", async (req) => {
+    const mallId = mallIdOf(req.params);
+    const { user } = requireMember(req, mallId);
+    return service.leaveMall(mallId, user.id);
+  });
+
+  app.post("/api/malls/:id/members/:uid/kick", async (req) => {
+    const mallId = mallIdOf(req.params);
+    const { user } = requireMember(req, mallId);
+    service.kickMember(mallId, user.id, Number((req.params as { uid: string }).uid));
+    return { members: service.members(mallId) };
+  });
+
+  app.post("/api/malls/:id/transfer", async (req) => {
+    const mallId = mallIdOf(req.params);
+    const { user } = requireMember(req, mallId);
+    const target = body(req).userId;
+    if (typeof target !== "number" || !Number.isInteger(target)) throw new ServiceError(400, "對象無效");
+    service.transferOwner(mallId, user.id, target);
+    return { members: service.members(mallId) };
+  });
+
+  app.post("/api/malls/:id/rename", async (req) => {
+    const mallId = mallIdOf(req.params);
+    const { user } = requireMember(req, mallId);
+    const name = str(body(req).name, "商場名稱", 1, 30);
+    service.renameMall(mallId, user.id, name);
+    return { name };
   });
 
   app.post("/api/malls/:id/invite/regenerate", async (req) => {
@@ -281,6 +350,38 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   app.post("/api/admin/ai/items/:id/remove", async (req) => {
     admin(req);
     if (!content.removeText(Number((req.params as { id: string }).id))) throw new ServiceError(400, "找不到這則內容");
+    return { ok: true };
+  });
+
+  // ── 管理後台（需要 ADMIN_TOKEN）：概況、商場與使用者
+  app.get("/api/admin/overview", async (req) => {
+    admin(req);
+    return {
+      users: repo.allUsers(),
+      malls: repo.allMalls().map((m) => ({ ...m, ...(service.summary(m.id) ?? { level: 0, funds: 0, tick: 0, day: 0, flags: {} }) })),
+    };
+  });
+  app.post("/api/admin/users/:id/reset-password", async (req) => {
+    admin(req);
+    const id = Number((req.params as { id: string }).id);
+    if (!repo.userById(id)) throw new ServiceError(404, "找不到這位使用者");
+    const temp = randomBytes(9).toString("base64url");
+    repo.setPassHash(id, await hashPassword(temp));
+    repo.deleteSessionsOfUser(id);
+    return { tempPassword: temp };
+  });
+  app.post("/api/admin/users/:id/delete", async (req) => {
+    admin(req);
+    const id = Number((req.params as { id: string }).id);
+    if (!repo.userById(id)) throw new ServiceError(404, "找不到這位使用者");
+    service.adminDeleteUser(id);
+    return { ok: true };
+  });
+  app.post("/api/admin/malls/:id/delete", async (req) => {
+    admin(req);
+    const id = Number((req.params as { id: string }).id);
+    if (!repo.mallById(id)) throw new ServiceError(404, "找不到這座商場");
+    service.dissolveMall(id);
     return { ok: true };
   });
 }

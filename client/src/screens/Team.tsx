@@ -1,7 +1,8 @@
 import { ROLES, REAL_HOURS_PER_GAME_DAY, type RoleId } from "@coidle/shared";
 import { api } from "../api";
 import { Btn, Card, Chip, Empty } from "../components/ui";
-import { activity, errMsg, leaveMall, logout, mallId, mallInfo, toast, user } from "../store";
+import { AccountCard } from "../components/AccountCard";
+import { activity, errMsg, leaveMall, logout, mallId, mallInfo, refreshMe, toast, user } from "../store";
 
 const roleName = (id: string) => ROLES.find((r) => r.id === id)?.name ?? id;
 
@@ -24,6 +25,39 @@ export function Team() {
       const r = await api.setRole(id, role);
       mallInfo.value = { ...info, members: r.members };
       toast("職位已更新", "ok");
+    } catch (e) {
+      toast(errMsg(e), "error");
+    }
+  };
+  const isOwner = !!me?.isOwner;
+  const act = async (fn: () => Promise<{ members: NonNullable<typeof info>["members"] }>, okText: string) => {
+    try {
+      const r = await fn();
+      mallInfo.value = { ...info, members: r.members };
+      toast(okText, "ok");
+    } catch (e) {
+      toast(errMsg(e), "error");
+    }
+  };
+  const leaveForever = async () => {
+    if (!confirm(info.members.length <= 1 ? "你是最後一位成員，離開會解散這座商場，確定嗎？" : "確定要離開這座商場嗎？")) return;
+    try {
+      await api.leaveMallServer(id);
+      await refreshMe();
+      leaveMall();
+      toast("已離開商場", "ok");
+    } catch (e) {
+      toast(errMsg(e), "error");
+    }
+  };
+  const rename = async () => {
+    const name = prompt("新的商場名稱", info.name)?.trim();
+    if (!name || name === info.name) return;
+    try {
+      const r = await api.renameMall(id, name);
+      mallInfo.value = { ...info, name: r.name };
+      await refreshMe();
+      toast("商場名稱已更新", "ok");
     } catch (e) {
       toast(errMsg(e), "error");
     }
@@ -56,7 +90,19 @@ export function Team() {
                 <div>
                   <b>{m.displayName}</b> {m.isOwner && <Chip tone="amber">創辦人</Chip>} {m.userId === user.value?.id && <Chip tone="pink">我</Chip>}
                 </div>
-                <Chip tone="cyan">{roleName(m.role)}</Chip>
+                <div class="row" style={{ gap: "6px" }}>
+                  <Chip tone="cyan">{roleName(m.role)}</Chip>
+                  {isOwner && m.userId !== user.value?.id && (
+                    <>
+                      <Btn small onClick={() => confirm(`把創辦人轉讓給「${m.displayName}」？你會變成一般成員。`) && act(() => api.transferOwner(id, m.userId), "已轉讓創辦人")}>
+                        轉讓
+                      </Btn>
+                      <Btn small kind="danger" onClick={() => confirm(`請「${m.displayName}」離開商場？`) && act(() => api.kickMember(id, m.userId), "已請他離開")}>
+                        請離開
+                      </Btn>
+                    </>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -115,7 +161,17 @@ export function Team() {
         </p>
       </Card>
 
+      <AccountCard onDeleted={() => logout()} />
+
       <div class="row">
+        {isOwner && (
+          <Btn small onClick={rename}>
+            改商場名稱
+          </Btn>
+        )}
+        <Btn small onClick={leaveForever}>
+          離開這座商場
+        </Btn>
         <Btn small onClick={leaveMall}>
           切換商場
         </Btn>

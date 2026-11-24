@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  STARTER_QUESTS,
   CATEGORY_BY_ID,
   RND_TICKS,
   SLOT_KINDS,
@@ -16,7 +17,11 @@ import { shopQuality } from "./sim/state";
 import { evaluate, syncWorkshop, tagTotals } from "./sim/workshop";
 
 const T0 = 1000;
-const mk = (seed = 7): MallState => createInitialState(seed, T0, 0);
+const mk = (seed = 7): MallState => {
+  const s = createInitialState(seed, T0, 0);
+  for (const q of STARTER_QUESTS) s.meta.achievements[q.id] = 0; // 新手任務獎金不干擾金額檢查
+  return s;
+};
 const apply = (s: MallState, c: Command): MallState => {
   const r = applyCommand(s, c);
   if (!r.ok) throw new Error(r.error);

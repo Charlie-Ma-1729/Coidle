@@ -234,6 +234,103 @@ export class MallService {
     return this.repo.members(mallId);
   }
 
+  // ── 帳號與團隊管理
+  private forget(mallId: number): void {
+    this.cache.delete(mallId);
+    this.lastEmittedTick.delete(mallId);
+    this.connections.delete(mallId);
+  }
+
+  announceMembersOf(mallId: number): void {
+    this.announceMembers(mallId);
+  }
+
+  private announceMembers(mallId: number): void {
+    this.emit(mallId, { type: "members", mallId, members: this.repo.members(mallId) });
+  }
+
+  /** 離開商場：創辦人要先轉讓；最後一個人離開＝解散商場 */
+  leaveMall(mallId: number, userId: number): { dissolved: boolean } {
+    const m = this.repo.member(mallId, userId);
+    if (!m) throw new ServiceError(404, "你不在這座商場裡");
+    const count = this.repo.memberCount(mallId);
+    if (m.is_owner && count > 1) throw new ServiceError(409, "你是創辦人，請先把創辦人轉讓給其他成員");
+    if (count <= 1) {
+      this.repo.deleteMall(mallId);
+      this.forget(mallId);
+      return { dissolved: true };
+    }
+    this.repo.removeMember(mallId, userId);
+    this.announceMembers(mallId);
+    return { dissolved: false };
+  }
+
+  kickMember(mallId: number, ownerId: number, targetId: number): void {
+    const owner = this.repo.member(mallId, ownerId);
+    if (!owner?.is_owner) throw new ServiceError(403, "只有創辦人可以請成員離開");
+    if (ownerId === targetId) throw new ServiceError(400, "不能請自己離開，要走請用「離開商場」");
+    if (!this.repo.member(mallId, targetId)) throw new ServiceError(404, "找不到這位成員");
+    this.repo.removeMember(mallId, targetId);
+    this.announceMembers(mallId);
+  }
+
+  transferOwner(mallId: number, ownerId: number, targetId: number): void {
+    const owner = this.repo.member(mallId, ownerId);
+    if (!owner?.is_owner) throw new ServiceError(403, "只有創辦人可以轉讓");
+    if (ownerId === targetId) throw new ServiceError(400, "你已經是創辦人了");
+    if (!this.repo.member(mallId, targetId)) throw new ServiceError(404, "找不到這位成員");
+    this.repo.setOwner(mallId, ownerId, false);
+    this.repo.setOwner(mallId, targetId, true);
+    this.announceMembers(mallId);
+  }
+
+  renameMall(mallId: number, ownerId: number, name: string): void {
+    if (!this.repo.member(mallId, ownerId)?.is_owner) throw new ServiceError(403, "只有創辦人可以改商場名稱");
+    this.repo.renameMall(mallId, name);
+    this.announceMembers(mallId);
+  }
+
+  /** 刪除帳號：自己是唯一成員的商場一併解散；還有別人的商場要先轉讓 */
+  deleteAccount(userId: number): void {
+    for (const m of this.repo.mallsOfUser(userId)) {
+      const count = this.repo.memberCount(m.id);
+      if (m.is_owner === 1 && count > 1) throw new ServiceError(409, `「${m.name}」還有其他成員，請先轉讓創辦人或離開商場`);
+    }
+    for (const m of this.repo.mallsOfUser(userId)) this.leaveMall(m.id, userId);
+    this.repo.deleteUser(userId);
+  }
+
+  /** 管理用：商場的簡要狀況（不推進時間，只讀目前的快取或存檔） */
+  summary(mallId: number): { level: number; funds: number; tick: number; day: number; flags: Record<string, boolean> } | null {
+    try {
+      const s = this.load(mallId);
+      return { level: s.level, funds: Math.round(s.funds), tick: s.tick, day: Math.floor((s.tick - s.meta.startTick) / 288), flags: s.flags };
+    } catch {
+      return null;
+    }
+  }
+
+  /** 管理用：解散商場 */
+  dissolveMall(mallId: number): void {
+    this.repo.deleteMall(mallId);
+    this.forget(mallId);
+  }
+
+  /** 管理用：強制刪除使用者；他創辦且還有別人的商場，先把創辦人轉給最早加入的其他成員 */
+  adminDeleteUser(userId: number): void {
+    for (const m of this.repo.mallsOfUser(userId)) {
+      if (m.is_owner === 1) {
+        const next = this.repo.members(m.id).find((x) => x.userId !== userId);
+        if (next) {
+          this.repo.setOwner(m.id, next.userId, true);
+          this.repo.setOwner(m.id, userId, false);
+        }
+      }
+      this.leaveMall(m.id, userId);
+    }
+    this.repo.deleteUser(userId);
+  }
+
   // ── 狀態
   private load(mallId: number): MallState {
     const cached = this.cache.get(mallId);

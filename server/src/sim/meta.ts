@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import {
   ACHIEVEMENTS,
   CLUES,
+  STARTER_QUESTS,
   DAILY_PICKS,
   GOALS,
   GOAL_BY_ID,
@@ -255,6 +256,19 @@ function achievementsAndClues(s: MallState): void {
     if (a.reward) s.funds += a.reward;
     metaLog(s, `🏆 成就解鎖：${a.icon}「${a.name}」${a.reward ? `（獎金 ${money(a.reward)}）` : ""}${a.title ? `，獲得稱號「${a.title}」` : ""}`);
   }
+  for (const q of STARTER_QUESTS) {
+    if (s.meta.achievements[q.id] !== undefined) continue;
+    let ok = false;
+    try {
+      ok = q.check(s);
+    } catch {
+      ok = false;
+    }
+    if (!ok) continue;
+    s.meta.achievements[q.id] = s.tick;
+    s.funds += q.reward;
+    metaLog(s, `🌱 新手任務完成：${q.icon}「${q.name}」（獎金 ${money(q.reward)}）`);
+  }
   for (const c of CLUES) {
     if (s.meta.clues[c.id] !== undefined) continue;
     let ok = false;
@@ -267,6 +281,17 @@ function achievementsAndClues(s: MallState): void {
       s.meta.clues[c.id] = s.tick;
       addLog(s, "info", `🔎 發現一則線索：${c.icon} ${c.text.slice(0, 24)}…`);
     }
+  }
+}
+
+/** 指令完成當下就檢查新手任務，玩家馬上看到打勾與獎金 */
+export function checkStarters(s: MallState): void {
+  for (const q of STARTER_QUESTS) {
+    if (s.meta.achievements[q.id] !== undefined) continue;
+    if (!q.check(s)) continue;
+    s.meta.achievements[q.id] = s.tick;
+    s.funds += q.reward;
+    metaLog(s, `🌱 新手任務完成：${q.icon}「${q.name}」（獎金 ${money(q.reward)}）`);
   }
 }
 

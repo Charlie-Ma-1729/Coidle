@@ -2,6 +2,7 @@ import { useState } from "preact/hooks";
 import { ROLES, type RoleId } from "@coidle/shared";
 import { api } from "../api";
 import { Btn, Card, Empty, Field } from "../components/ui";
+import { AccountCard } from "../components/AccountCard";
 import { errMsg, logout, myMalls, openMall, refreshMe, toast, user } from "../store";
 
 export function Lobby() {
@@ -93,6 +94,8 @@ export function Lobby() {
             </Btn>
           </form>
         </Card>
+
+        <AccountCard onDeleted={() => logout()} />
 
         <Btn small onClick={() => logout()}>
           登出

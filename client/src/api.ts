@@ -65,5 +65,12 @@ export const api = {
   command: (id: number, command: Command) => request<PublicMallState>("POST", `/api/malls/${id}/commands`, { command }),
   clock: (id: number, patch: ClockPatch) => request<PublicMallState>("POST", `/api/malls/${id}/clock`, patch),
   setRole: (id: number, role: RoleId) => request<{ members: MemberInfo[] }>("POST", `/api/malls/${id}/role`, { role }),
+  updateProfile: (displayName: string) => request<{ ok: true; displayName: string }>("POST", "/api/me/profile", { displayName }),
+  changePassword: (current: string, next: string) => request<{ ok: true }>("POST", "/api/me/password", { current, next }),
+  deleteAccount: (password: string) => request<{ ok: true }>("POST", "/api/me/delete", { password }),
+  leaveMallServer: (id: number) => request<{ dissolved: boolean }>("POST", `/api/malls/${id}/leave`, {}),
+  kickMember: (id: number, userId: number) => request<{ members: MemberInfo[] }>("POST", `/api/malls/${id}/members/${userId}/kick`, {}),
+  transferOwner: (id: number, userId: number) => request<{ members: MemberInfo[] }>("POST", `/api/malls/${id}/transfer`, { userId }),
+  renameMall: (id: number, name: string) => request<{ name: string }>("POST", `/api/malls/${id}/rename`, { name }),
   regenInvite: (id: number) => request<{ inviteCode: string }>("POST", `/api/malls/${id}/invite/regenerate`, {}),
 };

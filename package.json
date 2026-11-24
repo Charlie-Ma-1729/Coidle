@@ -14,6 +14,7 @@
     "start": "tsx --tsconfig tsconfig.json server/src/index.ts",
     "test": "vitest run",
     "ai": "tsx --tsconfig tsconfig.json server/src/ai/cli.ts",
+    "admin": "tsx --tsconfig tsconfig.json server/src/admin/cli.ts",
     "sim": "tsx --tsconfig tsconfig.json server/src/bots/run.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },

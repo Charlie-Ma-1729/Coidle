@@ -202,4 +202,40 @@ export class Repo {
   setContentStatus(id: number, status: string): boolean {
     return Number(this.db.prepare("UPDATE content_pool SET status = ? WHERE id = ?").run(status, id).changes) > 0;
   }
+
+  // ── 帳號與商場管理
+  setDisplayName(userId: number, name: string): void {
+    this.db.prepare("UPDATE users SET display_name = ? WHERE id = ?").run(name, userId);
+  }
+  setPassHash(userId: number, hash: string): void {
+    this.db.prepare("UPDATE users SET pass_hash = ? WHERE id = ?").run(hash, userId);
+  }
+  /** 刪除這位使用者的登入 session；exceptHash 是目前這個（改密碼後保留，其他裝置全部登出） */
+  deleteSessionsOfUser(userId: number, exceptHash?: string): void {
+    if (exceptHash) this.db.prepare("DELETE FROM sessions WHERE user_id = ? AND token_hash <> ?").run(userId, exceptHash);
+    else this.db.prepare("DELETE FROM sessions WHERE user_id = ?").run(userId);
+  }
+  deleteUser(userId: number): void {
+    this.db.prepare("DELETE FROM users WHERE id = ?").run(userId);
+  }
+  removeMember(mallId: number, userId: number): void {
+    this.db.prepare("DELETE FROM memberships WHERE mall_id = ? AND user_id = ?").run(mallId, userId);
+  }
+  setOwner(mallId: number, userId: number, owner: boolean): void {
+    this.db.prepare("UPDATE memberships SET is_owner = ? WHERE mall_id = ? AND user_id = ?").run(owner ? 1 : 0, mallId, userId);
+  }
+  renameMall(mallId: number, name: string): void {
+    this.db.prepare("UPDATE malls SET name = ? WHERE id = ?").run(name, mallId);
+  }
+  deleteMall(mallId: number): void {
+    this.db.prepare("DELETE FROM malls WHERE id = ?").run(mallId);
+  }
+  allUsers(): { id: number; username: string; display_name: string; created_at: number }[] {
+    return this.db.prepare("SELECT id, username, display_name, created_at FROM users ORDER BY id").all() as never;
+  }
+  allMalls(): { id: number; name: string; created_at: number; members: number }[] {
+    return this.db
+      .prepare("SELECT m.id, m.name, m.created_at, (SELECT COUNT(*) FROM memberships x WHERE x.mall_id = m.id) AS members FROM malls m ORDER BY m.id")
+      .all() as never;
+  }
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  STARTER_QUESTS,
   BONUS_FACTOR,
   CATEGORY_BY_ID,
   EMPLOYER_SOCIAL_RATE,
@@ -31,7 +32,11 @@ const apply = (s: MallState, c: Command): MallState => {
   if (!r.ok) throw new Error(r.error);
   return r.state;
 };
-const mk = (seed = 7) => createInitialState(seed, APR1, 0);
+const mk = (seed = 7) => {
+  const s = createInitialState(seed, APR1, 0);
+  for (const q of STARTER_QUESTS) s.meta.achievements[q.id] = 0; // 新手任務獎金不干擾金額檢查
+  return s;
+};
 const sum = (s: MallState, k: "social" | "property" | "bonus" | "consumption" | "corporate") => s.tax.bills.filter((b) => b.kind === k);
 const paidOf = (s: MallState, k: string) => s.tax.history.filter((h) => h.kind === k).reduce((a, h) => a + h.amount, 0);
 

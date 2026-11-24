@@ -22,7 +22,7 @@ import { regularAction } from "./regulars";
 import { rivalCounter, rivalIntel, rivalPact } from "./rivals";
 import { cancelContract, chooseSupplier, signContract } from "./suppliers";
 import { rngForTick } from "./rng";
-import { bump, contribute, guessPlace, trackActor, type Actor } from "./meta";
+import { bump, checkStarters, contribute, guessPlace, trackActor, type Actor } from "./meta";
 import { counterTenant, declineTenant, resolveRenewal, signTenant, terminateLease } from "./leasing";
 import { cancelTech, startTech } from "./tech";
 import { cancelRnd, discardDish, listDish, startRnd, syncWorkshop, tastingAction, unlistDish } from "./workshop";
@@ -398,5 +398,7 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
 
   syncWorkshop(s); // 指令可能解鎖新素材或線索（刺探情報、簽約…）
   trackActor(s, actor, cmd.type);
+  bump(s, `cmd_${cmd.type}`);
+  checkStarters(s);
   return { ok: true, state: s };
 }

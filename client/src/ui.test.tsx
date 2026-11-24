@@ -278,6 +278,64 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).toMatch(/★/);
   });
 
+  it("Tutorial walks through the slides and finishes", async () => {
+    const { Tutorial } = await import("./components/Tutorial");
+    let done = 0;
+    await mount(<Tutorial onDone={() => done++} />);
+    expect(container.textContent).toContain("歡迎來到你的商場");
+    const next = () => Array.from(container.querySelectorAll("button")).find((b) => b.textContent === "下一頁" || b.textContent === "開始經營！") as HTMLButtonElement;
+    for (let i = 0; i < 6; i++) {
+      next().click();
+      await tick();
+    }
+    expect(container.textContent).toContain("從新手任務開始");
+    next().click();
+    expect(done).toBe(1);
+  });
+
+  it("Tutorial is shown once per user and mall, and can be skipped", async () => {
+    const { shouldShowTour, markTourSeen } = await import("./components/Tutorial");
+    localStorage.clear();
+    expect(shouldShowTour(5, 9)).toBe(true);
+    markTourSeen(5, 9);
+    expect(shouldShowTour(5, 9)).toBe(false);
+    expect(shouldShowTour(5, 10)).toBe(true);
+    expect(shouldShowTour(6, 9)).toBe(true);
+  });
+
+  it("Help shows starter quests with progress, the FAQ and the glossary", async () => {
+    store.state.value = publicState(2, (s) => {
+      s.meta.achievements["q_price"] = s.tick;
+    });
+    const { Help } = await import("./screens/Help");
+    await mount(<Help />);
+    expect(container.textContent).toContain("新手任務");
+    expect(container.textContent).toContain("調整一次售價");
+    expect(container.textContent).toContain("✅");
+    expect(container.textContent).toContain("常見問題");
+    expect(container.textContent).toContain("名詞表");
+  });
+
+  it("AccountCard offers name, password and delete flows", async () => {
+    store.user.value = { id: 1, username: "tester", displayName: "測試員" };
+    const { AccountCard } = await import("./components/AccountCard");
+    await mount(<AccountCard />);
+    expect(container.textContent).toContain("我的帳號");
+    expect(container.textContent).toContain("更改密碼");
+    const del = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("刪除我的帳號")) as HTMLButtonElement;
+    del.click();
+    await tick();
+    expect(container.textContent).toContain("永久刪除帳號");
+  });
+
+  it("Admin screen asks for the token first", async () => {
+    sessionStorage.clear();
+    const { Admin } = await import("./screens/Admin");
+    await mount(<Admin />);
+    expect(container.textContent).toContain("管理後台");
+    expect(container.textContent).toContain("ADMIN_TOKEN");
+  });
+
   it("Reports shows an empty state before the first report", async () => {
     store.state.value = publicState(0);
     const { Reports } = await import("./screens/Reports");

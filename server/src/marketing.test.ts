@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  STARTER_QUESTS,
   DEFAULT_PREP,
   INSPECTIONS,
   MAX_ACTIVE_PROMOS,
@@ -33,6 +34,7 @@ const fails = (s: MallState, c: Command) => !applyCommand(s, c).ok;
 
 /** 稽查測試用：讓稽查排程不要干擾（把下一次都排得很遠） */
 function noInspections(s: MallState): MallState {
+  for (const q of STARTER_QUESTS) s.meta.achievements[q.id] = 0; // 新手任務的獎金不要干擾這裡的金額檢查
   s.inspections.nextAt = { hygiene: s.tick + 10_000_000, fire: s.tick + 10_000_000 };
   return s;
 }

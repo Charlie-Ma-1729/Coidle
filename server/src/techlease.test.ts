@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  STARTER_QUESTS,
   CANDIDATE_MAX,
   CANDIDATE_TTL,
   CATEGORY_BY_ID,
@@ -25,6 +26,7 @@ const mk = (seed = 7, level = 1): MallState => {
   const s = createInitialState(seed, START, 0);
   s.level = level;
   s.funds = 100_000_000; // 科技與營運都要花錢，測試給足資金
+  for (const q of STARTER_QUESTS) s.meta.achievements[q.id] = 0; // 新手任務獎金不干擾金額檢查
   return s;
 };
 const apply = (s: MallState, c: Command): MallState => {

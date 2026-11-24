@@ -7,6 +7,7 @@ import {
   billsDueWithin,
   chosenSupplier,
   familyShopCount,
+  STARTER_QUESTS,
   TEAM_EVENT_BY_ID,
   guestTodoCount,
   leaseEnabled,
@@ -38,6 +39,16 @@ function PendingEvents({ s }: { s: PublicMallState }) {
       {others.map((p) => (
         <EventChoiceCard key={p.uid} s={s} p={p} />
       ))}
+      {STARTER_QUESTS.some((q) => s.meta.achievements[q.id] === undefined) && (
+        <div class="alert">
+          <span class="small">
+            🌱 新手任務 {STARTER_QUESTS.filter((q) => s.meta.achievements[q.id] !== undefined).length}／{STARTER_QUESTS.length}：{STARTER_QUESTS.find((q) => s.meta.achievements[q.id] === undefined)?.name}
+          </span>{" "}
+          <Btn small onClick={() => goTo("more", "help")}>
+            看清單
+          </Btn>
+        </div>
+      )}
       {s.meta.team.event && !s.meta.team.event.contributions.some((c) => c.actorId === String(user.value?.id ?? "")) && (
         <div class="alert cyan">
           <h4>🧑‍🤝‍🧑 團隊事件：{TEAM_EVENT_BY_ID[s.meta.team.event.defId]?.title}</h4>

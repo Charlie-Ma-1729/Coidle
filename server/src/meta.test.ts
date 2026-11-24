@@ -286,6 +286,35 @@ describe("achievements, stars and clues", () => {
   });
 });
 
+describe("starter quests", () => {
+  it("complete the moment the player does the thing, pay once, and leave the real achievements alone", () => {
+    let s = mk(7, 1);
+    const f0 = s.funds;
+    s = apply(s, { type: "setPrice", shopId: s.shops[0]!.id, price: s.shops[0]!.price + 10 });
+    expect(s.meta.achievements["q_price"]).toBeDefined();
+    expect(s.funds).toBe(f0 + 50_000);
+    const f1 = s.funds;
+    s = apply(s, { type: "setPrice", shopId: s.shops[0]!.id, price: s.shops[0]!.price + 20 });
+    expect(s.funds).toBe(f1); // 不會重複領
+    s = apply(s, { type: "setHours", open: 10, close: 22 });
+    s = advanceTo(s, START + 14 * 12); // 下午兩點，店開著
+    s = apply(s, { type: "walkFloor" });
+    s = apply(s, { type: "setRestock", shopId: s.shops[0]!.id, rule: { min: 120 } });
+    for (const id of ["q_hours", "q_walk", "q_stock"]) expect(s.meta.achievements[id], id).toBeDefined();
+    expect(s.log.some((l) => l.text.includes("新手任務完成"))).toBe(true);
+    expect(mallStars(s)).toBeLessThanOrEqual(2); // 新手任務不算進評鑑的成就數
+  });
+
+  it("report and invite quests are detected from the state", () => {
+    let s = advanceTo(mk(7, 1), day(2));
+    expect(s.meta.achievements["q_report"]).toBeDefined();
+    expect(s.meta.achievements["q_invite"]).toBeUndefined();
+    s.meta.team.size = 2;
+    s = apply(s, { type: "setCleaning", level: 1 });
+    expect(s.meta.achievements["q_invite"]).toBeDefined();
+  });
+});
+
 describe("determinism and migration", () => {
   it("catch-up equals tick-by-tick across goal and team rollovers", () => {
     const base = mk(5, 2);
