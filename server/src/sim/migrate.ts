@@ -1,6 +1,8 @@
 import { initialSupply, newClock, type MallState } from "@coidle/shared";
 import { initialRegulars } from "./regulars";
+import { newLeasingState } from "./leasing";
 import { newTaxState } from "./tax";
+import { newTechState } from "./tech";
 import { newInspectionState, newPromoState, newRivalsState, newWorkshopState } from "./state";
 import { syncWorkshop } from "./workshop";
 
@@ -13,10 +15,11 @@ import { syncWorkshop } from "./workshop";
  * v5 → v6：加入供應商與 NPC 對手商場。
  * v6 → v7：加入研發工坊（素材、食譜本、菜單）。
  * v7 → v8：加入稅務與法規（消費稅、法人稅等、固定資產稅、社會保險、獎金）。
+ * v8 → v9：加入科技樹與出租招商（租戶、候選品牌、續約）。
  */
 export function migrateState(raw: unknown, nowMs: number): MallState {
   const s = raw as Record<string, unknown> & { version?: number; tick: number; today?: Record<string, unknown> };
-  if (s.version === 8) return s as unknown as MallState;
+  if (s.version === 9) return s as unknown as MallState;
   if (s.version === 1 || s.version === undefined) {
     delete s.protection;
     delete s.lastActionTick;
@@ -58,6 +61,14 @@ export function migrateState(raw: unknown, nowMs: number): MallState {
     s.tax = newTaxState();
     if (s.today) Object.assign(s.today, { outTax: 0, inTax: 0, fixedCredit: 0 });
     s.version = 8;
+  }
+  if (s.version === 8) {
+    s.tech = newTechState();
+    s.leasing = newLeasingState(s.tick);
+    for (const shop of (s.shops as { tenant?: unknown }[]) ?? []) shop.tenant = null;
+    const flags = (s.flags ?? {}) as Record<string, boolean>;
+    if (flags["feature:lease"] === false) delete flags["feature:lease"];
+    s.version = 9;
   }
   return s as unknown as MallState;
 }

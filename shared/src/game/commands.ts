@@ -44,4 +44,13 @@ export type Command =
   | { type: "unlistDish"; shopId: string; slotIndex: number }
   | { type: "discardDish"; dishId: string }
   | { type: "setGuestPrefs"; complaintStance?: "soft" | "balanced" | "firm"; autoReplyReviews?: boolean }
+  /** 科技樹：研發、取消（退回一半費用） */
+  | { type: "startTech"; id: string }
+  | { type: "cancelTech"; id: string }
+  /** 招商：簽約（可指定店面）、還價（租金加幾成）、婉拒、處理續約、提前解約 */
+  | { type: "signTenant"; candidateId: string; slot?: number }
+  | { type: "counterTenant"; candidateId: string; rentMult: number }
+  | { type: "declineTenant"; candidateId: string }
+  | { type: "resolveRenewal"; uid: string; action: "renew" | "raise" | "release" }
+  | { type: "terminateLease"; shopId: string }
   | { type: "setLease"; shopId: string; enabled: boolean; rent?: number; commission?: number };

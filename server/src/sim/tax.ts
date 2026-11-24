@@ -19,6 +19,7 @@ import {
   facilityScale,
   laborCostFactor,
   taxPortion,
+  techFx,
   TICKS_PER_DAY,
   type DayStats,
   type MallState,
@@ -55,12 +56,12 @@ export function dailyWages(s: MallState): number {
     const cat = CATEGORY_BY_ID[shop.category];
     if (cat) c += cat.wage * shop.level;
   }
-  return c * laborCostFactor(s.hours.open, s.hours.close);
+  return c * laborCostFactor(s.hours.open, s.hours.close) * techFx(s.tech.done).wageMult;
 }
 
 /** 一天的營運支出（水電、清潔、維護）：可扣抵進項稅 */
 export function dailyOverhead(s: MallState): number {
-  return UTILITIES_PER_DAY + (CLEANING_COST_PER_DAY[s.cleaningLevel] + MAINTENANCE_COST_PER_DAY[s.maintenanceLevel]) * facilityScale(s);
+  return (UTILITIES_PER_DAY + (CLEANING_COST_PER_DAY[s.cleaningLevel] + MAINTENANCE_COST_PER_DAY[s.maintenanceLevel]) * facilityScale(s)) * techFx(s.tech.done).overheadMult;
 }
 
 function note(s: MallState, text: string): void {

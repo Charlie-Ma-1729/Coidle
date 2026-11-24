@@ -8,6 +8,7 @@ import {
   REGULAR_BY_ID,
   RIVAL_BY_ID,
   SUPPLIER_BY_ID,
+  TECH_BY_ID,
   ROLE_IDS,
   isPaused,
   reanchor,
@@ -115,6 +116,22 @@ export function describeCommand(s: MallState, cmd: Command, actor: string): stri
       const kind = n ? INSPECTIONS[n.kind].name : "稽查";
       return `${actor} 為${kind}做了準備（${{ none: "照常營業", basic: "例行整理", full: "全力備戰" }[cmd.level]}）`;
     }
+    case "startTech":
+      return `${actor} 開始研發科技「${TECH_BY_ID[cmd.id]?.name ?? "新科技"}」`;
+    case "cancelTech":
+      return `${actor} 取消了科技「${TECH_BY_ID[cmd.id]?.name ?? "新科技"}」的研發`;
+    case "signTenant": {
+      const c = s.leasing.candidates.find((x) => x.id === cmd.candidateId);
+      return `${actor} 和品牌「${c?.brand ?? "新租戶"}」簽了租約`;
+    }
+    case "counterTenant":
+      return `${actor} 向候選品牌還價`;
+    case "declineTenant":
+      return null;
+    case "resolveRenewal":
+      return `${actor} 處理了一份租約續約`;
+    case "terminateLease":
+      return `${actor} 提前解除了「${shopName(cmd.shopId)}」的租約`;
     case "startRnd":
       return `${actor} 讓「${shopName(cmd.shopId)}」開始研發新作品`;
     case "cancelRnd":

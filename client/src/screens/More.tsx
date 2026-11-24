@@ -4,7 +4,9 @@ import { Ops } from "./Ops";
 import { Reports } from "./Reports";
 import { Rivals } from "./Rivals";
 import { Suppliers } from "./Suppliers";
+import { Leasing } from "./Leasing";
 import { Tax } from "./Tax";
+import { Tech } from "./Tech";
 import { Team } from "./Team";
 
 const SUBS: { id: MoreSub; label: string }[] = [
@@ -12,6 +14,8 @@ const SUBS: { id: MoreSub; label: string }[] = [
   { id: "marketing", label: "📣 行銷" },
   { id: "suppliers", label: "📦 供應商" },
   { id: "rivals", label: "⚔️ 商戰" },
+  { id: "leasing", label: "🏪 招商" },
+  { id: "tech", label: "🔬 科技" },
   { id: "tax", label: "🏛 稅務" },
   { id: "reports", label: "📰 日報" },
   { id: "team", label: "👥 團隊" },
@@ -29,7 +33,7 @@ export function More() {
           </button>
         ))}
       </nav>
-      {sub === "ops" ? <Ops /> : sub === "marketing" ? <Marketing /> : sub === "suppliers" ? <Suppliers /> : sub === "rivals" ? <Rivals /> : sub === "reports" ? <Reports /> : sub === "tax" ? <Tax /> : <Team />}
+      {sub === "ops" ? <Ops /> : sub === "marketing" ? <Marketing /> : sub === "suppliers" ? <Suppliers /> : sub === "rivals" ? <Rivals /> : sub === "reports" ? <Reports /> : sub === "tax" ? <Tax /> : sub === "leasing" ? <Leasing /> : sub === "tech" ? <Tech /> : <Team />}
     </>
   );
 }

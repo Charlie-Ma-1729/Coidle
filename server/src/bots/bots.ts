@@ -1,4 +1,4 @@
-import { CATEGORIES, CATEGORY_BY_ID, PROMOS, TICKS_PER_DAY, isZoneUnlocked, type MallState, type SlotKind } from "@coidle/shared";
+import { CATEGORIES, CATEGORY_BY_ID, PROMOS, TECHS, TICKS_PER_DAY, isZoneUnlocked, techBlocker, techSlots, type MallState, type SlotKind } from "@coidle/shared";
 import { advanceTo, applyCommand, createInitialState, createRng, type Command } from "../sim";
 import { resolveInbox } from "../sim/guests";
 
@@ -46,8 +46,8 @@ function tryApply(s: MallState, cmd: Command): MallState {
 }
 
 /** 勤勞玩家的一天：處理待辦、擴張、研發、促銷 */
-export interface Features { expand: boolean; promo: boolean; research: boolean; regulars: boolean; refresh: boolean; upkeep: boolean }
-const ALL: Features = { expand: true, promo: true, research: true, regulars: true, refresh: true, upkeep: true };
+export interface Features { expand: boolean; promo: boolean; research: boolean; regulars: boolean; refresh: boolean; upkeep: boolean; tech: boolean; lease: boolean }
+const ALL: Features = { expand: true, promo: true, research: true, regulars: true, refresh: true, upkeep: true, tech: true, lease: true };
 
 function diligentDay(s0: MallState, rnd: () => number, f: Features = ALL): MallState {
   const expand = f.expand;
@@ -61,6 +61,17 @@ function diligentDay(s0: MallState, rnd: () => number, f: Features = ALL): MallS
   if (f.upkeep) s = tryApply(s, { type: "setCleaning", level: s.cleanliness < 70 ? 2 : s.cleanliness > 90 ? 1 : s.cleaningLevel });
   if (f.upkeep) s = tryApply(s, { type: "setMaintenance", level: s.equipment < 70 ? 2 : s.equipment > 92 ? 1 : s.maintenanceLevel });
 
+  // 租戶：有品牌來洽談就簽（挑品質×知名度最高的），續約一律照開價
+  if (f.lease) {
+    for (const r of s.leasing.renewals.slice()) s = tryApply(s, { type: "resolveRenewal", uid: r.uid, action: "renew" });
+    const best = s.leasing.candidates.slice().sort((a, b) => b.quality * b.fame - a.quality * a.fame)[0];
+    if (best) s = tryApply(s, { type: "signTenant", candidateId: best.id });
+  }
+  // 科技：研究室有空、錢夠寬裕就研發最便宜的
+  if (f.tech && s.tech.jobs.length < techSlots(s.level)) {
+    const next = TECHS.filter((t) => !techBlocker(s, t)).sort((a, b) => a.cost - b.cost)[0];
+    if (next && s.funds > next.cost * 3) s = tryApply(s, { type: "startTech", id: next.id });
+  }
   // 擴張：資金夠就開下一間（優先常客喜歡的類型）
   if (expand && s.funds > 2_500_000 && s.builds.length === 0) {
     const have = new Set(s.shops.map((x) => x.category));

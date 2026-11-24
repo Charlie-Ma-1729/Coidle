@@ -8,6 +8,7 @@ import {
   chosenSupplier,
   familyShopCount,
   guestTodoCount,
+  leaseEnabled,
   timeInfo,
   periodOf,
   type PublicMallState,
@@ -34,6 +35,27 @@ function PendingEvents({ s }: { s: PublicMallState }) {
       {others.map((p) => (
         <EventChoiceCard key={p.uid} s={s} p={p} />
       ))}
+      {s.leasing.renewals.length > 0 && (
+        <div class="alert cyan">
+          <h4>📄 有 {s.leasing.renewals.length} 份租約到期等你決定</h4>
+          <p class="small dim">沒處理的話，滿意度夠高的租戶會自動續約，不夠的就讓他走。</p>
+          <div class="row">
+            <Btn small kind="primary" onClick={() => goTo("more", "leasing")}>
+              去看看
+            </Btn>
+          </div>
+        </div>
+      )}
+      {leaseEnabled(s) && s.leasing.candidates.length > 0 && (
+        <div class="alert">
+          <span class="small">
+            🏪 有 {s.leasing.candidates.length} 個品牌想進駐洽談：{s.leasing.candidates.slice(0, 3).map((c) => c.brand).join("、")}
+          </span>{" "}
+          <Btn small onClick={() => goTo("more", "leasing")}>
+            看看
+          </Btn>
+        </div>
+      )}
       {guestTodo > 0 && (
         <div class="alert cyan">
           <h4>👥 客人那邊有 {guestTodo} 件事等你</h4>

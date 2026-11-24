@@ -111,6 +111,8 @@ export interface Shop {
   day: ShopDayStats;
   /** 目前上架的招牌／新品（研發工坊做出來的） */
   menu: MenuEntry[];
+  /** 出租中的租戶（mode 為 lease 時才有）；直營或匿名出租為 null */
+  tenant: Tenant | null;
 }
 
 export interface Slot {
@@ -127,6 +129,8 @@ export interface BuildTask {
   shopId?: string;
   completeTick: number;
   cost: number;
+  /** 招商簽約後租戶自己裝修：完工時開成這個租戶的店 */
+  tenant?: Tenant;
 }
 
 /** 白名單效果：事件只能使用這些，並且數值會被夾限。 */
@@ -589,7 +593,7 @@ export interface MallClock {
 }
 
 export interface MallState {
-  version: 8;
+  version: 9;
   clock: MallClock;
   seed: number;
   tick: number;
@@ -623,6 +627,8 @@ export interface MallState {
   rivals: RivalsState;
   workshop: WorkshopState;
   tax: TaxState;
+  tech: TechState;
+  leasing: LeasingState;
   reviewLog: ReviewRecord[];
   guestPrefs: GuestPrefs;
   walk: { nextTick: number; voices: WalkVoice[] };
@@ -751,7 +757,7 @@ export interface WorkshopState {
   clues: ClueNote[];
 }
 
-// ───────── 稅務與法規（日本制度的簡化版） ─────────
+// ───────── 稅務與法規（日本制度） ─────────
 
 export type ObligationKind = "consumption" | "corporate" | "corporate_interim" | "property" | "social" | "bonus" | "royalty";
 
@@ -794,4 +800,75 @@ export interface TaxState {
   history: TaxPayment[];
   /** 累計已繳 */
   totalPaid: Record<ObligationKind, number>;
+}
+
+// ───────── 科技樹 ─────────
+
+export interface TechJob {
+  id: string;
+  startTick: number;
+  endTick: number;
+  cost: number;
+}
+
+export interface TechState {
+  done: string[];
+  jobs: TechJob[];
+}
+
+// ───────── 出租招商 ─────────
+
+export interface Tenant {
+  brand: string;
+  /** 0.5–0.95：品牌的營運品質（取代店面等級的品質） */
+  quality: number;
+  /** 0–100：知名度，越高越能帶客，但也越會殺價 */
+  fame: number;
+  /** 每日租金與營業額抽成 */
+  rent: number;
+  commission: number;
+  startTick: number;
+  endTick: number;
+  /** 租戶滿意度 0–100 */
+  satisfaction: number;
+  /** 連續幾天滿意度過低（滿 4 天就會撤櫃） */
+  lowDays: number;
+  /** 自己的店轉成出租（匿名租戶）：可以隨時收回自營，沒有租約約束 */
+  own?: boolean;
+}
+
+export interface TenantCandidate {
+  id: string;
+  brand: string;
+  category: CategoryId;
+  quality: number;
+  fame: number;
+  rent: number;
+  commission: number;
+  termDays: number;
+  /** 0–1：越想進駐，越不容易被還價嚇跑 */
+  eagerness: number;
+  createdTick: number;
+  expireTick: number;
+  /** 已經還過價（只能還一次） */
+  countered: boolean;
+}
+
+/** 租約到期的續約洽談 */
+export interface LeaseRenewal {
+  uid: string;
+  shopId: string;
+  brand: string;
+  /** 租戶開出的續約租金（依滿意度） */
+  rent: number;
+  termDays: number;
+  deadlineTick: number;
+}
+
+export interface LeasingState {
+  candidates: TenantCandidate[];
+  renewals: LeaseRenewal[];
+  /** 下次可能有新品牌來洽談的 tick */
+  nextAt: number;
+  log: { tick: number; text: string }[];
 }

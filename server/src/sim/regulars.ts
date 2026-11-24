@@ -15,6 +15,7 @@ import {
   RESERVE_MIN_AFFINITY,
   TICKS_PER_HOUR,
   categoryHasStock,
+  techFx,
   type CategoryDef,
   type MallState,
   type PersonaDef,
@@ -78,7 +79,7 @@ function checkStories(s: MallState, reg: RegularState, def: RegularDef): void {
 }
 
 function gain(s: MallState, reg: RegularState, def: RegularDef, rawAmount: number): void {
-  const amount = rawAmount > 0 ? rawAmount * promoRegularGain(s) : rawAmount; // 集點會員活動期間，關係升溫更快
+  const amount = rawAmount > 0 ? rawAmount * promoRegularGain(s) * techFx(s.tech.done).regularGainMult : rawAmount; // 集點會員活動期間，關係升溫更快
   reg.affinity = Math.min(100, Math.max(0, reg.affinity + amount));
   if (amount > 0) checkStories(s, reg, def);
 }
@@ -120,7 +121,7 @@ function visit(s: MallState, rng: Rng, reg: RegularState, def: RegularDef, p: Pe
   const stocked = categoryHasStock(cat) && shop.mode === "direct";
   let reason: "stockout" | "full" | "price" | "dirty" | null = null;
   if (stocked && shop.stock < want) reason = "stockout";
-  else if (shop.served + want > shopCapacity(shop)) reason = "full";
+  else if (shop.served + want > shopCapacity(shop, s)) reason = "full";
   else if (shop.price > cat.refPrice * def.budget) reason = "price";
   else if (s.cleanliness < 40) reason = "dirty";
 

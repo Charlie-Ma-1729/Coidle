@@ -9,6 +9,7 @@ import {
   UPGRADE_TICKS,
   categoryHasStock,
   chosenSupplier,
+  leaseEnabled,
   currentUnitCost,
   familyOf,
 } from "@coidle/shared";
@@ -196,7 +197,14 @@ export function ShopSheet({ shopId, onClose }: { shopId: string; onClose: () => 
         </div>
       </Card>
 
-      {s.flags["feature:lease"] && (
+      {shop.tenant && !shop.tenant.own && (
+        <Card title={`🤝 租戶：${shop.tenant.brand}`}>
+          <p class="small">
+            滿意度 {Math.round(shop.tenant.satisfaction)}・品質 {Math.round(shop.tenant.quality * 100)}・知名度 {shop.tenant.fame}・每日租金 {money(shop.tenant.rent)} ＋ 抽成 {Math.round(shop.tenant.commission * 100)}%。到「更多 → 招商」可以續約或解約。
+          </p>
+        </Card>
+      )}
+      {leaseEnabled(s) && (!shop.tenant || shop.tenant.own) && (
         <Card title="🤝 出租">
           <Btn onClick={() => run({ type: "setLease", shopId: shop.id, enabled: shop.mode !== "lease" }, shop.mode === "lease" ? "改回直營" : "已出租")}>
             {shop.mode === "lease" ? "收回自營" : `出租給品牌（每日租金 ${money(shop.rent)} + 抽成 ${Math.round(shop.commission * 100)}%）`}

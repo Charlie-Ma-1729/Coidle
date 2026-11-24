@@ -214,6 +214,37 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).toContain("30 天內要繳");
   });
 
+  it("Tech screen lists branches, shows research progress and what is blocking each tech", async () => {
+    store.state.value = publicState(1, (s) => {
+      s.level = 2;
+      s.tech.jobs.push({ id: "t_bms", startTick: s.tick, endTick: s.tick + 400, cost: 2_000_000 });
+    });
+    const { Tech } = await import("./screens/Tech");
+    await mount(<Tech />);
+    expect(container.textContent).toContain("研究室");
+    expect(container.textContent).toContain("智慧導覽 App");
+    expect(container.textContent).toContain("智慧能源管理");
+    expect(container.textContent).toContain("研發中");
+    expect(container.textContent).toContain("需要商場 Lv.3"); // AR 導覽
+  });
+
+  it("Leasing screen is locked before Lv.3 and shows negotiating brands afterwards", async () => {
+    store.state.value = publicState(1);
+    const { Leasing } = await import("./screens/Leasing");
+    await mount(<Leasing />);
+    expect(container.textContent).toContain("Lv.3");
+    store.state.value = publicState(1, (s) => {
+      s.level = 3;
+      s.leasing.candidates.push({ id: "tc1", brand: "七福食堂", category: "udon", quality: 0.8, fame: 60, rent: 20_000, commission: 0.1, termDays: 30, eagerness: 0.8, createdTick: s.tick, expireTick: s.tick + 1000, countered: false });
+      s.leasing.renewals.push({ uid: "rn1", shopId: s.shops[0]!.id, brand: s.shops[0]!.name, rent: 9000, termDays: 60, deadlineTick: s.tick + 500 });
+    });
+    await mount(<Leasing />);
+    expect(container.textContent).toContain("七福食堂");
+    expect(container.textContent).toContain("簽約");
+    expect(container.textContent).toContain("租金 +10%");
+    expect(container.textContent).toContain("租約到期");
+  });
+
   it("Reports shows an empty state before the first report", async () => {
     store.state.value = publicState(0);
     const { Reports } = await import("./screens/Reports");

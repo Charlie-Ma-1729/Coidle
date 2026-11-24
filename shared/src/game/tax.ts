@@ -1,7 +1,7 @@
 import { CATEGORY_BY_ID, TICKS_PER_DAY } from "./data";
 import type { MallState, Obligation, ObligationKind, SupplierDef } from "./types";
 
-// 日本的稅務與法規（遊戲簡化版）。
+// 日本的稅務與法規。
 // 原則：真實的名稱與邏輯（消費稅、法人稅等、固定資產稅、社會保險、許認可），但全部自動處理、
 // 只在「現金要夠」這件事上需要玩家留意；沒有任何需要每月手動操作的繁瑣流程。
 // 稅率依 2026 年度的制度整理，僅供遊戲使用，並非稅務建議。

@@ -9,6 +9,7 @@ import {
   SHOP_QUALITY,
   ZONES,
   menuQualityBonus,
+  techFx,
   initialRivals,
   initialSupply,
   newClock,
@@ -28,7 +29,9 @@ import {
 } from "@coidle/shared";
 import { initialRegulars } from "./regulars";
 import { timeInfo } from "./time";
+import { newLeasingState } from "./leasing";
 import { newTaxState } from "./tax";
+import { newTechState } from "./tech";
 import { syncWorkshop } from "./workshop";
 
 export function personaRecord(v = 0): Record<PersonaId, number> {
@@ -108,6 +111,7 @@ export function makeShop(s: MallState, category: string, name: string, slot: num
     served: 0,
     day: newShopDayStats(),
     menu: [],
+    tenant: null,
   };
 }
 
@@ -140,14 +144,14 @@ export function createInitialState(seed: number, startTick: number, nowMs = 0): 
     for (let i = 0; i < z.slots; i++) slots.push({ id: slots.length, zone: z.id, shopId: null });
   }
   const s: MallState = {
-    version: 8,
+    version: 9,
     clock: newClock(nowMs, startTick),
     seed: seed >>> 0,
     tick: startTick,
     funds: INITIAL_FUNDS,
     totalRevenue: 0,
     level: 1,
-    flags: { "feature:lease": false },
+    flags: {},
     hours: { open: 10, close: 22 },
     localRep: INDEX_START,
     touristHeat: INDEX_START,
@@ -172,6 +176,8 @@ export function createInitialState(seed: number, startTick: number, nowMs = 0): 
     rivals: newRivalsState(1, startTick),
     workshop: newWorkshopState(),
     tax: newTaxState(),
+    tech: newTechState(),
+    leasing: newLeasingState(startTick),
     reviewLog: [],
     guestPrefs: { complaintStance: "balanced", autoReplyReviews: true },
     walk: { nextTick: 0, voices: [] },
@@ -226,11 +232,14 @@ export function trafficMult(s: MallState, persona: PersonaId, tick: number): num
 
 /** 有效品質：等級決定上限，新鮮感過低會打折（新鮮感 20 時打 6 折）；菜單上的招牌與新品再加分 */
 export function shopQuality(shop: Shop): number {
-  const base = (SHOP_QUALITY[shop.level] ?? 0.5) + menuQualityBonus(shop);
-  return base * (0.5 + 0.5 * (shop.freshness / 100));
+  // 租戶店的品質取決於品牌本身，而且他們自己會維持店面新鮮
+  const base = shop.tenant ? shop.tenant.quality : (SHOP_QUALITY[shop.level] ?? 0.5) + menuQualityBonus(shop);
+  const fresh = shop.tenant ? Math.max(shop.freshness, 85) : shop.freshness;
+  return base * (0.5 + 0.5 * (fresh / 100));
 }
 
-export function shopCapacity(shop: Shop): number {
+export function shopCapacity(shop: Shop, s?: Pick<MallState, "tech">): number {
   const cat = CATEGORY_BY_ID[shop.category];
-  return Math.max(1, Math.ceil((cat?.baseCapacity ?? 1) * (1 + 0.3 * (shop.level - 1))));
+  const mult = s ? techFx(s.tech.done).capacityMult : 1;
+  return Math.max(1, Math.ceil((cat?.baseCapacity ?? 1) * (1 + 0.3 * (shop.level - 1)) * mult));
 }

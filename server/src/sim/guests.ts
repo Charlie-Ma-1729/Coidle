@@ -17,6 +17,7 @@ import {
   WALK_SITUATIONS,
   WALK_VOICE_TTL_TICKS,
   categoryHasStock,
+  techFx,
   complaintCost,
   complaintIdx,
   defaultComplaintOption,
@@ -50,7 +51,7 @@ export function noteGrievance(s: MallState, rng: Rng, shop: Shop, persona: Perso
   const key = `${shop.id}:${cause}`;
   const cdKey = `griev:${key}`;
   if ((s.cooldowns[cdKey] ?? 0) > s.tick) return;
-  const n = (s.grievances[key] ?? 0) + 1;
+  const n = (s.grievances[key] ?? 0) + techFx(s.tech.done).complaintMult; // 機器人巡檢能提早處理，不滿累積得比較慢
   if (n < def.threshold) {
     s.grievances[key] = n;
     return;
@@ -214,7 +215,7 @@ function candidatesFor(s: MallState, shop: Shop): Candidate[] {
   const stocked = categoryHasStock(cat) && shop.mode === "direct";
   if (stocked && shop.stock < 30) out.push({ shop, situation: "stockout", weight: shop.stock < 1 ? 5 : 3 });
   if (shop.day.lost > 0) out.push({ shop, situation: "queue", weight: 3 });
-  else if (shop.served >= shopCapacity(shop) * 0.7) out.push({ shop, situation: "queue", weight: 2 });
+  else if (shop.served >= shopCapacity(shop, s) * 0.7) out.push({ shop, situation: "queue", weight: 2 });
   if (s.cleanliness < 55) out.push({ shop, situation: "dirty", weight: 2 });
   if (shop.price > cat.refPrice * 1.2) out.push({ shop, situation: "pricey", weight: 2 });
   out.push({ shop, situation: "happy", weight: shop.freshness > 50 ? 2 : 0.5 });

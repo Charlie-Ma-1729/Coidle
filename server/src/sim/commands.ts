@@ -7,7 +7,9 @@ import {
   UPGRADE_BASE_COST,
   UPGRADE_TICKS,
   categoryHasStock,
+  leaseEnabled,
   licenseOf,
+  TICKS_PER_DAY,
   type Command,
   type MallState,
   type RestockRule,
@@ -20,6 +22,8 @@ import { regularAction } from "./regulars";
 import { rivalCounter, rivalIntel, rivalPact } from "./rivals";
 import { cancelContract, chooseSupplier, signContract } from "./suppliers";
 import { rngForTick } from "./rng";
+import { counterTenant, declineTenant, resolveRenewal, signTenant, terminateLease } from "./leasing";
+import { cancelTech, startTech } from "./tech";
 import { cancelRnd, discardDish, listDish, startRnd, syncWorkshop, tastingAction, unlistDish } from "./workshop";
 import { addLog, isFeatureEnabled, isZoneUnlocked, nextId } from "./state";
 import { isOpen, placeOrder } from "./step";
@@ -316,11 +320,57 @@ export function applyCommand(state: MallState, cmd: Command): CommandResult {
       break;
     }
 
+    case "startTech": {
+      const r = startTech(s, cmd.id);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "cancelTech": {
+      const r = cancelTech(s, cmd.id);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "signTenant": {
+      const r = signTenant(s, cmd.candidateId, cmd.slot);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "counterTenant": {
+      const r = counterTenant(s, cmd.candidateId, cmd.rentMult);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "declineTenant": {
+      const r = declineTenant(s, cmd.candidateId);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "resolveRenewal": {
+      if (!["renew", "raise", "release"].includes(cmd.action)) return err("操作無效");
+      const r = resolveRenewal(s, cmd.uid, cmd.action);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "terminateLease": {
+      const r = terminateLease(s, cmd.shopId);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
     case "setLease": {
-      if (!isFeatureEnabled(s, "lease")) return err("出租功能尚未開放");
+      if (!leaseEnabled(s)) return err("出租功能尚未開放（商場 Lv.3）");
       const shop = findShop(cmd.shopId);
       if (!shop) return err("找不到這間店");
+      if (!cmd.enabled && shop.tenant && !shop.tenant.own) return err("這是簽約的租戶，要解約請到「更多 → 招商」（有違約金）");
       shop.mode = cmd.enabled ? "lease" : "direct";
+      if (!cmd.enabled) shop.tenant = null;
+      else if (!shop.tenant) shop.tenant = { brand: shop.name, quality: 0.65, fame: 30, rent: shop.rent, commission: shop.commission, startTick: s.tick, endTick: s.tick + 60 * TICKS_PER_DAY, satisfaction: 60, lowDays: 0, own: true };
       if (cmd.rent !== undefined) shop.rent = Math.round(clamp(cmd.rent, 0, 1_000_000));
       if (cmd.commission !== undefined) shop.commission = clamp(cmd.commission, 0, 0.4);
       break;

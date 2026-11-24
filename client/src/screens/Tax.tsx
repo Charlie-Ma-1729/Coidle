@@ -114,7 +114,7 @@ function Rules({ s }: { s: PublicMallState }) {
   const lossCarry = s.tax.lossCarry;
   return (
     <>
-      <Card title="⚖️ 你要遵守的規定（簡化版）">
+      <Card title="⚖️ 你要遵守的規定">
         <div class="stack">
           <div>
             <b class="small">🧾 消費稅（價格都是含稅價）</b>
@@ -203,7 +203,7 @@ export function Tax() {
       <History s={s} />
       <Rules s={s} />
       <p class="small dim" style={{ padding: "0 4px 12px" }}>
-        依日本制度整理的遊戲簡化版，稅率與規定以 2026 年度為基準，僅供遊戲使用，不是稅務建議。所有帳單都自動處理——你只需要保持帳上有現金。
+        依日本制度設計，稅率與規定以 2026 年度為基準，僅供遊戲使用，不是稅務建議。所有帳單都自動處理——你只需要保持帳上有現金。
       </p>
     </>
   );

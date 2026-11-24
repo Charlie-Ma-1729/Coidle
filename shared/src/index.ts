@@ -11,6 +11,8 @@ export * from "./game/supply";
 export * from "./game/rivals";
 export * from "./game/workshop";
 export * from "./game/tax";
+export * from "./game/tech";
+export * from "./game/lease";
 
 export interface HealthResponse {
   ok: true;

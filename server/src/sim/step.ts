@@ -2,6 +2,8 @@ import {
   CATEGORY_BY_ID,
   CLEANING_COST_PER_DAY,
   CONSUMPTION_STANDARD,
+  techFx,
+  techTrafficMult,
   ROYALTY_CATEGORIES,
   consumptionRate,
   purchaseRate,
@@ -49,7 +51,9 @@ import { regularsDaily, runRegulars } from "./regulars";
 import { rivalsDaily, rivalsTick } from "./rivals";
 import { deliveryTerms, quoteOrder, recordOrder, suppliersTick, warnSupplyTrouble } from "./suppliers";
 import { buildReport } from "./report";
+import { applyTenantToShop, leasingDaily } from "./leasing";
 import { dailyOverhead, dailyWages, taxDaily } from "./tax";
+import { techAutoInspection, techDaily, techTick } from "./tech";
 import { syncWorkshop, workshopDaily, workshopTick } from "./workshop";
 import { rngForTick, type Rng } from "./rng";
 import {
@@ -101,9 +105,11 @@ export function stepTick(s: MallState, ctx: StepContext = { nobodyPresent: false
   resolveDeadlines(s, rng);
   resolveInboxDeadlines(s);
   workshopTick(s, rng);
+  techTick(s);
   runDueInspections(s);
   const spawned = maybeSpawnEvent(s, time, rng);
-  const notice = maybeSpawnInspection(s, rng);
+  let notice = maybeSpawnInspection(s, rng);
+  if (notice && techAutoInspection(s, notice.uid)) notice = null; // 已經自動處理，不需要暫停等人
   if (t % 6 === 0) autoRestock(s);
   if (t % TICKS_PER_HOUR === 0) syncWorkshop(s);
 
@@ -146,8 +152,9 @@ function completeBuilds(s: MallState): void {
         const n = s.shops.filter((x) => x.category === b.category).length + 1;
         const shop = makeShop(s, b.category, n > 1 ? `${cat.name}・${n}號店` : `${cat.name}`, slot.id);
         slot.shopId = shop.id;
+        if (b.tenant) applyTenantToShop(shop, b.tenant);
         s.shops.push(shop);
-        addLog(s, "build", `新店開張：「${shop.name}」（${cat.name}）！`);
+        addLog(s, "build", b.tenant ? `新租戶開張：「${shop.name}」（${cat.name}）進駐了！` : `新店開張：「${shop.name}」（${cat.name}）！`);
       }
     } else if (b.kind === "upgrade" && b.shopId) {
       const shop = s.shops.find((x) => x.id === b.shopId);
@@ -238,14 +245,15 @@ function runCustomers(s: MallState, time: TimeInfo, rng: Rng): number {
   const open = s.shops.filter((x) => x.closedUntilTick <= s.tick);
   if (open.length === 0) return 0;
   const diversity = new Set(s.shops.map((x) => x.category)).size;
-  const divMult = clamp(0.6 + 0.08 * diversity, 0.6, 2);
+  const fx = techFx(s.tech.done);
+  const divMult = clamp(0.6 + 0.08 * diversity + fx.diversityBonus, 0.6, 2.2);
   let units = 0;
 
   for (const p of PERSONAS) {
     const share = (time.weekend ? p.weekendHourShare : p.hourShare)[time.hour] ?? 0;
     const daily = p.dailyBase * (time.weekend ? p.weekendMult : 1);
     const lambda =
-      ((daily * share) / TICKS_PER_HOUR) * indexFactor(s, p) * divMult * trafficMult(s, p.id, s.tick) * promoTraffic(s, p.id) * rivalMult(s, p.id);
+      ((daily * share) / TICKS_PER_HOUR) * indexFactor(s, p) * divMult * trafficMult(s, p.id, s.tick) * promoTraffic(s, p.id) * rivalMult(s, p.id) * techTrafficMult(s.tech.done, p.id);
     const n = rng.poisson(lambda);
     for (let i = 0; i < n; i++) units += serveGroup(s, rng, p, open);
   }
@@ -261,8 +269,9 @@ function pickShop(s: MallState, rng: Rng, p: PersonaDef, shops: Shop[], withOuts
     if (d <= 0) return 0;
     const priceF = clamp(Math.exp(p.sensitivity * (1 - effectivePrice(s, shop) / cat.refPrice)), 0.15, 1.6);
     const qualityF = 0.6 + 0.8 * shopQuality(shop) * supplierQualityFactor(s, shop.category);
-    const queueF = 1 - 0.5 * Math.min(1, shop.served / shopCapacity(shop));
-    return d * priceF * qualityF * queueF * (1 + MENU_APPEAL_WEIGHT * menuAppeal(shop, p.id));
+    const queueF = 1 - 0.5 * Math.min(1, shop.served / shopCapacity(shop, s));
+    const fameF = shop.tenant ? 1 + 0.004 * shop.tenant.fame : 1;
+    return d * priceF * qualityF * queueF * (1 + MENU_APPEAL_WEIGHT * menuAppeal(shop, p.id)) * fameF;
   });
   if (withOutside) weights.push(OUTSIDE_WEIGHT);
   const idx = rng.weighted(weights);
@@ -293,7 +302,7 @@ function serveGroup(s: MallState, rng: Rng, p: PersonaDef, open: Shop[]): number
   }
 
   const hasStock = categoryHasStock(cat) && shop.mode === "direct";
-  const cap = shopCapacity(shop);
+  const cap = shopCapacity(shop, s);
   if (shop.served >= cap) {
     shop.day.lost++;
     s.today.walkouts++;
@@ -356,7 +365,7 @@ function satisfaction(s: MallState, p: PersonaDef, shop: Shop, refPrice: number)
   const q = shopQuality(shop) * supplierQualityFactor(s, shop.category);
   const value = clamp(refPrice / effectivePrice(s, shop), 0.5, 1.5);
   const weight = 0.1 + 0.08 * p.sensitivity;
-  const base = 0.16 + 0.62 * q + weight * (value - 0.5) + promoSatBonus(s) + 0.06 * menuAppeal(shop, p.id);
+  const base = 0.16 + 0.62 * q + weight * (value - 0.5) + promoSatBonus(s) + 0.06 * menuAppeal(shop, p.id) + techFx(s.tech.done).satBonus;
   return clamp(base * (0.75 + 0.25 * (s.cleanliness / 100)) * (0.75 + 0.25 * (s.equipment / 100)), 0, 1);
 }
 
@@ -400,10 +409,11 @@ function upkeep(s: MallState, units: number, rng: Rng): void {
   s.today.fixedCredit += taxPortion(dailyOverhead(s) / TICKS_PER_DAY, CONSUMPTION_STANDARD); // 水電與清潔維護的進項稅
 
   const scale = facilityScale(s);
-  s.cleanliness = clamp(s.cleanliness + CLEANING_RESTORE_PER_TICK[s.cleaningLevel] * scale - units * 0.009, 0, 100);
-  s.equipment = clamp(s.equipment + MAINTENANCE_RESTORE_PER_TICK[s.maintenanceLevel] * scale - units * 0.007, 0, 100);
+  const fx = techFx(s.tech.done);
+  s.cleanliness = clamp(s.cleanliness + CLEANING_RESTORE_PER_TICK[s.cleaningLevel] * scale * fx.cleaningRestoreMult - units * 0.009, 0, 100);
+  s.equipment = clamp(s.equipment + MAINTENANCE_RESTORE_PER_TICK[s.maintenanceLevel] * scale * fx.equipmentRestoreMult - units * 0.007, 0, 100);
 
-  const breakdownP = s.equipment < 10 ? 0.012 : s.equipment < 30 ? 0.004 : 0;
+  const breakdownP = (s.equipment < 10 ? 0.012 : s.equipment < 30 ? 0.004 : 0) * fx.breakdownMult;
   if (breakdownP > 0 && s.shops.length > 0 && rng.chance(breakdownP)) {
     const shop = s.shops[rng.int(0, s.shops.length - 1)];
     if (shop) {
@@ -438,12 +448,14 @@ function rollover(s: MallState, time: TimeInfo): void {
   rivalsDaily(s); // 對手的實力慢慢向相稱的水準靠攏
   promoFatigueDaily(s); // 促銷疲勞慢慢消退
   workshopDaily(s); // 菜單新鮮度退流行、招牌帶來口碑
+  techDaily(s); // 科技帶來的口碑、AI 副手自動更新菜單
   syncWorkshop(s);
   regularsDaily(s); // 常客：久沒上門的漸漸疏遠、熟客粉絲帶來口碑
   generateDailyReviews(s); // 今天客人的感受 → 幾則線上評價（先於日報，才算得進去）
   s.reports.push(buildReport(s));
   if (s.reports.length > MAX_REPORTS) s.reports.splice(0, s.reports.length - MAX_REPORTS);
 
+  leasingDaily(s); // 招商：新品牌來洽談、租戶滿意度、續約（要在各店當日統計重置之前）
   checkLevelUp(s);
   for (const shop of s.shops) {
     shop.day = newShopDayStats();

@@ -248,7 +248,7 @@ describe("unlocking and migration", () => {
     delete v6.workshop;
     for (const sh of v6.shops) delete sh.menu;
     const m = migrateState(v6, 0);
-    expect(m.version).toBe(8);
+    expect(m.version).toBe(9);
     expect(m.shops.every((x) => Array.isArray(x.menu))).toBe(true);
     expect(m.workshop.ingredients.length).toBeGreaterThan(10);
     expect(m.workshop.dishes).toEqual([]);

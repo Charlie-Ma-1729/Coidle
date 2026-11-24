@@ -14,6 +14,7 @@ import {
   isPaused,
   laborCostFactor,
   presetOfSpeed,
+  techFx,
   timeInfo,
 } from "@coidle/shared";
 import { DeviceCard } from "../components/DeviceCard";
@@ -56,6 +57,20 @@ export function Ops() {
   return (
     <>
       <DeviceCard />
+      {techFx(s.tech.done).forecast && (
+        <Card title="📈 客流預測（大數據分析）" right={<span class="small dim">接下來 12 個遊戲小時</span>}>
+          <div class="bars">
+            {Array.from({ length: 12 }, (_, i) => {
+              const h = (nowHour + i) % 24;
+              const wk = timeInfo(s.tick + i * 12).weekend;
+              const v = hourlyTraffic(wk)[h] ?? 0;
+              const mx = Math.max(...hourlyTraffic(wk));
+              return <div class="bar" key={i} title={`${h}:00　${Math.round((v / mx) * 100)}%`} style={{ height: `${Math.max(4, (v / mx) * 100)}%` }} />;
+            })}
+          </div>
+          <p class="small dim">柱子越高人越多；尖峰前把庫存補好、人手排滿。</p>
+        </Card>
+      )}
       <Card title="⏱ 時間流速" right={<Chip tone={isPaused(clock) ? "amber" : "green"}>{isPaused(clock) ? "⏸ 已暫停" : `${activePreset.name}・${activePreset.realHoursPerDay} 小時＝1 日`}</Chip>}>
         <div class="stack">
           <div class="seg five">
