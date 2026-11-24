@@ -39,13 +39,21 @@ export function timeInfo(tick: number): TimeInfo {
   };
 }
 
+/**
+ * 時鐘錨點：真實世界的這一刻，對應遊戲內 2027-04-01 00:00（遊戲日曆）。
+ * 之後每過 1 真實毫秒，遊戲時間前進 TIME_SCALE 毫秒。
+ * （春天開局，約 15 個真實日後進入梅雨季。）
+ */
+export const CLOCK_ANCHOR_REAL_MS = Date.UTC(2026, 10, 24, 0, 0, 0);
+export const CLOCK_ANCHOR_GAME_MS = Date.UTC(2027, 3, 1, 0, 0, 0) - OFFSET_MS;
+
 /** 真實時間（毫秒）→ tick。時間比例由 TIME_SCALE 決定。 */
 export function tickFromRealMs(realMs: number): number {
-  return Math.floor((realMs * TIME_SCALE) / TICK_MS);
+  return Math.floor((CLOCK_ANCHOR_GAME_MS + (realMs - CLOCK_ANCHOR_REAL_MS) * TIME_SCALE) / TICK_MS);
 }
 
 export function realMsFromTick(tick: number): number {
-  return (tick * TICK_MS) / TIME_SCALE;
+  return CLOCK_ANCHOR_REAL_MS + (tick * TICK_MS - CLOCK_ANCHOR_GAME_MS) / TIME_SCALE;
 }
 
 /** 遊戲 tick 數換算成真實分鐘數 */

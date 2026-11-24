@@ -12,7 +12,7 @@ export function moneyShort(n: number): string {
   if (a >= 1e9) return `${sign}${CURRENCY}${(a / 1e9).toFixed(2)}B`;
   if (a >= 1e6) return `${sign}${CURRENCY}${(a / 1e6).toFixed(a >= 1e8 ? 0 : 1)}M`;
   if (a >= 1e4) return `${sign}${CURRENCY}${(a / 1e3).toFixed(0)}k`;
-  return `${sign}${CURRENCY}${Math.round(a)}`;
+  return `${sign}${CURRENCY}${Math.round(a).toLocaleString("en-US")}`;
 }
 
 export function num(n: number): string {
