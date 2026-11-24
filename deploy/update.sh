@@ -20,5 +20,5 @@ npm run build:client
 echo "== 重新啟動（需要 sudo）"
 sudo systemctl restart coidle
 sleep 2
-curl -fsS http://127.0.0.1:3000/api/health && echo
+curl -fsS http://127.0.0.1:2330/api/health && echo
 echo "完成。"

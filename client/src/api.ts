@@ -2,6 +2,8 @@ import type {
   ActivityEntry,
   EventDef,
   RegularDef,
+  DirectoryEntry,
+  SeasonResult,
   Command,
   MeResponse,
   MemberInfo,
@@ -44,6 +46,13 @@ export async function request<T>(method: string, url: string, body?: unknown): P
   return data as T;
 }
 
+export interface WorldView {
+  now: number;
+  season: { index: number; start: number; end: number };
+  entries: DirectoryEntry[];
+  history: SeasonResult[];
+}
+
 export interface MallInfo {
   id: number;
   name: string;
@@ -59,6 +68,7 @@ export const api = {
   logout: () => request<{ ok: true }>("POST", "/api/auth/logout", {}),
   createMall: (name: string) => request<{ id: number; inviteCode: string }>("POST", "/api/malls", { name }),
   joinMall: (code: string, role?: RoleId) => request<{ id: number }>("POST", "/api/malls/join", { code, role }),
+  world: () => request<WorldView>("GET", "/api/world"),
   contentEvents: () => request<{ events: EventDef[] }>("GET", "/api/content/events"),
   contentRegulars: () => request<{ regulars: RegularDef[] }>("GET", "/api/content/regulars"),
   mall: (id: number) => request<MallInfo>("GET", `/api/malls/${id}`),

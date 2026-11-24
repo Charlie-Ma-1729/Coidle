@@ -5,13 +5,13 @@
       "name": "server",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "start"],
-      "port": 3000
+      "port": 2330
     },
     {
       "name": "server-fastforward",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "start"],
-      "port": 3000,
+      "port": 2330,
       "env": { "DEV_CLOCK_OFFSET_HOURS": "30" }
     },
     {

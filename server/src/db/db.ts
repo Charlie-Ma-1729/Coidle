@@ -93,6 +93,38 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX idx_pool_kind ON content_pool(kind, status);
   `,
+  // v4：跨商場世界——公開名錄、賽季、商場之間的信箱
+  `
+  CREATE TABLE mall_directory (
+    mall_id INTEGER PRIMARY KEY REFERENCES malls(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    level INTEGER NOT NULL,
+    stars INTEGER NOT NULL,
+    score REAL NOT NULL,
+    local_rep REAL NOT NULL,
+    tourist_heat REAL NOT NULL,
+    revenue30 REAL NOT NULL,
+    shops INTEGER NOT NULL,
+    top_category TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+  CREATE TABLE seasons (
+    season INTEGER PRIMARY KEY,
+    settled_at INTEGER NOT NULL,
+    result_json TEXT NOT NULL
+  );
+  CREATE TABLE mall_mailbox (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    to_mall INTEGER NOT NULL REFERENCES malls(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    deliver_at INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending'
+  );
+  CREATE INDEX idx_mailbox_to ON mall_mailbox(to_mall, status, deliver_at);
+  `,
 ];
 
 export function openDb(path: string): Db {

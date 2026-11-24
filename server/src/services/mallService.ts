@@ -11,6 +11,8 @@ import {
   TECH_BY_ID,
   ZONE_BY_ID,
   ROLE_IDS,
+  mallScore,
+  mallStars,
   isPaused,
   reanchor,
   speedPreset,
@@ -24,6 +26,8 @@ import {
   type SpeedId,
 } from "@coidle/shared";
 import { newInviteCode } from "../auth/password";
+import { applyMail } from "../sim/mail";
+import { WorldService } from "../world/world";
 import type { Repo } from "../db/repo";
 import { advanceTo, applyCommand, createInitialState, migrateState, type Command, type CommandResult } from "../sim";
 
@@ -177,12 +181,17 @@ export class MallService {
   private listeners = new Set<Broadcast>();
   /** 每座商場目前有幾個 WebSocket 連線（用來判斷「有沒有人在場」） */
   private connections = new Map<number, number>();
+  /** 跨商場世界：公開名錄、賽季 */
+  readonly world: WorldService;
+  private lastDirectory = new Map<number, number>();
 
   constructor(
     readonly repo: Repo,
     private readonly now: () => number = Date.now,
     private notifier: Notifier | null = null,
-  ) {}
+  ) {
+    this.world = new WorldService(repo, now);
+  }
 
   setNotifier(n: Notifier | null): void {
     this.notifier = n;
@@ -219,6 +228,7 @@ export class MallService {
     const state = createInitialState(seed, tickFromRealMs(nowMs), nowMs);
     this.cache.set(mallId, state);
     this.persist(mallId, state);
+    this.refreshDirectory(mallId, state, nowMs, true);
     return { mallId, inviteCode: code };
   }
 
@@ -290,6 +300,7 @@ export class MallService {
   renameMall(mallId: number, ownerId: number, name: string): void {
     if (!this.repo.member(mallId, ownerId)?.is_owner) throw new ServiceError(403, "只有創辦人可以改商場名稱");
     this.repo.renameMall(mallId, name);
+    this.refreshDirectory(mallId, this.load(mallId), this.now(), true);
     this.announceMembers(mallId);
   }
 
@@ -367,6 +378,14 @@ export class MallService {
     const size = Math.max(1, this.repo.members(mallId).length);
     if (s.meta.team.size !== size) s.meta.team.size = size;
 
+    // 跨商場的信件：到期的先交給商場（賽季獎勵等），再往下推進
+    const due = this.repo.dueMail(mallId, nowMs);
+    if (due.length > 0) {
+      s = structuredClone(s);
+      for (const m of due) applyMail(s, m);
+      this.repo.markMailDelivered(due.map((m) => m.id));
+    }
+
     // 久未上線：在「最後一次造訪 + N 天」那個精確時間點暫停
     const days = s.clock.idlePauseDays;
     if (days !== null && !isPaused(s.clock) && (this.connections.get(mallId) ?? 0) === 0) {
@@ -382,6 +401,7 @@ export class MallService {
     }
     if (!isPaused(s.clock)) s = this.advanceNow(mallId, s, nowMs);
 
+    this.refreshDirectory(mallId, s, nowMs);
     if (s !== before) {
       this.cache.set(mallId, s);
       this.persist(mallId, s);
@@ -392,6 +412,32 @@ export class MallService {
       }
     }
     return s;
+  }
+
+  /** 更新這座商場在公開名錄裡的資料（最多每分鐘一次）；只寫公開欄位 */
+  private refreshDirectory(mallId: number, s: MallState, nowMs: number, force = false): void {
+    if (!force && nowMs - (this.lastDirectory.get(mallId) ?? 0) < 60_000) return;
+    const row = this.repo.mallById(mallId);
+    if (!row) return;
+    this.lastDirectory.set(mallId, nowMs);
+    const counts = new Map<string, number>();
+    for (const sh of s.shops) counts.set(sh.category, (counts.get(sh.category) ?? 0) + 1);
+    const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+    const revenue30 = s.reports.slice(-30).reduce((a, r) => a + r.revenue + r.rentIncome, 0);
+    this.repo.upsertDirectory({
+      mallId,
+      name: row.name,
+      level: s.level,
+      stars: mallStars(s),
+      score: Math.round(mallScore(s) * 10) / 10,
+      localRep: Math.round(s.localRep * 10) / 10,
+      touristHeat: Math.round(s.touristHeat * 10) / 10,
+      revenue30: Math.round(revenue30),
+      shops: s.shops.length,
+      topCategory: top ? CATEGORY_BY_ID[top]?.name ?? "" : "",
+      createdAt: row.created_at,
+      updatedAt: nowMs,
+    });
   }
 
   /** 新出現的「事件暫停」→ 跳通知 */
@@ -502,12 +548,22 @@ export class MallService {
 
   /** 排程呼叫：把所有商場推進到現在（離線期間也會賺錢的關鍵） */
   tickAll(): void {
-    for (const id of this.repo.allMallIds()) {
-      try {
-        this.sync(id);
-      } catch (e) {
-        console.error(`tick failed for mall ${id}`, e);
+    const ids = this.repo.allMallIds();
+    const run = () => {
+      for (const id of ids) {
+        try {
+          this.sync(id);
+        } catch (e) {
+          console.error(`tick failed for mall ${id}`, e);
+        }
       }
+    };
+    run();
+    try {
+      // 賽季結算要用剛更新過的名錄；有發出獎勵就立刻讓各商場收下
+      if (this.world.settleSeasons().length > 0) run();
+    } catch (e) {
+      console.error("season settlement failed", e);
     }
   }
 }

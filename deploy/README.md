@@ -5,7 +5,7 @@
 
 ## 0. 事前準備
 - 網域的 DNS（A 記錄）指向伺服器的固定 IP。
-- 防火牆開 80、443（`sudo ufw allow 'Nginx Full'`）；**不要**對外開 3000。
+- 防火牆開 80、443（`sudo ufw allow 'Nginx Full'`）；**不要**對外開 2330。
 - HTTPS 是 PWA 安裝與推播的必要條件。
 
 ## 1. 安裝 Node 24、nginx、certbot
@@ -49,7 +49,7 @@ sudo cp deploy/coidle.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now coidle
 systemctl status coidle                 # 應該是 active (running)
-curl http://127.0.0.1:3000/api/health   # {"ok":true,...}
+curl http://127.0.0.1:2330/api/health   # {"ok":true,...}
 journalctl -u coidle -f                 # 看日誌
 ```
 

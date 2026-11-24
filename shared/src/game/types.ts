@@ -596,8 +596,16 @@ export interface MallClock {
   lastVisitRealMs: number;
 }
 
+/** 跨商場世界在這座商場留下的紀錄（賽季成績、收到的通知）；對手的資料不會放在這裡 */
+export interface WorldState {
+  seasons: { season: number; rank: number; of: number; title: string; reward: number }[];
+  notices: { tick: number; text: string }[];
+  /** 已經收下的信件數 */
+  mailCount: number;
+}
+
 export interface MallState {
-  version: 11;
+  version: 12;
   clock: MallClock;
   seed: number;
   tick: number;
@@ -634,6 +642,7 @@ export interface MallState {
   tech: TechState;
   leasing: LeasingState;
   meta: MetaState;
+  world: WorldState;
   reviewLog: ReviewRecord[];
   guestPrefs: GuestPrefs;
   walk: { nextTick: number; voices: WalkVoice[] };

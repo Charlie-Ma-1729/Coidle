@@ -163,7 +163,7 @@ describe("zone expansion", () => {
     }
     v10.slots = kept;
     const m = migrateState(v10, 0);
-    expect(m.version).toBe(11);
+    expect(m.version).toBe(12);
     for (const z of ZONES) expect(m.slots.filter((x) => x.zone === z.id).length).toBe(z.slots);
     expect(m.slots.every((x, i) => x.id === i)).toBe(true);
     // 既有的店仍然指向原本的店面

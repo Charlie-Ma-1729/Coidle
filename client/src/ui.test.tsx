@@ -144,6 +144,26 @@ describe("screens render with real simulated state", () => {
     for (const c of CATEGORIES) expect(categoryIcon(c.id), c.id).not.toBe("🏬");
   });
 
+  it("World shows the leaderboard with NPC malls, my mall and the season", async () => {
+    store.state.value = publicState(2);
+    store.mallId.value = 5;
+    const { WORLD_EPOCH_MS, npcEntries } = await import("@coidle/shared");
+    const now = WORLD_EPOCH_MS + 3 * 86_400_000;
+    const mine = { key: "m:5", kind: "player" as const, name: "我們的商場", tagline: "", level: 2, stars: 3, score: 55, localRep: 60, touristHeat: 58, revenue30: 12_000_000, shops: 9, topCategory: "拉麵", updatedAt: now };
+    const { api } = await import("./api");
+    api.world = async () => ({ now, season: { index: 0, start: WORLD_EPOCH_MS, end: WORLD_EPOCH_MS + 28 * 86_400_000 }, entries: [mine, ...npcEntries(now)], history: [] });
+    const { World } = await import("./screens/World");
+    await mount(<World />);
+    await tick();
+    await tick();
+    expect(container.textContent).toContain("商場名錄");
+    expect(container.textContent).toContain("我們的商場");
+    expect(container.textContent).toContain("港灣大賣場");
+    expect(container.textContent).toContain("第 1 季");
+    expect(container.textContent).toContain("你");
+    expect(container.textContent).toContain("還沒有賽季成績");
+  });
+
   it("Reports renders after a few days", async () => {
     store.state.value = publicState(4);
     const { Reports } = await import("./screens/Reports");

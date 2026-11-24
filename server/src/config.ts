@@ -21,7 +21,7 @@ export interface Config {
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   return {
-    port: Number(env.PORT ?? 3000),
+    port: Number(env.PORT ?? 2330),
     host: env.HOST || (env.NODE_ENV === "production" ? "127.0.0.1" : "0.0.0.0"),
     dbPath: env.DB_PATH ?? "data/coidle.db",
     production: env.NODE_ENV === "production",

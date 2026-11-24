@@ -1,4 +1,4 @@
-import { initialSupply, newClock, ZONES, type MallState } from "@coidle/shared";
+import { initialSupply, newClock, newWorldState, ZONES, type MallState } from "@coidle/shared";
 import { initialRegulars, syncRegulars } from "./regulars";
 import { newLeasingState } from "./leasing";
 import { initGoals, newMetaState } from "./meta";
@@ -19,10 +19,11 @@ import { syncWorkshop } from "./workshop";
  * v8 → v9：加入科技樹與出租招商（租戶、候選品牌、續約）。
  * v9 → v10：加入目標、團隊事件、成就與線索收集。
  * v10 → v11：各區基本店面數增加（補上新店面）。
+ * v11 → v12：加入跨商場世界的紀錄（賽季成績、通知）。
  */
 export function migrateState(raw: unknown, nowMs: number): MallState {
   const s = raw as Record<string, unknown> & { version?: number; tick: number; today?: Record<string, unknown> };
-  if (s.version === 11) return s as unknown as MallState;
+  if (s.version === 12) return s as unknown as MallState;
   if (s.version === 1 || s.version === undefined) {
     delete s.protection;
     delete s.lastActionTick;
@@ -89,6 +90,10 @@ export function migrateState(raw: unknown, nowMs: number): MallState {
     s.version = 11;
     syncRegulars(s as unknown as MallState);
     syncWorkshop(s as unknown as MallState);
+  }
+  if (s.version === 11) {
+    s.world = newWorldState();
+    s.version = 12;
   }
   return s as unknown as MallState;
 }

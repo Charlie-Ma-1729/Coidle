@@ -11,6 +11,7 @@ import { Leasing } from "./Leasing";
 import { Tax } from "./Tax";
 import { Tech } from "./Tech";
 import { Team } from "./Team";
+import { World } from "./World";
 
 const SUBS: { id: MoreSub; label: string }[] = [
   { id: "help", label: "❓ 說明" },
@@ -19,6 +20,7 @@ const SUBS: { id: MoreSub; label: string }[] = [
   { id: "achievements", label: "🏆 成就" },
   { id: "marketing", label: "📣 行銷" },
   { id: "suppliers", label: "📦 供應商" },
+  { id: "world", label: "🌐 名錄" },
   { id: "rivals", label: "⚔️ 商戰" },
   { id: "leasing", label: "🏪 招商" },
   { id: "tech", label: "🔬 科技" },
@@ -39,7 +41,7 @@ export function More() {
           </button>
         ))}
       </nav>
-      {sub === "ops" ? <Ops /> : sub === "marketing" ? <Marketing /> : sub === "suppliers" ? <Suppliers /> : sub === "rivals" ? <Rivals /> : sub === "reports" ? <Reports /> : sub === "tax" ? <Tax /> : sub === "help" ? <Help /> : sub === "goals" ? <Goals /> : sub === "achievements" ? <Achievements /> : sub === "leasing" ? <Leasing /> : sub === "tech" ? <Tech /> : <Team />}
+      {sub === "ops" ? <Ops /> : sub === "marketing" ? <Marketing /> : sub === "suppliers" ? <Suppliers /> : sub === "rivals" ? <Rivals /> : sub === "world" ? <World /> : sub === "reports" ? <Reports /> : sub === "tax" ? <Tax /> : sub === "help" ? <Help /> : sub === "goals" ? <Goals /> : sub === "achievements" ? <Achievements /> : sub === "leasing" ? <Leasing /> : sub === "tech" ? <Tech /> : <Team />}
     </>
   );
 }

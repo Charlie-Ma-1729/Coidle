@@ -238,4 +238,45 @@ export class Repo {
       .prepare("SELECT m.id, m.name, m.created_at, (SELECT COUNT(*) FROM memberships x WHERE x.mall_id = m.id) AS members FROM malls m ORDER BY m.id")
       .all() as never;
   }
+
+  // ── 跨商場世界：公開名錄、賽季、信箱
+  upsertDirectory(row: { mallId: number; name: string; level: number; stars: number; score: number; localRep: number; touristHeat: number; revenue30: number; shops: number; topCategory: string; createdAt: number; updatedAt: number }): void {
+    this.db
+      .prepare(
+        `INSERT INTO mall_directory (mall_id, name, level, stars, score, local_rep, tourist_heat, revenue30, shops, top_category, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(mall_id) DO UPDATE SET name = excluded.name, level = excluded.level, stars = excluded.stars, score = excluded.score,
+           local_rep = excluded.local_rep, tourist_heat = excluded.tourist_heat, revenue30 = excluded.revenue30, shops = excluded.shops,
+           top_category = excluded.top_category, created_at = excluded.created_at, updated_at = excluded.updated_at`,
+      )
+      .run(row.mallId, row.name, row.level, row.stars, row.score, row.localRep, row.touristHeat, row.revenue30, row.shops, row.topCategory, row.createdAt, row.updatedAt);
+  }
+  directoryRows(): { mall_id: number; name: string; level: number; stars: number; score: number; local_rep: number; tourist_heat: number; revenue30: number; shops: number; top_category: string; created_at: number; updated_at: number }[] {
+    return this.db.prepare("SELECT * FROM mall_directory ORDER BY mall_id").all() as never;
+  }
+  seasonResult(season: number): string | null {
+    const r = this.db.prepare("SELECT result_json FROM seasons WHERE season = ?").get(season) as { result_json: string } | undefined;
+    return r?.result_json ?? null;
+  }
+  saveSeason(season: number, settledAt: number, json: string): boolean {
+    return Number(this.db.prepare("INSERT OR IGNORE INTO seasons (season, settled_at, result_json) VALUES (?, ?, ?)").run(season, settledAt, json).changes) > 0;
+  }
+  latestSeasons(limit: number): { season: number; settled_at: number; result_json: string }[] {
+    return this.db.prepare("SELECT season, settled_at, result_json FROM seasons ORDER BY season DESC LIMIT ?").all(limit) as never;
+  }
+  addMail(toMall: number, kind: string, payload: unknown, createdAt: number, deliverAt: number): number {
+    const r = this.db.prepare("INSERT INTO mall_mailbox (to_mall, kind, payload, created_at, deliver_at) VALUES (?, ?, ?, ?, ?)").run(toMall, kind, JSON.stringify(payload), createdAt, deliverAt);
+    return Number(r.lastInsertRowid);
+  }
+  dueMail(toMall: number, now: number): { id: number; kind: string; payload: Record<string, unknown> }[] {
+    const rows = this.db.prepare("SELECT id, kind, payload FROM mall_mailbox WHERE to_mall = ? AND status = 'pending' AND deliver_at <= ? ORDER BY id LIMIT 50").all(toMall, now) as { id: number; kind: string; payload: string }[];
+    return rows.map((r) => ({ id: r.id, kind: r.kind, payload: JSON.parse(r.payload) as Record<string, unknown> }));
+  }
+  markMailDelivered(ids: number[]): void {
+    const st = this.db.prepare("UPDATE mall_mailbox SET status = 'delivered' WHERE id = ?");
+    for (const id of ids) st.run(id);
+  }
+  pendingMailCount(toMall: number): number {
+    return (this.db.prepare("SELECT COUNT(*) AS n FROM mall_mailbox WHERE to_mall = ? AND status = 'pending'").get(toMall) as { n: number }).n;
+  }
 }

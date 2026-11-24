@@ -330,7 +330,7 @@ describe("determinism and migration", () => {
     v9.version = 9;
     delete v9.meta;
     const m = migrateState(v9, 0);
-    expect(m.version).toBe(11);
+    expect(m.version).toBe(12);
     expect(m.meta.achievements).toEqual({});
     expect(m.meta.team.event).toBeNull();
   });

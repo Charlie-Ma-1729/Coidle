@@ -312,6 +312,12 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     return { regulars: content.publicRegulars() };
   });
 
+  // ── 跨商場世界：全服公開的商場名錄（真人商場＋NPC 商場）、排行榜與賽季。只有公開欄位。
+  app.get("/api/world", async (req) => {
+    requireUser(req, repo, now());
+    return service.world.view();
+  });
+
   // ── AI 內容管理（需要 ADMIN_TOKEN）
   const admin = (req: { headers: Record<string, unknown> }) => {
     if (!config.adminToken || req.headers["x-admin-token"] !== config.adminToken) throw new ServiceError(403, "沒有權限");

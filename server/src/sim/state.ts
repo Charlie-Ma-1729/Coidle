@@ -1,5 +1,6 @@
 import {
   CATEGORIES,
+  newWorldState,
   CATEGORY_BY_ID,
   INDEX_START,
   INITIAL_FUNDS,
@@ -145,7 +146,7 @@ export function createInitialState(seed: number, startTick: number, nowMs = 0): 
     for (let i = 0; i < z.slots; i++) slots.push({ id: slots.length, zone: z.id, shopId: null });
   }
   const s: MallState = {
-    version: 11,
+    version: 12,
     clock: newClock(nowMs, startTick),
     seed: seed >>> 0,
     tick: startTick,
@@ -180,6 +181,7 @@ export function createInitialState(seed: number, startTick: number, nowMs = 0): 
     tech: newTechState(),
     leasing: newLeasingState(startTick),
     meta: newMetaState(startTick),
+    world: newWorldState(),
     reviewLog: [],
     guestPrefs: { complaintStance: "balanced", autoReplyReviews: true },
     walk: { nextTick: 0, voices: [] },
