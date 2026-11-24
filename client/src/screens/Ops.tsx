@@ -3,6 +3,7 @@ import {
   CATEGORY_BY_ID,
   CLEANING_COST_PER_DAY,
   MAINTENANCE_COST_PER_DAY,
+  RESERVE_UPKEEP_PER_DAY,
   SPEED_PRESETS,
   UTILITIES_PER_DAY,
   hourlyTraffic,
@@ -38,7 +39,8 @@ export function Ops() {
 
   let wages = 0;
   for (const sh of s.shops) if (sh.mode === "direct") wages += (CATEGORY_BY_ID[sh.category]?.wage ?? 0) * sh.level;
-  const fixed = UTILITIES_PER_DAY + CLEANING_COST_PER_DAY[s.cleaningLevel] + MAINTENANCE_COST_PER_DAY[s.maintenanceLevel] + wages;
+  const reservedSeats = s.regulars.filter((r) => r.reserved).length * RESERVE_UPKEEP_PER_DAY;
+  const fixed = UTILITIES_PER_DAY + CLEANING_COST_PER_DAY[s.cleaningLevel] + MAINTENANCE_COST_PER_DAY[s.maintenanceLevel] + wages + reservedSeats;
 
   const clock = s.clock;
   const manualPaused = clock.holds.manual;
@@ -171,6 +173,12 @@ export function Ops() {
             <span class="dim">直營店人事（{s.shops.filter((x) => x.mode === "direct").length} 間）</span>
             <b>{money(wages)}</b>
           </div>
+          {reservedSeats > 0 && (
+            <div class="row between">
+              <span class="dim">常客專屬座位</span>
+              <b>{money(reservedSeats)}</b>
+            </div>
+          )}
           <div class="row between">
             <span>合計 / 遊戲日（約 6 真實小時）</span>
             <b>{money(fixed)}</b>

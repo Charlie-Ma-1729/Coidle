@@ -19,5 +19,7 @@ export type Command =
   /** 巡場：聽聽此刻店裡客人的心聲 */
   | { type: "walkFloor" }
   | { type: "walkAct"; voiceId: string; optionId: string }
+  /** 和常客互動：招呼、記住喜好、送小禮、保留／取消專屬座位 */
+  | { type: "regularAction"; regularId: string; action: "greet" | "remember" | "gift" | "reserve" | "unreserve" }
   | { type: "setGuestPrefs"; complaintStance?: "soft" | "balanced" | "firm"; autoReplyReviews?: boolean }
   | { type: "setLease"; shopId: string; enabled: boolean; rent?: number; commission?: number };

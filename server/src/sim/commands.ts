@@ -13,6 +13,7 @@ import {
 } from "@coidle/shared";
 import { resolveChoice } from "./events";
 import { resolveInbox, walkAct, walkFloor } from "./guests";
+import { regularAction } from "./regulars";
 import { rngForTick } from "./rng";
 import { addLog, isFeatureEnabled, isZoneUnlocked, nextId } from "./state";
 import { isOpen, placeOrder } from "./step";
@@ -178,6 +179,12 @@ export function applyCommand(state: MallState, cmd: Command): CommandResult {
 
     case "walkAct": {
       const r = walkAct(s, cmd.voiceId, cmd.optionId);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "regularAction": {
+      const r = regularAction(s, cmd.regularId, cmd.action);
       if (!r.ok) return err(r.error);
       break;
     }

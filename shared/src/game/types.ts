@@ -214,6 +214,9 @@ export interface DayStats {
   complaints: number;
   reviews: number;
   starsSum: number;
+  /** 今天常客的消息（新登場、解鎖故事、不開心…） */
+  regularNotes: string[];
+  regularVisits: number;
 }
 
 export interface DailyReport {
@@ -285,6 +288,52 @@ export interface WalkVoice {
   expireTick: number;
 }
 
+// ───────── 常客 ─────────
+
+export interface RegularStory {
+  /** 親密度達到多少解鎖 */
+  at: number;
+  title: string;
+  text: string;
+  reward: { funds?: number; idx?: number };
+}
+
+export interface RegularDef {
+  id: string;
+  name: string;
+  persona: PersonaId;
+  /** 最愛的業態；沒有這類店就不會出現 */
+  fav: CategoryId;
+  /** 找不到最愛時的第二選擇 */
+  alt?: CategoryId;
+  /** 價格容忍度：願意付到參考價的幾倍 */
+  budget: number;
+  /** 還沒遇見時顯示的線索 */
+  hint: string;
+  bio: string;
+  /** 「記住喜好」之後才看得到 */
+  traits: string[];
+  stories: RegularStory[];
+}
+
+export interface RegularState {
+  id: string;
+  /** 遇見過了（第一次上門之後） */
+  met: boolean;
+  affinity: number;
+  visits: number;
+  lastVisitTick: number;
+  mood: "happy" | "neutral" | "upset";
+  /** 已解鎖的故事數 */
+  storyStage: number;
+  lastTalkTick: number;
+  lastGiftTick: number;
+  knowsPrefs: boolean;
+  /** 保留專屬座位（每日有維持費；來得更勤、小費更多） */
+  reserved: boolean;
+  tipsTotal: number;
+}
+
 export interface GuestPrefs {
   complaintStance: Stance;
   /** 評價沒人回時，自動送出禮貌的回覆 */
@@ -322,7 +371,7 @@ export interface MallClock {
 }
 
 export interface MallState {
-  version: 3;
+  version: 4;
   clock: MallClock;
   seed: number;
   tick: number;
@@ -349,6 +398,7 @@ export interface MallState {
   /** 各店各種不滿的累積（內部用，滿了就變成一則客訴）：鍵為 "shopId:cause" */
   grievances: Record<string, number>;
   inbox: InboxItem[];
+  regulars: RegularState[];
   reviewLog: ReviewRecord[];
   guestPrefs: GuestPrefs;
   walk: { nextTick: number; voices: WalkVoice[] };

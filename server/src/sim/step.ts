@@ -13,6 +13,7 @@ import {
   MAX_REPORTS,
   PERSONAS,
   PERSONA_BY_ID,
+  RESERVE_UPKEEP_PER_DAY,
   SHOP_QUALITY,
   SUPPLY_LEAD_TICKS,
   SUPPLY_LOT,
@@ -20,6 +21,7 @@ import {
   TICKS_PER_HOUR,
   UTILITIES_PER_DAY,
   categoryHasStock,
+  type CategoryDef,
   type ComplaintCause,
   type IndexId,
   type MallState,
@@ -28,6 +30,7 @@ import {
 } from "@coidle/shared";
 import { expireModifiers, maybeSpawnEvent, resolveDeadlines } from "./events";
 import { generateDailyReviews, noteGrievance, resolveInboxDeadlines } from "./guests";
+import { regularsDaily, runRegulars } from "./regulars";
 import { buildReport } from "./report";
 import { rngForTick, type Rng } from "./rng";
 import {
@@ -185,6 +188,7 @@ function runCustomers(s: MallState, time: TimeInfo, rng: Rng): number {
     const n = rng.poisson(lambda);
     for (let i = 0; i < n; i++) units += serveGroup(s, rng, p, open);
   }
+  units += runRegulars(s, rng, time, open, recordSale);
   return units;
 }
 
@@ -238,7 +242,12 @@ function serveGroup(s: MallState, rng: Rng, p: PersonaDef, open: Shop[]): number
   }
   const qty = Math.min(size, cap - shop.served, hasStock ? shop.stock : size);
   if (qty < 1) return 0;
+  return recordSale(s, rng, p, shop, cat, qty);
+}
 
+/** 把一筆成交記進帳：營收、庫存、統計、滿意度，以及（可能的）客訴累積。回傳份數。 */
+export function recordSale(s: MallState, rng: Rng, p: PersonaDef, shop: Shop, cat: CategoryDef, qty: number): number {
+  const hasStock = categoryHasStock(cat) && shop.mode === "direct";
   const revenue = qty * shop.price;
   shop.served += qty;
   shop.day.units += qty;
@@ -319,6 +328,7 @@ function dailyFixedCost(s: MallState): number {
     const cat = CATEGORY_BY_ID[shop.category];
     if (cat) c += cat.wage * shop.level;
   }
+  c += s.regulars.filter((r) => r.reserved).length * RESERVE_UPKEEP_PER_DAY; // 專屬座位的維持費
   return c;
 }
 
@@ -361,6 +371,7 @@ function rollover(s: MallState, time: TimeInfo): void {
     }
   }
 
+  regularsDaily(s); // 常客：久沒上門的漸漸疏遠、熟客粉絲帶來口碑
   generateDailyReviews(s); // 今天客人的感受 → 幾則線上評價（先於日報，才算得進去）
   s.reports.push(buildReport(s));
   if (s.reports.length > MAX_REPORTS) s.reports.splice(0, s.reports.length - MAX_REPORTS);

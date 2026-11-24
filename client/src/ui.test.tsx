@@ -200,6 +200,50 @@ describe("screens render with real simulated state", () => {
     expect(container.querySelectorAll(".stars").length).toBeGreaterThanOrEqual(2);
   });
 
+  it("Regulars lists met regulars with actions and keeps strangers hidden behind hints", async () => {
+    store.state.value = publicState(0, (s) => {
+      const r = s.regulars.find((x) => x.id === "afu")!;
+      Object.assign(r, { met: true, affinity: 72, visits: 9, mood: "happy", storyStage: 2, tipsTotal: 4200, knowsPrefs: true, lastVisitTick: s.tick - 30 });
+    });
+    const { Regulars } = await import("./screens/Regulars");
+    await mount(<Regulars />);
+    expect(container.textContent).toContain("常客（1/");
+    expect(container.textContent).toContain("阿富叔");
+    expect(container.textContent).toContain("愛去");
+    expect(container.textContent).toContain("來過 9 次");
+    expect(container.textContent).toContain("❤ 熟客");
+    expect(container.textContent).toContain("故事 2/2");
+    expect(container.textContent).toContain("愛吃沾醬多一點"); // 記住喜好之後才看得到
+    expect(container.textContent).toContain("招呼");
+    expect(container.textContent).toContain("送小禮");
+    expect(container.textContent).toContain("專屬座位");
+    expect(container.textContent).toContain("還沒遇見的人");
+    expect(container.textContent).toContain("每天傍晚推著小推車"); // 未遇見者的線索文字（在 details 內）
+    // 沒遇見的人的名字不會洩漏
+    expect(container.textContent).not.toContain("小櫻");
+
+    const storyBtn = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("故事") && !b.textContent.includes("故事 "))!;
+    storyBtn.click();
+    await tick();
+    expect(container.textContent).toContain("《老位子》");
+    expect(container.textContent).toContain("《四十年的味道》");
+  });
+
+  it("Regulars hides unlearned preferences and locks unreached stories", async () => {
+    store.state.value = publicState(0, (s) => {
+      Object.assign(s.regulars.find((x) => x.id === "tanaka")!, { met: true, affinity: 12 });
+    });
+    const { Regulars } = await import("./screens/Regulars");
+    await mount(<Regulars />);
+    expect(container.textContent).not.toContain("加蛋");
+    const storyBtn = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("📖"))!;
+    storyBtn.click();
+    await tick();
+    expect(container.textContent).toContain("親密度達到 30 解鎖");
+    const reserve = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("專屬座位")) as HTMLButtonElement;
+    expect(reserve.disabled).toBe(true); // 親密度不足
+  });
+
   it("Guests shows an empty inbox, a walk cooldown hint and the stance picker", async () => {
     store.state.value = publicState(0, (s) => {
       s.walk.nextTick = s.tick + 1000;

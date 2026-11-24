@@ -3,6 +3,7 @@ import {
   CATEGORY_BY_ID,
   EVENT_BY_ID,
   PRESENCE_WINDOW_MS,
+  REGULAR_BY_ID,
   ROLE_IDS,
   isPaused,
   reanchor,
@@ -81,6 +82,11 @@ export function describeCommand(s: MallState, cmd: Command, actor: string): stri
       return null; // 巡場中的小動作不洗版團隊動態
     case "setGuestPrefs":
       return `${actor} 調整了客人互動的處理偏好`;
+    case "regularAction": {
+      const name = REGULAR_BY_ID[cmd.regularId]?.name ?? "常客";
+      const verb = { greet: "聊了聊", remember: "記住了喜好", gift: "送了小禮", reserve: "保留了專屬座位", unreserve: "取消了專屬座位" }[cmd.action];
+      return `${actor} 和常客「${name}」${cmd.action === "greet" ? verb : `：${verb}`}`;
+    }
   }
 }
 

@@ -22,6 +22,7 @@ import { Btn, Card, Chip, Empty } from "../components/ui";
 import { money, realDuration } from "../format";
 import { PERSONA_ICONS } from "../icons";
 import { run, state } from "../store";
+import { Regulars } from "./Regulars";
 
 const MOOD: Record<WalkVoice["mood"], { icon: string; label: string; tone: "green" | "amber" | "red" | "cyan" }> = {
   happy: { icon: "😄", label: "開心", tone: "green" },
@@ -264,6 +265,7 @@ export function Guests() {
     <>
       <WalkCard s={s} />
       <TodoCard s={s} />
+      <Regulars />
       <div class="grid two">
         <ReviewLog s={s} />
         <Prefs s={s} />

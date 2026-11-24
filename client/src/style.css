@@ -234,6 +234,12 @@ input[type="range"] { width: 100%; accent-color: var(--pink); }
 .report-row { display: grid; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .report-row:last-child { border-bottom: 0; }
 
+.regular { display: grid; gap: 8px; padding: 12px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); }
+.story { padding: 8px 10px; border-left: 2px solid var(--pink); background: rgba(255, 255, 255, 0.03); border-radius: 0 10px 10px 0; }
+.story.locked { border-left-color: var(--line); }
+.unmet { margin-top: 12px; }
+.unmet summary { cursor: pointer; color: var(--dim); font-size: 0.85rem; }
+.unmet ul { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; }
 .stars { color: var(--amber); letter-spacing: 2px; }
 .stars .dim { opacity: 0.3; }
 .voice { display: grid; gap: 6px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); }
