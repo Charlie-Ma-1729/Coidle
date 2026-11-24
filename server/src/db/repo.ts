@@ -321,4 +321,21 @@ export class Repo {
   recentTrades(limit: number): { id: number; ts: number; from_mall: number; to_mall: number; kind: string; amount: number; detail: string }[] {
     return this.db.prepare("SELECT * FROM trades ORDER BY id DESC LIMIT ?").all(limit) as never;
   }
+
+  // ── 商戰搶客紀錄
+  addAttack(ts: number, attacker: number, targetKey: string, persona: string): void {
+    this.db.prepare("INSERT INTO attacks (ts, attacker, target_key, persona) VALUES (?, ?, ?, ?)").run(ts, attacker, targetKey, persona);
+  }
+  attacksOn(targetKey: string, since: number): { n: number; last: number } {
+    const r = this.db.prepare("SELECT COUNT(*) AS n, COALESCE(MAX(ts), 0) AS last FROM attacks WHERE target_key = ? AND ts > ?").get(targetKey, since) as { n: number; last: number };
+    return { n: Number(r.n), last: Number(r.last) };
+  }
+  attacksBy(attacker: number, since: number): { n: number; last: number } {
+    const r = this.db.prepare("SELECT COUNT(*) AS n, COALESCE(MAX(ts), 0) AS last FROM attacks WHERE attacker = ? AND ts > ?").get(attacker, since) as { n: number; last: number };
+    return { n: Number(r.n), last: Number(r.last) };
+  }
+  /** 最近有被打到的對象（算保護期用） */
+  recentAttackTargets(since: number): { target_key: string; last: number }[] {
+    return this.db.prepare("SELECT target_key, MAX(ts) AS last FROM attacks WHERE ts > ? GROUP BY target_key").all(since) as never;
+  }
 }

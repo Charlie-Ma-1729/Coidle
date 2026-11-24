@@ -69,3 +69,24 @@ export function tradeLimits(level: number): TradeLimits {
 export function afterFee(n: number): number {
   return Math.floor(n * (1 - TRADE_FEE));
 }
+
+// ───────── 競爭：商戰搶客 ─────────
+// 對任何商場（含 NPC）辦一場針對某類客人的促銷，把他們的客人搶過來一點。
+// 資格：等級相差不遠，或「小打大」（見 world.ts 的 canCompete）。效果有界、有冷卻與保護期。
+export const COMPETE_BASE_COST = 100_000;
+/** 被搶的一方：那一類客人客流 ×0.9；發動的一方：×1.15。約 1 個遊戲日（用模擬算過：對發動方大約打平成本，對被搶方是可承受的小損失） */
+export const COMPETE_TARGET_MULT = 0.9;
+export const COMPETE_SELF_MULT = 1.15;
+export const COMPETE_TICKS = 288;
+/** 發動方的冷卻、每日次數 */
+export const COMPETE_COOLDOWN_MS = 6 * 3_600_000;
+export const COMPETE_MAX_PER_DAY = 3;
+/** 被搶的一方：被打到之後的保護期，以及每天最多被針對幾次 */
+export const COMPETE_SHIELD_MS = 8 * 3_600_000;
+export const COMPETE_MAX_ON_TARGET_PER_DAY = 2;
+/** 新開張的商場有這段時間的新手保護：不能被針對 */
+export const COMPETE_NEWBIE_MS = 3 * DAY_MS;
+
+export function competeCost(level: number): number {
+  return COMPETE_BASE_COST * Math.max(1, level);
+}

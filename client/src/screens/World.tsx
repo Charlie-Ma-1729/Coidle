@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import { ALLIANCE_MAX_ACTIVE, BOARDS, CATEGORY_BY_ID, TRADE_FEE, TRADE_MAX_GOODS, TRADE_MIN_FUNDS, TRADE_MIN_GOODS, categoryHasStock, tradeLimits, NPC_BY_ID, boardValue, jointPromoCost, npcAcceptsAlliance, rankEntries, type BoardId, type DirectoryEntry, type SeasonResult } from "@coidle/shared";
+import { ALLIANCE_MAX_ACTIVE, BOARDS, COMPETE_SELF_MULT, COMPETE_TARGET_MULT, PERSONAS, canCompete, competeCost, CATEGORY_BY_ID, TRADE_FEE, TRADE_MAX_GOODS, TRADE_MIN_FUNDS, TRADE_MIN_GOODS, categoryHasStock, tradeLimits, NPC_BY_ID, boardValue, jointPromoCost, npcAcceptsAlliance, rankEntries, type BoardId, type DirectoryEntry, type SeasonResult } from "@coidle/shared";
 import { api, type AllianceView, type WorldView } from "../api";
 import { Btn, Card, Chip, Empty } from "../components/ui";
 import { moneyShort } from "../format";
@@ -64,6 +64,53 @@ function TradePanel({ entry, onDone }: { entry: DirectoryEntry; onDone: () => vo
         </div>
       ) : (
         <p class="small dim">你的店庫存不夠多，暫時沒有可以調出去的貨。</p>
+      )}
+    </div>
+  );
+}
+
+/** 商戰搶客：只能找等級相近的商場，或以小打大 */
+function CompetePanel({ entry, shieldedUntil, onDone }: { entry: DirectoryEntry; shieldedUntil: number; onDone: () => void }) {
+  const s = state.value!;
+  const [persona, setPersona] = useState<string>("tourist");
+  const [busy, setBusy] = useState(false);
+  const allowed = canCompete(s.level, entry.level);
+  const shielded = shieldedUntil > Date.now();
+  const cost = competeCost(s.level);
+  const go = async () => {
+    const id = mallId.value;
+    if (id === null || busy) return;
+    setBusy(true);
+    try {
+      const r = await api.compete(id, entry.key, persona);
+      toast(r.hurt ? `對「${r.target}」辦了搶客促銷` : `針對「${r.target}」辦了搶客促銷（NPC 商場不會有實際損失）`, "ok");
+      onDone();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "失敗了", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div class="stack" style={{ marginTop: "6px" }}>
+      <p class="small dim">
+        ⚔️ 商戰：針對某一類客人辦促銷。你們那類客人 ×{COMPETE_SELF_MULT}、對方 ×{COMPETE_TARGET_MULT}（約 1 遊戲日）；有冷卻與每日上限。只能找等級相近的商場，或以小打大。
+      </p>
+      {!allowed ? (
+        <p class="small">你們（Lv.{s.level}）比對方（Lv.{entry.level}）大太多，不能出手。</p>
+      ) : (
+        <div class="row">
+          <select value={persona} onChange={(e) => setPersona((e.target as HTMLSelectElement).value)}>
+            {PERSONAS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <Btn small kind="danger" disabled={busy || shielded} onClick={() => void go()}>
+            {shielded ? "對方保護期中" : `辦搶客促銷 ${moneyShort(cost)}`}
+          </Btn>
+        </div>
       )}
     </div>
   );
@@ -225,7 +272,7 @@ export function World() {
                         {i + 1}. {e.kind === "npc" ? "🏢" : "🏬"} {e.name}
                       </b>
                       <span>
-                        {isMine && <Chip tone="pink">你</Chip>} {e.stockouts > 0 && <Chip tone="amber">⚠️ {e.stockouts} 間缺貨</Chip>} <Chip tone={e.kind === "npc" ? "dim" : "cyan"}>{e.kind === "npc" ? "NPC" : "真人"}</Chip>
+                        {isMine && <Chip tone="pink">你</Chip>} {(view?.shields[e.key] ?? 0) > Date.now() && <Chip tone="dim">🛡 保護中</Chip>} {e.stockouts > 0 && <Chip tone="amber">⚠️ {e.stockouts} 間缺貨</Chip>} <Chip tone={e.kind === "npc" ? "dim" : "cyan"}>{e.kind === "npc" ? "NPC" : "真人"}</Chip>
                       </span>
                     </div>
                     <div class="row between small dim">
@@ -246,6 +293,7 @@ export function World() {
                         </>
                       )}
                       {!isMine && e.kind === "player" && <TradePanel entry={e} onDone={() => void load()} />}
+                      {!isMine && <CompetePanel entry={e} shieldedUntil={view?.shields[e.key] ?? 0} onDone={() => void load()} />}
                       {!isMine && (
                         <Btn
                           small

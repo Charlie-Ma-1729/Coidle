@@ -154,6 +154,18 @@ const MIGRATIONS: string[] = [
   CREATE INDEX idx_trades_pair ON trades(from_mall, to_mall, ts);
   ALTER TABLE mall_directory ADD COLUMN stockouts INTEGER NOT NULL DEFAULT 0;
   `,
+  // v7：商戰搶客紀錄（冷卻、保護期與每日上限用）
+  `
+  CREATE TABLE attacks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts INTEGER NOT NULL,
+    attacker INTEGER NOT NULL,
+    target_key TEXT NOT NULL,
+    persona TEXT NOT NULL
+  );
+  CREATE INDEX idx_attacks_target ON attacks(target_key, ts);
+  CREATE INDEX idx_attacks_attacker ON attacks(attacker, ts);
+  `,
 ];
 
 export function openDb(path: string): Db {

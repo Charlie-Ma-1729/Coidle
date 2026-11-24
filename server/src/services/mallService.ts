@@ -31,6 +31,7 @@ import { applyMail } from "../sim/mail";
 import { WorldService } from "../world/world";
 import { AllianceService } from "../world/alliances";
 import { TradeService } from "../world/trade";
+import { CompeteService } from "../world/compete";
 import { ServiceError } from "./errors";
 import type { Repo } from "../db/repo";
 import { advanceTo, applyCommand, createInitialState, migrateState, type Command, type CommandResult } from "../sim";
@@ -184,6 +185,8 @@ export class MallService {
   readonly alliances: AllianceService;
   /** 貿易（調貨與支援） */
   readonly trade: TradeService;
+  /** 商戰搶客 */
+  readonly compete: CompeteService;
   private lastDirectory = new Map<number, number>();
 
   constructor(
@@ -197,6 +200,13 @@ export class MallService {
         const s = this.sync(id);
         return { level: s.level, score: Math.round(mallScore(s) * 10) / 10, funds: s.funds };
       },
+      spend: (id, amount) => this.spend(id, amount),
+      deliver: (id) => {
+        this.sync(id);
+      },
+    });
+    this.compete = new CompeteService(repo, this.world, now, {
+      snapshot: (id) => ({ level: this.sync(id).level }),
       spend: (id, amount) => this.spend(id, amount),
       deliver: (id) => {
         this.sync(id);

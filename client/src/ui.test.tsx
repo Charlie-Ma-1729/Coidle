@@ -151,7 +151,7 @@ describe("screens render with real simulated state", () => {
     const now = WORLD_EPOCH_MS + 3 * 86_400_000;
     const mine = { key: "m:5", kind: "player" as const, name: "我們的商場", tagline: "", level: 2, stars: 3, score: 55, localRep: 60, touristHeat: 58, revenue30: 12_000_000, shops: 9, topCategory: "拉麵", stockouts: 0, updatedAt: now };
     const { api } = await import("./api");
-    api.world = async () => ({ now, season: { index: 0, start: WORLD_EPOCH_MS, end: WORLD_EPOCH_MS + 28 * 86_400_000 }, entries: [mine, ...npcEntries(now)], history: [] });
+    api.world = async () => ({ now, season: { index: 0, start: WORLD_EPOCH_MS, end: WORLD_EPOCH_MS + 28 * 86_400_000 }, entries: [mine, ...npcEntries(now)], history: [], shields: {} });
     const { World } = await import("./screens/World");
     await mount(<World />);
     await tick();
@@ -170,7 +170,7 @@ describe("screens render with real simulated state", () => {
     const { WORLD_EPOCH_MS, npcEntries } = await import("@coidle/shared");
     const now = WORLD_EPOCH_MS + 3 * 86_400_000;
     const { api } = await import("./api");
-    api.world = async () => ({ now, season: { index: 0, start: WORLD_EPOCH_MS, end: WORLD_EPOCH_MS + 28 * 86_400_000 }, entries: npcEntries(now), history: [] });
+    api.world = async () => ({ now, season: { index: 0, start: WORLD_EPOCH_MS, end: WORLD_EPOCH_MS + 28 * 86_400_000 }, entries: npcEntries(now), history: [], shields: {} });
     api.alliances = async () => ({
       alliances: [
         { id: 1, status: "pending" as const, direction: "in" as const, partnerKey: "m:9", partnerName: "鮑伯商場", partnerKind: "player" as const, until: now + 5 * 3_600_000, jointReadyAt: 0 },
@@ -198,7 +198,7 @@ describe("screens render with real simulated state", () => {
     const now = WORLD_EPOCH_MS + 3 * 86_400_000;
     const other = { key: "m:9", kind: "player" as const, name: "鮑伯商場", tagline: "", level: 2, stars: 3, score: 50, localRep: 55, touristHeat: 52, revenue30: 8_000_000, shops: 7, topCategory: "串炸", stockouts: 2, updatedAt: now };
     const { api } = await import("./api");
-    api.world = async () => ({ now, season: { index: 0, start: WORLD_EPOCH_MS, end: WORLD_EPOCH_MS + 28 * 86_400_000 }, entries: [other], history: [] });
+    api.world = async () => ({ now, season: { index: 0, start: WORLD_EPOCH_MS, end: WORLD_EPOCH_MS + 28 * 86_400_000 }, entries: [other], history: [], shields: {} });
     api.alliances = async () => ({ alliances: [] });
     const { World } = await import("./screens/World");
     await mount(<World />);
@@ -211,6 +211,7 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).toContain("送資金");
     expect(container.textContent).toContain("對方有");
     expect(container.textContent).toContain("邀請聯名");
+    expect(container.textContent).toContain("搶客促銷");
   });
 
   it("Reports renders after a few days", async () => {

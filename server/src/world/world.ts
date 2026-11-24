@@ -1,4 +1,5 @@
 import {
+  COMPETE_SHIELD_MS,
   NPC_MALLS,
   SEASON_MIN_AGE_MS,
   SEASON_PARTICIPATION,
@@ -24,6 +25,8 @@ export interface WorldView {
   entries: DirectoryEntry[];
   /** 最近幾季的結果 */
   history: SeasonResult[];
+  /** 暫時受保護、不能被搶客的商場 → 保護到什麼時候 */
+  shields: Record<string, number>;
 }
 
 export class WorldService {
@@ -65,6 +68,7 @@ export class WorldService {
       season: { index: idx, start: r.start, end: r.end },
       entries: this.entries(now),
       history: this.repo.latestSeasons(3).map((x) => JSON.parse(x.result_json) as SeasonResult),
+      shields: this.shields(now),
     };
   }
 
@@ -119,6 +123,13 @@ export class WorldService {
       done.push(result);
     }
     return done;
+  }
+
+  /** 被打到之後的保護期（所有人都看得到，免得白白出手被擋） */
+  shields(at = this.now()): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const r of this.repo.recentAttackTargets(at - COMPETE_SHIELD_MS)) out[r.target_key] = r.last + COMPETE_SHIELD_MS;
+    return out;
   }
 
   /** 前幾名的名次（含 NPC），方便畫面標示「你現在第幾名」 */

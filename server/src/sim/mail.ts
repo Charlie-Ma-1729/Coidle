@@ -43,6 +43,20 @@ export function applyMail(s: MallState, mail: Mail): void {
     case "notice":
       notice(s, str(p.text));
       break;
+    case "poach_hit":
+    case "poach_gain": {
+      const persona = str(p.persona, 12);
+      const known = ["tourist", "local", "commuter", "family", "student", "couple"];
+      if (!known.includes(persona)) break;
+      const hit = mail.kind === "poach_hit";
+      const mult = hit ? Math.min(1, Math.max(0.85, num(p.mult, 0, 2) || 0.9)) : Math.min(1.2, Math.max(1, num(p.mult, 0, 2) || 1.15));
+      const ticks = Math.round(Math.min(288, Math.max(12, num(p.ticks, 0, 1000) || 144)));
+      const rng = createRng(hash32(s.seed ^ 0x90ac, s.tick));
+      applyEffects(s, [{ t: "traffic", persona: persona as never, mult, ticks }], rng);
+      const who = str(p.who, 30) || "對面的商場";
+      notice(s, hit ? `「${who}」辦了針對特定客群的促銷，把我們一部分客人搶走了（暫時的）。` : `針對「${who}」的搶客促銷上線，這一類客人往我們這邊靠過來了。`);
+      break;
+    }
     case "funds_gift": {
       const amount = Math.round(num(p.amount, 0, 20_000_000));
       s.funds += amount;

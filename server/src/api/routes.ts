@@ -355,6 +355,13 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     service.logWorld(mallId, user.display_name, "結束了一份聯名協議（或取消邀請）");
     return { alliances: out };
   });
+  app.post("/api/malls/:id/world/compete", async (req) => {
+    const { mallId, user } = memberOf(req, req.params);
+    const b = body(req);
+    const r = service.compete.attack(mallId, str(b.target, "target", 3, 40), str(b.persona, "persona", 3, 12));
+    service.logWorld(mallId, user.display_name, `對「${r.target}」辦了一場搶客促銷（花費 ¥${r.cost.toLocaleString("en-US")}）`);
+    return r;
+  });
   app.post("/api/malls/:id/world/trade/funds", async (req) => {
     const { mallId, user } = memberOf(req, req.params);
     const b = body(req);

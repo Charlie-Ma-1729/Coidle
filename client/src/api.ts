@@ -51,6 +51,7 @@ export interface WorldView {
   season: { index: number; start: number; end: number };
   entries: DirectoryEntry[];
   history: SeasonResult[];
+  shields: Record<string, number>;
 }
 
 export interface AllianceView {
@@ -86,6 +87,7 @@ export const api = {
   endAlliance: (id: number, aid: number) => request<{ alliances: AllianceView[] }>("POST", `/api/malls/${id}/world/alliance/${aid}/end`, {}),
   tradeFunds: (id: number, target: string, amount: number) => request<{ sent: number; received: number }>("POST", `/api/malls/${id}/world/trade/funds`, { target, amount }),
   tradeGoods: (id: number, target: string, shopId: string, qty: number) => request<{ sent: number; received: number; rescue: boolean }>("POST", `/api/malls/${id}/world/trade/goods`, { target, shopId, qty }),
+  compete: (id: number, target: string, persona: string) => request<{ cost: number; target: string; persona: string; hurt: boolean }>("POST", `/api/malls/${id}/world/compete`, { target, persona }),
   jointPromo: (id: number, aid: number) => request<{ alliances: AllianceView[]; cost: number }>("POST", `/api/malls/${id}/world/alliance/${aid}/joint`, {}),
   contentEvents: () => request<{ events: EventDef[] }>("GET", "/api/content/events"),
   contentRegulars: () => request<{ regulars: RegularDef[] }>("GET", "/api/content/regulars"),
