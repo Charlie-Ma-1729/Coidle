@@ -602,10 +602,12 @@ export interface WorldState {
   notices: { tick: number; text: string }[];
   /** 已經收下的信件數 */
   mailCount: number;
+  /** 生效中的聯名協議（以這座商場自己的遊戲時間計算期限） */
+  alliances: { id: number; partner: string; endTick: number }[];
 }
 
 export interface MallState {
-  version: 12;
+  version: 13;
   clock: MallClock;
   seed: number;
   tick: number;

@@ -279,4 +279,29 @@ export class Repo {
   pendingMailCount(toMall: number): number {
     return (this.db.prepare("SELECT COUNT(*) AS n FROM mall_mailbox WHERE to_mall = ? AND status = 'pending'").get(toMall) as { n: number }).n;
   }
+
+  // ── 聯名協議
+  addAlliance(a: string, b: string, status: string, createdAt: number, expiresAt: number, startedAt: number | null, endsAt: number | null): number {
+    const r = this.db.prepare("INSERT INTO alliances (a_key, b_key, status, created_at, expires_at, started_at, ends_at) VALUES (?, ?, ?, ?, ?, ?, ?)").run(a, b, status, createdAt, expiresAt, startedAt, endsAt);
+    return Number(r.lastInsertRowid);
+  }
+  allianceById(id: number): unknown {
+    return this.db.prepare("SELECT * FROM alliances WHERE id = ?").get(id);
+  }
+  alliancesOf(key: string, statuses: string[]): unknown[] {
+    const marks = statuses.map(() => "?").join(",");
+    return this.db.prepare(`SELECT * FROM alliances WHERE (a_key = ? OR b_key = ?) AND status IN (${marks}) ORDER BY id`).all(key, key, ...statuses);
+  }
+  alliancesByStatus(status: string): unknown[] {
+    return this.db.prepare("SELECT * FROM alliances WHERE status = ? ORDER BY id").all(status);
+  }
+  setAllianceStatus(id: number, status: string): void {
+    this.db.prepare("UPDATE alliances SET status = ? WHERE id = ?").run(status, id);
+  }
+  activateAlliance(id: number, startedAt: number, endsAt: number): void {
+    this.db.prepare("UPDATE alliances SET status = 'active', started_at = ?, ends_at = ? WHERE id = ?").run(startedAt, endsAt, id);
+  }
+  setAllianceJoint(id: number, at: number): void {
+    this.db.prepare("UPDATE alliances SET last_joint_at = ? WHERE id = ?").run(at, id);
+  }
 }

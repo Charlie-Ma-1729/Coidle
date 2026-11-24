@@ -28,17 +28,12 @@ import {
 import { newInviteCode } from "../auth/password";
 import { applyMail } from "../sim/mail";
 import { WorldService } from "../world/world";
+import { AllianceService } from "../world/alliances";
+import { ServiceError } from "./errors";
 import type { Repo } from "../db/repo";
 import { advanceTo, applyCommand, createInitialState, migrateState, type Command, type CommandResult } from "../sim";
 
-export class ServiceError extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-  ) {
-    super(message);
-  }
-}
+export { ServiceError };
 
 export type Broadcast = (mallId: number, msg: ServerMessage) => void;
 
@@ -183,6 +178,8 @@ export class MallService {
   private connections = new Map<number, number>();
   /** 跨商場世界：公開名錄、賽季 */
   readonly world: WorldService;
+  /** 聯名協議（跨商場合作） */
+  readonly alliances: AllianceService;
   private lastDirectory = new Map<number, number>();
 
   constructor(
@@ -191,6 +188,29 @@ export class MallService {
     private notifier: Notifier | null = null,
   ) {
     this.world = new WorldService(repo, now);
+    this.alliances = new AllianceService(repo, this.world, now, {
+      snapshot: (id) => {
+        const s = this.sync(id);
+        return { level: s.level, score: Math.round(mallScore(s) * 10) / 10, funds: s.funds };
+      },
+      spend: (id, amount) => this.spend(id, amount),
+      deliver: (id) => {
+        this.sync(id);
+      },
+    });
+  }
+
+  /** 從商場扣款（同步、原子，給伺服器層的跨商場行動用）；錢不夠回傳 false */
+  private spend(mallId: number, amount: number): boolean {
+    const s = this.sync(mallId);
+    if (s.funds < amount) return false;
+    const next = structuredClone(s);
+    next.funds -= amount;
+    next.today.purchases += amount;
+    this.cache.set(mallId, next);
+    this.persist(mallId, next);
+    this.emit(mallId, { type: "state", mallId, state: toPublic(next) });
+    return true;
   }
 
   setNotifier(n: Notifier | null): void {
@@ -269,6 +289,7 @@ export class MallService {
     const count = this.repo.memberCount(mallId);
     if (m.is_owner && count > 1) throw new ServiceError(409, "你是創辦人，請先把創辦人轉讓給其他成員");
     if (count <= 1) {
+      this.alliances.dropMall(mallId);
       this.repo.deleteMall(mallId);
       this.forget(mallId);
       return { dissolved: true };
@@ -326,7 +347,8 @@ export class MallService {
 
   /** 管理用：解散商場 */
   dissolveMall(mallId: number): void {
-    this.repo.deleteMall(mallId);
+    this.alliances.dropMall(mallId);
+      this.repo.deleteMall(mallId);
     this.forget(mallId);
   }
 
@@ -531,6 +553,11 @@ export class MallService {
     return toPublic(next);
   }
 
+  /** 團隊動態：跨商場行動（聯名等）留下紀錄 */
+  logWorld(mallId: number, actor: string, text: string): void {
+    this.logActivity(mallId, actor, `${actor} ${text}`);
+  }
+
   private logActivity(mallId: number, actor: string, text: string): void {
     const entry = this.repo.addActivity(mallId, this.now(), actor, text);
     this.emit(mallId, { type: "activity", mallId, entry });
@@ -562,8 +589,9 @@ export class MallService {
     try {
       // 賽季結算要用剛更新過的名錄；有發出獎勵就立刻讓各商場收下
       if (this.world.settleSeasons().length > 0) run();
+      this.alliances.tick();
     } catch (e) {
-      console.error("season settlement failed", e);
+      console.error("world tick failed", e);
     }
   }
 }

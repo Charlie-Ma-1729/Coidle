@@ -277,7 +277,7 @@ describe("mail application is safe and clamped", () => {
     v11.version = 11;
     delete v11.world;
     const m = migrateState(v11, 0);
-    expect(m.version).toBe(12);
-    expect(m.world).toEqual({ seasons: [], notices: [], mailCount: 0 });
+    expect(m.version).toBe(13);
+    expect(m.world).toEqual({ seasons: [], notices: [], mailCount: 0, alliances: [] });
   });
 });

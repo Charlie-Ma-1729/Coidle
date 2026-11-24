@@ -164,6 +164,33 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).toContain("還沒有賽季成績");
   });
 
+  it("World lists alliances with accept/decline for invitations and a joint-promo button for active ones", async () => {
+    store.state.value = publicState(2);
+    store.mallId.value = 5;
+    const { WORLD_EPOCH_MS, npcEntries } = await import("@coidle/shared");
+    const now = WORLD_EPOCH_MS + 3 * 86_400_000;
+    const { api } = await import("./api");
+    api.world = async () => ({ now, season: { index: 0, start: WORLD_EPOCH_MS, end: WORLD_EPOCH_MS + 28 * 86_400_000 }, entries: npcEntries(now), history: [] });
+    api.alliances = async () => ({
+      alliances: [
+        { id: 1, status: "pending" as const, direction: "in" as const, partnerKey: "m:9", partnerName: "鮑伯商場", partnerKind: "player" as const, until: now + 5 * 3_600_000, jointReadyAt: 0 },
+        { id: 2, status: "active" as const, direction: "both" as const, partnerKey: "n:harbor", partnerName: "港灣大賣場", partnerKind: "npc" as const, until: now + 6 * 86_400_000, jointReadyAt: 0 },
+      ],
+    });
+    const { World } = await import("./screens/World");
+    await mount(<World />);
+    await tick();
+    await tick();
+    const text = container.textContent ?? "";
+    expect(text).toContain("聯名協議");
+    expect(text).toContain("鮑伯商場");
+    expect(text).toContain("對方邀請你");
+    expect(text).toContain("接受");
+    expect(text).toContain("婉拒");
+    expect(text).toContain("辦聯名活動");
+    expect(text).toContain("結束協議");
+  });
+
   it("Reports renders after a few days", async () => {
     store.state.value = publicState(4);
     const { Reports } = await import("./screens/Reports");

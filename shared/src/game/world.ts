@@ -1,6 +1,8 @@
 import { RIVAL_BY_ID } from "./rivals";
 import type { WorldState } from "./types";
 
+export * from "./coop";
+
 // 跨商場的「世界」：全服公開的商場名錄（真人商場＋NPC 商場）、排行榜與賽季。
 // 這裡只放純函式與常數；商場之間不會直接讀彼此的狀態，只透過伺服器層的名錄與信箱。
 
@@ -158,5 +160,5 @@ export function canCompete(attackerLevel: number, targetLevel: number): boolean 
 }
 
 export function newWorldState(): WorldState {
-  return { seasons: [], notices: [], mailCount: 0 };
+  return { seasons: [], notices: [], mailCount: 0, alliances: [] };
 }

@@ -33,6 +33,12 @@ function body(req: { body: unknown }): Record<string, unknown> {
   return req.body as Record<string, unknown>;
 }
 
+function aidOf(params: unknown): number {
+  const id = Number((params as { aid?: string }).aid);
+  if (!Number.isInteger(id) || id < 1) throw new ServiceError(400, "協議編號無效");
+  return id;
+}
+
 function mallIdOf(params: unknown): number {
   const id = Number((params as { id?: string }).id);
   if (!Number.isInteger(id) || id < 1) throw new ServiceError(400, "商場編號無效");
@@ -316,6 +322,44 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   app.get("/api/world", async (req) => {
     requireUser(req, repo, now());
     return service.world.view();
+  });
+
+  // ── 聯名協議（跨商場合作）：只有該商場的成員能操作
+  const memberOf = (req: Parameters<typeof requireUser>[0], params: unknown) => {
+    const mallId = mallIdOf(params);
+    const { user } = requireMember(req, mallId);
+    return { user, mallId };
+  };
+  app.get("/api/malls/:id/world/alliances", async (req) => {
+    const { mallId } = memberOf(req, req.params);
+    return { alliances: service.alliances.list(mallId) };
+  });
+  app.post("/api/malls/:id/world/alliance", async (req) => {
+    const { mallId, user } = memberOf(req, req.params);
+    const b = body(req);
+    const out = service.alliances.propose(mallId, str(b.target, "target", 3, 40));
+    service.logWorld(mallId, user.display_name, "送出了一份聯名邀請（或簽下聯名協議）");
+    return { alliances: out };
+  });
+  app.post("/api/malls/:id/world/alliance/:aid/respond", async (req) => {
+    const { mallId, user } = memberOf(req, req.params);
+    const b = body(req);
+    if (typeof b.accept !== "boolean") throw new ServiceError(400, "請選擇接受或婉拒");
+    const out = service.alliances.respond(mallId, aidOf(req.params), b.accept);
+    service.logWorld(mallId, user.display_name, b.accept ? "接受了一份聯名協議" : "婉拒了一份聯名邀請");
+    return { alliances: out };
+  });
+  app.post("/api/malls/:id/world/alliance/:aid/end", async (req) => {
+    const { mallId, user } = memberOf(req, req.params);
+    const out = service.alliances.end(mallId, aidOf(req.params));
+    service.logWorld(mallId, user.display_name, "結束了一份聯名協議（或取消邀請）");
+    return { alliances: out };
+  });
+  app.post("/api/malls/:id/world/alliance/:aid/joint", async (req) => {
+    const { mallId, user } = memberOf(req, req.params);
+    const out = service.alliances.joint(mallId, aidOf(req.params));
+    service.logWorld(mallId, user.display_name, `辦了一場聯名活動（花費 ¥${out.cost.toLocaleString("en-US")}）`);
+    return { alliances: out.views, cost: out.cost };
   });
 
   // ── AI 內容管理（需要 ADMIN_TOKEN）

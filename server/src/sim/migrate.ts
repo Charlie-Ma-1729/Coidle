@@ -20,10 +20,11 @@ import { syncWorkshop } from "./workshop";
  * v9 → v10：加入目標、團隊事件、成就與線索收集。
  * v10 → v11：各區基本店面數增加（補上新店面）。
  * v11 → v12：加入跨商場世界的紀錄（賽季成績、通知）。
+ * v12 → v13：聯名協議（跨商場合作）。
  */
 export function migrateState(raw: unknown, nowMs: number): MallState {
   const s = raw as Record<string, unknown> & { version?: number; tick: number; today?: Record<string, unknown> };
-  if (s.version === 12) return s as unknown as MallState;
+  if (s.version === 13) return s as unknown as MallState;
   if (s.version === 1 || s.version === undefined) {
     delete s.protection;
     delete s.lastActionTick;
@@ -94,6 +95,10 @@ export function migrateState(raw: unknown, nowMs: number): MallState {
   if (s.version === 11) {
     s.world = newWorldState();
     s.version = 12;
+  }
+  if (s.version === 12) {
+    (s.world as { alliances?: unknown[] }).alliances ??= [];
+    s.version = 13;
   }
   return s as unknown as MallState;
 }

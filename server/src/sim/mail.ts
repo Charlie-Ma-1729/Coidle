@@ -1,4 +1,6 @@
-import type { MallState } from "@coidle/shared";
+import { ALLIANCE_MAX_ACTIVE, JOINT_PROMO_MULT, JOINT_PROMO_TICKS, TICKS_PER_DAY, type MallState } from "@coidle/shared";
+import { applyEffects } from "./events";
+import { createRng, hash32 } from "./rng";
 import { addLog } from "./state";
 
 // 跨商場的信件：伺服器層把「寄給這座商場、已到期」的信交給商場，由這裡轉成這座商場自己的變化。
@@ -41,6 +43,38 @@ export function applyMail(s: MallState, mail: Mail): void {
     case "notice":
       notice(s, str(p.text));
       break;
+    case "alliance_start": {
+      const id = Math.round(num(p.id, 0, 1e9));
+      const partner = str(p.partner, 30) || "友好商場";
+      const days = Math.round(num(p.days, 1, 90)) || 28;
+      s.world.alliances = s.world.alliances.filter((a) => a.endTick > s.tick && a.id !== id);
+      if (s.world.alliances.length >= ALLIANCE_MAX_ACTIVE) break; // 名額滿了（伺服器已先擋過，這裡是保險）
+      s.world.alliances.push({ id, partner, endTick: s.tick + days * TICKS_PER_DAY });
+      notice(s, `和「${partner}」的聯名協議開始了：雙方互相導客，客流小幅增加。`);
+      break;
+    }
+    case "alliance_end": {
+      const id = Math.round(num(p.id, 0, 1e9));
+      const had = s.world.alliances.find((a) => a.id === id);
+      s.world.alliances = s.world.alliances.filter((a) => a.id !== id);
+      if (had) notice(s, str(p.text, 80) || `和「${had.partner}」的聯名協議結束了。`);
+      break;
+    }
+    case "joint_promo": {
+      const partner = str(p.partner, 30) || "友好商場";
+      const rng = createRng(hash32(s.seed ^ 0x701a, s.tick));
+      applyEffects(
+        s,
+        [
+          { t: "traffic", persona: "all", mult: JOINT_PROMO_MULT, ticks: JOINT_PROMO_TICKS },
+          { t: "index", which: "localRep", amount: 0.4 },
+          { t: "index", which: "touristHeat", amount: 0.4 },
+        ],
+        rng,
+      );
+      notice(s, `和「${partner}」的聯名活動開跑，兩邊的客人都變多了。`);
+      break;
+    }
     default:
       break;
   }

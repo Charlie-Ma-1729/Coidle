@@ -1,4 +1,5 @@
 import { PERSONA_BY_ID, PERSONA_IDS } from "./data";
+import { ALLIANCE_BONUS, COOP_BONUS_CAP, allianceCount } from "./coop";
 import type { MallState, PersonaId, RivalCampaignKind, RivalDef, RivalState } from "./types";
 
 // 商戰：附近有幾座 NPC 對手商場，各有風格。他們會自己辦活動、價格戰、出醜聞，
@@ -130,7 +131,7 @@ export function rivalScore(r: RivalState, tick: number): number {
  * 對手對你各類客人客流的影響：你比對手平均強就大於 1，弱就小於 1。
  * 簽了合作協議的對手，會讓你多一點點好處。
  */
-export function rivalMult(s: Pick<MallState, "rivals" | "localRep" | "touristHeat" | "shops" | "level" | "tick">, persona: PersonaId): number {
+export function rivalMult(s: Pick<MallState, "rivals" | "localRep" | "touristHeat" | "shops" | "level" | "tick"> & Partial<Pick<MallState, "world">>, persona: PersonaId): number {
   const list = s.rivals.list;
   if (list.length === 0) return 1;
   let sum = 0;
@@ -140,7 +141,9 @@ export function rivalMult(s: Pick<MallState, "rivals" | "localRep" | "touristHea
     if (r.pactUntil > s.tick) pacts++;
   }
   const mean = sum / list.length;
-  const m = 1 + (playerAppeal(s, persona) - mean) * 0.006 + Math.min(2, pacts) * 0.03;
+  // 商戰合作協議與跨商場聯名協議的導客加成合計有上限
+  const coop = Math.min(COOP_BONUS_CAP, pacts * 0.03 + allianceCount(s) * ALLIANCE_BONUS);
+  const m = 1 + (playerAppeal(s, persona) - mean) * 0.006 + coop;
   return Math.min(1.3, Math.max(0.75, m));
 }
 

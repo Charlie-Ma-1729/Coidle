@@ -446,7 +446,7 @@ describe("determinism and migration", () => {
     delete v4.promos;
     delete v4.inspections;
     const m = migrateState(v4, 0);
-    expect(m.version).toBe(12);
+    expect(m.version).toBe(13);
     expect(m.promos.active).toEqual([]);
     expect(m.inspections.nextAt.hygiene).toBeGreaterThan(500);
     expect(m.today.systemNotes).toEqual([]);

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "preact/hooks";
-import { BOARDS, NPC_BY_ID, boardValue, rankEntries, type BoardId, type DirectoryEntry, type SeasonResult } from "@coidle/shared";
-import { api, type WorldView } from "../api";
+import { ALLIANCE_MAX_ACTIVE, BOARDS, NPC_BY_ID, boardValue, jointPromoCost, npcAcceptsAlliance, rankEntries, type BoardId, type DirectoryEntry, type SeasonResult } from "@coidle/shared";
+import { api, type AllianceView, type WorldView } from "../api";
 import { Btn, Card, Chip, Empty } from "../components/ui";
 import { moneyShort } from "../format";
-import { mallId, state } from "../store";
+import { mallId, state, toast } from "../store";
 
 const DAY = 86_400_000;
 const stars = (n: number) => "★".repeat(n) + "☆".repeat(5 - n);
@@ -20,6 +20,8 @@ export function World() {
   const [err, setErr] = useState("");
   const [board, setBoard] = useState<BoardId>("score");
   const [open, setOpen] = useState<string | null>(null);
+  const [alliances, setAlliances] = useState<AllianceView[]>([]);
+  const [busy, setBusy] = useState(false);
 
   const load = () =>
     api.world().then(
@@ -29,9 +31,34 @@ export function World() {
       },
       (e) => setErr(e instanceof Error ? e.message : "讀取失敗"),
     );
+  const loadAlliances = () => {
+    const id = mallId.value;
+    if (id === null) return Promise.resolve();
+    return api.alliances(id).then(
+      (r) => setAlliances(r.alliances),
+      () => undefined,
+    );
+  };
   useEffect(() => {
     void load();
+    void loadAlliances();
   }, []);
+
+  /** 跨商場的行動：成功就更新協議列表，失敗把原因顯示出來 */
+  const act = async (fn: (id: number) => Promise<{ alliances: AllianceView[] } & { cost?: number }>, okText: string) => {
+    const id = mallId.value;
+    if (id === null || busy) return;
+    setBusy(true);
+    try {
+      const r = await fn(id);
+      setAlliances(r.alliances);
+      toast(okText, "ok");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "失敗了", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (!s) return null;
   const mine = `m:${mallId.value}`;
@@ -39,6 +66,7 @@ export function World() {
   const myRank = ranked.findIndex((e) => e.key === mine) + 1;
   const daysLeft = view ? Math.max(0, Math.ceil((view.season.end - view.now) / DAY)) : 0;
   const last: SeasonResult | undefined = view?.history[0];
+  const myScore = view?.entries.find((e) => e.key === mine)?.score ?? 0;
 
   return (
     <>
@@ -63,6 +91,59 @@ export function World() {
               </p>
             )}
             <p class="small dim">這裡只看得到公開資料：名稱、等級、星級、評分、口碑、近 30 天營收與店數。對方的資金與經營細節看不到。</p>
+          </div>
+        )}
+      </Card>
+
+      <Card title="🤝 聯名協議" right={<Chip tone="dim">{alliances.filter((a) => a.status === "active").length}／{ALLIANCE_MAX_ACTIVE}</Chip>}>
+        {alliances.length === 0 ? (
+          <Empty>還沒有聯名。到下面的名錄點一座商場，邀請他們聯名：雙方互相導客（客流 +3%），還能一起辦聯名活動。</Empty>
+        ) : (
+          <div class="stack">
+            {alliances.map((a) => {
+              const left = Math.max(0, a.until - (view?.now ?? Date.now()));
+              const cd = Math.max(0, a.jointReadyAt - (view?.now ?? Date.now()));
+              return (
+                <div class="tenant" key={a.id}>
+                  <div class="row between">
+                    <b>
+                      {a.partnerKind === "npc" ? "🏢" : "🏬"} {a.partnerName}
+                    </b>
+                    <Chip tone={a.status === "active" ? "green" : "amber"}>{a.status === "active" ? "生效中" : a.direction === "in" ? "對方邀請你" : "已送出邀請"}</Chip>
+                  </div>
+                  <p class="small dim">
+                    {a.status === "active" ? `約 ${Math.ceil(left / DAY)} 個真實日後到期（以遊戲時間算約 28 遊戲日）` : `${Math.max(1, Math.ceil(left / 3_600_000))} 小時內有效，逾時視為婉拒`}
+                  </p>
+                  <div class="row">
+                    {a.status === "pending" && a.direction === "in" && (
+                      <>
+                        <Btn small kind="primary" disabled={busy} onClick={() => void act((id) => api.respondAlliance(id, a.id, true), "簽下聯名協議")}>
+                          接受
+                        </Btn>
+                        <Btn small disabled={busy} onClick={() => void act((id) => api.respondAlliance(id, a.id, false), "已婉拒")}>
+                          婉拒
+                        </Btn>
+                      </>
+                    )}
+                    {a.status === "pending" && a.direction === "out" && (
+                      <Btn small disabled={busy} onClick={() => void act((id) => api.endAlliance(id, a.id), "已取消邀請")}>
+                        取消邀請
+                      </Btn>
+                    )}
+                    {a.status === "active" && (
+                      <>
+                        <Btn small kind="primary" disabled={busy || cd > 0} onClick={() => void act((id) => api.jointPromo(id, a.id), "聯名活動開跑")}>
+                          {cd > 0 ? `聯名活動（${Math.ceil(cd / 3_600_000)} 小時後可再辦）` : `辦聯名活動 ${moneyShort(jointPromoCost(s.level))}`}
+                        </Btn>
+                        <Btn small disabled={busy} onClick={() => confirm(`結束和「${a.partnerName}」的聯名協議？`) && void act((id) => api.endAlliance(id, a.id), "已結束聯名")}>
+                          結束協議
+                        </Btn>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </Card>
@@ -107,6 +188,15 @@ export function World() {
                           <p>「{npc.tagline}」</p>
                           <p class="dim">{npc.bio}</p>
                         </>
+                      )}
+                      {!isMine && (
+                        <Btn
+                          small
+                          disabled={busy || alliances.some((a) => a.partnerKey === e.key)}
+                          onClick={() => void act((id) => api.proposeAlliance(id, e.key), e.kind === "npc" ? "簽下聯名協議" : "已送出邀請")}
+                        >
+                          {alliances.some((a) => a.partnerKey === e.key) ? "已有協議或邀請" : e.kind === "npc" && !npcAcceptsAlliance(e.score, myScore) ? "邀請聯名（對方可能覺得你還不夠格）" : "🤝 邀請聯名"}
+                        </Btn>
                       )}
                       <p class="dim">
                         綜合分數 {e.score.toFixed(1)}・在地口碑 {e.localRep.toFixed(0)}・觀光熱度 {e.touristHeat.toFixed(0)}・近 30 天營收 {moneyShort(e.revenue30)}・{e.shops} 間店

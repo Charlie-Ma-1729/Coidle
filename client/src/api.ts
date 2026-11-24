@@ -53,6 +53,17 @@ export interface WorldView {
   history: SeasonResult[];
 }
 
+export interface AllianceView {
+  id: number;
+  status: "pending" | "active";
+  direction: "in" | "out" | "both";
+  partnerKey: string;
+  partnerName: string;
+  partnerKind: "player" | "npc";
+  until: number;
+  jointReadyAt: number;
+}
+
 export interface MallInfo {
   id: number;
   name: string;
@@ -69,6 +80,11 @@ export const api = {
   createMall: (name: string) => request<{ id: number; inviteCode: string }>("POST", "/api/malls", { name }),
   joinMall: (code: string, role?: RoleId) => request<{ id: number }>("POST", "/api/malls/join", { code, role }),
   world: () => request<WorldView>("GET", "/api/world"),
+  alliances: (id: number) => request<{ alliances: AllianceView[] }>("GET", `/api/malls/${id}/world/alliances`),
+  proposeAlliance: (id: number, target: string) => request<{ alliances: AllianceView[] }>("POST", `/api/malls/${id}/world/alliance`, { target }),
+  respondAlliance: (id: number, aid: number, accept: boolean) => request<{ alliances: AllianceView[] }>("POST", `/api/malls/${id}/world/alliance/${aid}/respond`, { accept }),
+  endAlliance: (id: number, aid: number) => request<{ alliances: AllianceView[] }>("POST", `/api/malls/${id}/world/alliance/${aid}/end`, {}),
+  jointPromo: (id: number, aid: number) => request<{ alliances: AllianceView[]; cost: number }>("POST", `/api/malls/${id}/world/alliance/${aid}/joint`, {}),
   contentEvents: () => request<{ events: EventDef[] }>("GET", "/api/content/events"),
   contentRegulars: () => request<{ regulars: RegularDef[] }>("GET", "/api/content/regulars"),
   mall: (id: number) => request<MallInfo>("GET", `/api/malls/${id}`),

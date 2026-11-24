@@ -125,6 +125,21 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX idx_mailbox_to ON mall_mailbox(to_mall, status, deliver_at);
   `,
+  // v5：聯名協議（跨商場合作）
+  `
+  CREATE TABLE alliances (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    a_key TEXT NOT NULL,
+    b_key TEXT NOT NULL,
+    status TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL,
+    started_at INTEGER,
+    ends_at INTEGER,
+    last_joint_at INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE INDEX idx_alliances_status ON alliances(status);
+  `,
 ];
 
 export function openDb(path: string): Db {
