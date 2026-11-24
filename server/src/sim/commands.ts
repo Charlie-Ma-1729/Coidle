@@ -1,0 +1,184 @@
+import {
+  CATEGORY_BY_ID,
+  MAX_SHOP_LEVEL,
+  REFRESH_COST,
+  REFRESH_GAIN,
+  SUPPLY_LOT,
+  UPGRADE_BASE_COST,
+  UPGRADE_TICKS,
+  categoryHasStock,
+  type MallState,
+  type RestockRule,
+} from "@coidle/shared";
+import { resolveChoice } from "./events";
+import { rngForTick } from "./rng";
+import { addLog, isFeatureEnabled, isZoneUnlocked, nextId } from "./state";
+import { placeOrder } from "./step";
+
+export type Command =
+  | { type: "touch" }
+  | { type: "setPrice"; shopId: string; price: number }
+  | { type: "setHours"; open: number; close: number }
+  | { type: "setRestock"; shopId: string; rule: Partial<RestockRule> }
+  | { type: "orderStock"; shopId: string; qty: number }
+  | { type: "setCleaning"; level: 0 | 1 | 2 }
+  | { type: "setMaintenance"; level: 0 | 1 | 2 }
+  | { type: "buildShop"; slot: number; category: string }
+  | { type: "upgradeShop"; shopId: string }
+  | { type: "refreshShop"; shopId: string }
+  | { type: "resolveEvent"; uid: string; optionId: string }
+  | { type: "setLease"; shopId: string; enabled: boolean; rent?: number; commission?: number };
+
+export type CommandResult = { ok: true; state: MallState } | { ok: false; error: string };
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+const isInt = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v);
+
+/**
+ * 套用玩家指令。呼叫前請先把狀態推進到「現在」（advanceTo），
+ * 才能確保指令作用在與離線結算一致的時間點上。
+ * 回傳新的狀態（不修改傳入的物件）。
+ */
+export function applyCommand(state: MallState, cmd: Command): CommandResult {
+  const s = structuredClone(state);
+  const err = (error: string): CommandResult => ({ ok: false, error });
+  const findShop = (id: string) => s.shops.find((x) => x.id === id);
+
+  switch (cmd.type) {
+    case "touch":
+      break;
+
+    case "setPrice": {
+      const shop = findShop(cmd.shopId);
+      if (!shop) return err("找不到這間店");
+      if (typeof cmd.price !== "number" || !Number.isFinite(cmd.price)) return err("價格無效");
+      const cat = CATEGORY_BY_ID[shop.category];
+      if (!cat) return err("業態無效");
+      shop.price = Math.round(clamp(cmd.price, cat.refPrice * 0.5, cat.refPrice * 2.5));
+      break;
+    }
+
+    case "setHours": {
+      if (!isInt(cmd.open) || !isInt(cmd.close) || cmd.open < 0 || cmd.close > 24 || cmd.close - cmd.open < 4) {
+        return err("營業時間至少 4 小時，且須在 0–24 點之間");
+      }
+      s.hours = { open: cmd.open, close: cmd.close };
+      break;
+    }
+
+    case "setRestock": {
+      const shop = findShop(cmd.shopId);
+      if (!shop) return err("找不到這間店");
+      const r = cmd.rule;
+      const next: RestockRule = { ...shop.restock };
+      if (typeof r.enabled === "boolean") next.enabled = r.enabled;
+      if (typeof r.min === "number") next.min = Math.max(0, Math.round(r.min));
+      if (typeof r.target === "number") next.target = Math.max(0, Math.round(r.target));
+      if (typeof r.dailyBudget === "number") next.dailyBudget = Math.max(0, Math.round(r.dailyBudget));
+      if (next.target < next.min) return err("補貨目標不可低於下限");
+      shop.restock = next;
+      break;
+    }
+
+    case "orderStock": {
+      const shop = findShop(cmd.shopId);
+      if (!shop) return err("找不到這間店");
+      const cat = CATEGORY_BY_ID[shop.category];
+      if (!cat || !categoryHasStock(cat)) return err("這種店不需要進貨");
+      if (shop.mode === "lease") return err("出租的店由租戶自行進貨");
+      if (!isInt(cmd.qty) || cmd.qty < SUPPLY_LOT || cmd.qty % SUPPLY_LOT !== 0 || cmd.qty > 2000) {
+        return err(`進貨量須為 ${SUPPLY_LOT} 的倍數（最多 2000）`);
+      }
+      placeOrder(s, shop, cmd.qty);
+      addLog(s, "order", `手動向盤商訂購「${shop.name}」${cmd.qty} 份。`);
+      break;
+    }
+
+    case "setCleaning":
+      if (![0, 1, 2].includes(cmd.level)) return err("等級無效");
+      s.cleaningLevel = cmd.level;
+      break;
+
+    case "setMaintenance":
+      if (![0, 1, 2].includes(cmd.level)) return err("等級無效");
+      s.maintenanceLevel = cmd.level;
+      break;
+
+    case "buildShop": {
+      const slot = s.slots[cmd.slot];
+      const cat = CATEGORY_BY_ID[cmd.category];
+      if (!slot || !cat) return err("店面或業態無效");
+      if (cat.zone !== slot.zone) return err("這個業態不能開在這個區域");
+      if (!isZoneUnlocked(s, slot.zone)) return err("這個區域尚未解鎖");
+      if (slot.shopId || s.builds.some((b) => b.slot === slot.id)) return err("這個店面已被使用或正在施工");
+      if (s.funds < cat.buildCost) return err("資金不足");
+      s.funds -= cat.buildCost;
+      s.builds.push({
+        id: nextId(s, "bld"),
+        kind: "open",
+        slot: slot.id,
+        category: cat.id,
+        completeTick: s.tick + cat.buildTicks,
+        cost: cat.buildCost,
+      });
+      addLog(s, "build", `開始興建「${cat.name}」。`);
+      break;
+    }
+
+    case "upgradeShop": {
+      const shop = findShop(cmd.shopId);
+      if (!shop) return err("找不到這間店");
+      if (shop.level >= MAX_SHOP_LEVEL) return err("已達最高等級");
+      if (s.builds.some((b) => b.shopId === shop.id)) return err("正在翻新中");
+      const cost = UPGRADE_BASE_COST * shop.level;
+      if (s.funds < cost) return err("資金不足");
+      s.funds -= cost;
+      s.builds.push({
+        id: nextId(s, "bld"),
+        kind: "upgrade",
+        slot: shop.slot,
+        shopId: shop.id,
+        completeTick: s.tick + UPGRADE_TICKS,
+        cost,
+      });
+      addLog(s, "build", `「${shop.name}」開始翻新。`);
+      break;
+    }
+
+    case "refreshShop": {
+      const shop = findShop(cmd.shopId);
+      if (!shop) return err("找不到這間店");
+      if (shop.mode === "lease") return err("出租的店由租戶自行更新");
+      const cost = REFRESH_COST * shop.level;
+      if (s.funds < cost) return err("資金不足");
+      if (shop.freshness >= 90) return err("才剛更新過，客人還很新鮮");
+      s.funds -= cost;
+      shop.freshness = Math.min(100, shop.freshness + REFRESH_GAIN);
+      addLog(s, "info", `「${shop.name}」推出新菜單／新活動，新鮮感回升了。`);
+      break;
+    }
+
+    case "resolveEvent": {
+      if (!resolveChoice(s, cmd.uid, cmd.optionId, rngForTick(s.seed, s.tick ^ 0x5bd1e995))) {
+        return err("事件不存在或選項無效");
+      }
+      break;
+    }
+
+    case "setLease": {
+      if (!isFeatureEnabled(s, "lease")) return err("出租功能尚未開放");
+      const shop = findShop(cmd.shopId);
+      if (!shop) return err("找不到這間店");
+      shop.mode = cmd.enabled ? "lease" : "direct";
+      if (cmd.rent !== undefined) shop.rent = Math.round(clamp(cmd.rent, 0, 1_000_000));
+      if (cmd.commission !== undefined) shop.commission = clamp(cmd.commission, 0, 0.4);
+      break;
+    }
+
+    default:
+      return err("未知的指令");
+  }
+
+  s.lastActionTick = s.tick;
+  return { ok: true, state: s };
+}

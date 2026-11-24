@@ -1,6 +1,5 @@
-/** 模擬時間單位：1 tick = 5 分鐘 */
-export const TICK_MINUTES = 5;
-export const TICKS_PER_DAY = (24 * 60) / TICK_MINUTES; // 288
+export * from "./game/types";
+export * from "./game/data";
 
 export interface HealthResponse {
   ok: true;
