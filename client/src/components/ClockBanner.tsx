@@ -1,5 +1,6 @@
 import { EVENT_BY_ID, isPaused } from "@coidle/shared";
 import { busy, run, setClock, state } from "../store";
+import { InspectionCard } from "./InspectionCard";
 import { Btn } from "./ui";
 
 /** 時間暫停時顯示在所有畫面頂部：說明原因，並讓任何成員一鍵恢復或處理事件 */
@@ -8,12 +9,13 @@ export function ClockBanner() {
   if (!s || !isPaused(s.clock)) return null;
   const c = s.clock;
   const waiting = s.pending.filter((p) => c.holds.events.includes(p.uid));
+  const notices = s.inspections.pending.filter((n) => c.holds.events.includes(n.uid));
 
-  if (waiting.length > 0) {
+  if (waiting.length > 0 || notices.length > 0) {
     return (
       <div class="clock-banner event">
         <div class="cb-head">
-          <b>⏸ 時間已暫停：有重要事件等你決定</b>
+          <b>⏸ 時間已暫停：有重要的事等你決定</b>
           <span class="small dim">處理完時間會自動繼續，期限不會流失。</span>
         </div>
         {waiting.map((p) => {
@@ -35,6 +37,9 @@ export function ClockBanner() {
             </div>
           );
         })}
+        {notices.map((n) => (
+          <InspectionCard key={n.uid} s={s} n={n} />
+        ))}
         <div class="row">
           <Btn small disabled={busy.value} onClick={() => run({ type: "resolveAllDefault" }, "已採預設處理，時間繼續")}>
             全部採預設處理並恢復

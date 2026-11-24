@@ -217,6 +217,8 @@ export interface DayStats {
   /** 今天常客的消息（新登場、解鎖故事、不開心…） */
   regularNotes: string[];
   regularVisits: number;
+  /** 今天的活動與稽查消息 */
+  systemNotes: string[];
 }
 
 export interface DailyReport {
@@ -286,6 +288,104 @@ export interface WalkVoice {
   situation: string;
   text: string;
   expireTick: number;
+}
+
+// ───────── 優惠活動（行銷） ─────────
+
+export interface PromoDef {
+  id: string;
+  name: string;
+  icon: string;
+  desc: string;
+  durationTicks: number;
+  /** 預算（排程時就付掉；活動開始前取消可全額退回） */
+  cost: number;
+  cooldownTicks: number;
+  /** 客人實際付的價格打幾折（0.15＝便宜 15%），會讓營收變少、客人更滿意 */
+  discount: number;
+  /** 各類客人的客流倍率；all 是其餘客人的預設 */
+  traffic: Partial<Record<PersonaId | "all", number>>;
+  /** 額外的滿意度加成 */
+  satBonus: number;
+  /** 活動期間常客親密度的增加倍率 */
+  regularGain?: number;
+  /** 開始時的一次性人氣變動 */
+  idx?: { which: IndexId; amount: number };
+  /** 開始時，直營店的新鮮感增加量 */
+  freshness?: number;
+  /** 疲勞：辦一次累積多少「促銷疲勞」（客人看膩了，之後的活動效果會打折） */
+  fatigue: number;
+}
+
+export interface ActivePromo {
+  uid: string;
+  defId: string;
+  startTick: number;
+  endTick: number;
+  /** 開始當下的疲勞折扣（1＝全效，越小越打折）；整場活動都用這個 */
+  factor: number;
+  /** 活動期間成交的組數與營收（結束時結算成效） */
+  groups: number;
+  revenue: number;
+}
+
+export interface ScheduledPromo {
+  uid: string;
+  defId: string;
+  startTick: number;
+  cost: number;
+}
+
+export interface PromoResult {
+  defId: string;
+  startTick: number;
+  endTick: number;
+  groups: number;
+  revenue: number;
+  cost: number;
+}
+
+export interface PromoState {
+  active: ActivePromo[];
+  scheduled: ScheduledPromo[];
+  /** 0–1：促銷疲勞 */
+  fatigue: number;
+  lastEnd: Record<string, number>;
+  history: PromoResult[];
+}
+
+// ───────── 稽查與合規 ─────────
+
+export type InspectionKind = "hygiene" | "fire";
+export type InspectionPrep = "none" | "basic" | "full";
+export type InspectionOutcome = "excellent" | "pass" | "warning" | "fine" | "suspend";
+
+/** 已預告、還沒來的稽查：趁這段時間可以備戰 */
+export interface InspectionNotice {
+  uid: string;
+  kind: InspectionKind;
+  notifiedTick: number;
+  inspectTick: number;
+  prep: InspectionPrep | null;
+}
+
+export interface InspectionResult {
+  tick: number;
+  kind: InspectionKind;
+  score: number;
+  outcome: InspectionOutcome;
+  fine: number;
+  prep: InspectionPrep | null;
+  /** 沒有預告的突襲 */
+  surprise: boolean;
+}
+
+export interface InspectionState {
+  pending: InspectionNotice[];
+  /** 0–100：合規分數。越低，稽查來得越頻繁 */
+  compliance: number;
+  log: InspectionResult[];
+  nextAt: Record<string, number>;
 }
 
 // ───────── 常客 ─────────
@@ -371,7 +471,7 @@ export interface MallClock {
 }
 
 export interface MallState {
-  version: 4;
+  version: 5;
   clock: MallClock;
   seed: number;
   tick: number;
@@ -399,6 +499,8 @@ export interface MallState {
   grievances: Record<string, number>;
   inbox: InboxItem[];
   regulars: RegularState[];
+  promos: PromoState;
+  inspections: InspectionState;
   reviewLog: ReviewRecord[];
   guestPrefs: GuestPrefs;
   walk: { nextTick: number; voices: WalkVoice[] };

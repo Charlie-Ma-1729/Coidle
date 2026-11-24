@@ -19,6 +19,11 @@ export type Command =
   /** 巡場：聽聽此刻店裡客人的心聲 */
   | { type: "walkFloor" }
   | { type: "walkAct"; voiceId: string; optionId: string }
+  /** 排程優惠活動；省略 startTick 代表現在開始。預算在排程時付掉，開始前取消會全額退回。 */
+  | { type: "schedulePromo"; defId: string; startTick?: number }
+  | { type: "cancelPromo"; uid: string }
+  /** 稽查預告後備戰（none＝照常、basic＝例行整理、full＝全力備戰） */
+  | { type: "prepareInspection"; uid: string; level: "none" | "basic" | "full" }
   /** 和常客互動：招呼、記住喜好、送小禮、保留／取消專屬座位 */
   | { type: "regularAction"; regularId: string; action: "greet" | "remember" | "gift" | "reserve" | "unreserve" }
   | { type: "setGuestPrefs"; complaintStance?: "soft" | "balanced" | "firm"; autoReplyReviews?: boolean }

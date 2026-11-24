@@ -13,6 +13,8 @@ import {
 } from "@coidle/shared";
 import { resolveChoice } from "./events";
 import { resolveInbox, walkAct, walkFloor } from "./guests";
+import { autoPrepareInspections, prepareInspection } from "./inspections";
+import { cancelPromo, schedulePromo } from "./promos";
 import { regularAction } from "./regulars";
 import { rngForTick } from "./rng";
 import { addLog, isFeatureEnabled, isZoneUnlocked, nextId } from "./state";
@@ -158,10 +160,30 @@ export function applyCommand(state: MallState, cmd: Command): CommandResult {
     }
 
     case "resolveAllDefault": {
-      // 把所有待決事件都採預設處理（遇事暫停時「採預設處理並恢復」用）
-      if (s.pending.length === 0) return err("沒有待處理的事件");
+      // 把所有待決事件與稽查預告都採預設處理（遇事暫停時「採預設處理並恢復」用）
+      const unprepared = s.inspections.pending.some((p) => p.prep === null);
+      if (s.pending.length === 0 && !unprepared) return err("沒有待處理的事件");
       const rng = rngForTick(s.seed, s.tick ^ 0x5bd1e995);
       for (const p of s.pending.slice()) resolveChoice(s, p.uid, null, rng);
+      autoPrepareInspections(s);
+      break;
+    }
+
+    case "schedulePromo": {
+      const r = schedulePromo(s, cmd.defId, cmd.startTick);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "cancelPromo": {
+      const r = cancelPromo(s, cmd.uid);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "prepareInspection": {
+      const r = prepareInspection(s, cmd.uid, cmd.level);
+      if (!r.ok) return err(r.error);
       break;
     }
 

@@ -2,16 +2,20 @@ import { useEffect, useState } from "preact/hooks";
 import {
   CATEGORY_BY_ID,
   CLEANING_COST_PER_DAY,
+  INSPECTIONS,
   MAINTENANCE_COST_PER_DAY,
+  OUTCOME_INFO,
   RESERVE_UPKEEP_PER_DAY,
   SPEED_PRESETS,
   UTILITIES_PER_DAY,
   hourlyTraffic,
+  inspectionScore,
   isPaused,
   presetOfSpeed,
   timeInfo,
 } from "@coidle/shared";
-import { Btn, Card, Chip, Field } from "../components/ui";
+import { InspectionCard } from "../components/InspectionCard";
+import { Btn, Card, Chip, Field, Meter } from "../components/ui";
 import { money } from "../format";
 import { run, setClock, state } from "../store";
 
@@ -158,6 +162,44 @@ export function Ops() {
           </p>
         </Card>
       </div>
+
+      <Card title="🧾 稽查與合規" right={<Chip tone={s.inspections.compliance >= 60 ? "green" : s.inspections.compliance >= 40 ? "amber" : "red"}>合規 {Math.round(s.inspections.compliance)}</Chip>}>
+        <div class="stack">
+          <p class="small dim">
+            衛生、消防單位會不定期來稽查，多半會先預告，少數是突擊。分數主要取決於「清潔」與「設備」。合規分數越低，來得越頻繁。
+          </p>
+          <div class="two-col">
+            <Meter label="🧼 若現在來衛生稽查" value={inspectionScore("hygiene", s.cleanliness, s.equipment)} hint={`${inspectionScore("hygiene", s.cleanliness, s.equipment)} 分`} />
+            <Meter label="🧯 若現在來消防檢查" value={inspectionScore("fire", s.cleanliness, s.equipment)} hint={`${inspectionScore("fire", s.cleanliness, s.equipment)} 分`} />
+          </div>
+          {s.inspections.pending.map((n) => (
+            <InspectionCard key={n.uid} s={s} n={n} />
+          ))}
+          {s.inspections.log.length === 0 ? (
+            <p class="small dim">還沒有被稽查過。</p>
+          ) : (
+            <div class="stack">
+              {s.inspections.log.slice(0, 5).map((r, i) => {
+                const info = OUTCOME_INFO[r.outcome];
+                return (
+                  <div class="report-row" key={i}>
+                    <div class="row between">
+                      <span>
+                        {INSPECTIONS[r.kind].icon} {INSPECTIONS[r.kind].name}
+                        {r.surprise ? "（突擊）" : ""}
+                      </span>
+                      <Chip tone={info.tone}>
+                        {r.score} 分・{info.label}
+                      </Chip>
+                    </div>
+                    {r.fine > 0 && <p class="small neg">罰款 {money(r.fine)}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </Card>
 
       <Card title="📋 每日固定成本估算">
         <div class="stack small">

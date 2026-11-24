@@ -1,5 +1,6 @@
 import { CATEGORY_BY_ID, EVENT_BY_ID, LEVELS, guestTodoCount, timeInfo, periodOf, type PublicMallState } from "@coidle/shared";
 import { EventChoiceCard } from "../components/EventCards";
+import { InspectionCard } from "../components/InspectionCard";
 import { Btn, Card, Chip, Empty, Meter } from "../components/ui";
 import { clockText, money, moneyShort, num, pct } from "../format";
 import { goTo } from "../nav";
@@ -11,6 +12,9 @@ function PendingEvents({ s }: { s: PublicMallState }) {
   const guestTodo = guestTodoCount(s);
   return (
     <>
+      {s.inspections.pending.map((n) => (
+        <InspectionCard key={n.uid} s={s} n={n} />
+      ))}
       {others.map((p) => (
         <EventChoiceCard key={p.uid} s={s} p={p} />
       ))}

@@ -24,6 +24,7 @@ import {
 } from "@coidle/shared";
 import { applyPersonaIndex } from "./events";
 import type { GuestResult } from "./guests";
+import { promoRegularGain } from "./promos";
 import type { Rng } from "./rng";
 import { addLog, shopCapacity } from "./state";
 import type { TimeInfo } from "./time";
@@ -75,7 +76,8 @@ function checkStories(s: MallState, reg: RegularState, def: RegularDef): void {
   }
 }
 
-function gain(s: MallState, reg: RegularState, def: RegularDef, amount: number): void {
+function gain(s: MallState, reg: RegularState, def: RegularDef, rawAmount: number): void {
+  const amount = rawAmount > 0 ? rawAmount * promoRegularGain(s) : rawAmount; // 集點會員活動期間，關係升溫更快
   reg.affinity = Math.min(100, Math.max(0, reg.affinity + amount));
   if (amount > 0) checkStories(s, reg, def);
 }

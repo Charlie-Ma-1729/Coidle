@@ -37,6 +37,7 @@ export function buildReport(s: MallState): DailyReport {
   if (s.cleanliness < 40) notes.push("館內越來越髒了，客人開始皺眉頭。");
   if (s.equipment < 40) notes.push("設備老舊，再不維護恐怕會出狀況。");
   if (s.funds < 0) notes.push("帳上資金為負，自動補貨已暫停，快想辦法周轉！");
+  for (const n of d.systemNotes.slice(0, 4)) notes.push(n);
   if (d.regularVisits > 0) notes.push(`常客造訪 ${d.regularVisits} 次。`);
   for (const n of d.regularNotes.slice(0, 3)) notes.push(n);
   if (d.complaints > 0) notes.push(`收到 ${d.complaints} 則客訴。`);

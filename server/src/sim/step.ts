@@ -30,6 +30,8 @@ import {
 } from "@coidle/shared";
 import { expireModifiers, maybeSpawnEvent, resolveDeadlines } from "./events";
 import { generateDailyReviews, noteGrievance, resolveInboxDeadlines } from "./guests";
+import { maybeSpawnInspection, runDueInspections } from "./inspections";
+import { effectivePrice, endPromos, noteSale, promoFatigueDaily, promoSatBonus, promoTraffic, startDuePromos } from "./promos";
 import { regularsDaily, runRegulars } from "./regulars";
 import { buildReport } from "./report";
 import { rngForTick, type Rng } from "./rng";
@@ -75,9 +77,13 @@ export function stepTick(s: MallState, ctx: StepContext = { nobodyPresent: false
   completeBuilds(s);
   receiveDeliveries(s);
   expireModifiers(s);
+  endPromos(s);
+  startDuePromos(s);
   resolveDeadlines(s, rng);
   resolveInboxDeadlines(s);
+  runDueInspections(s);
   const spawned = maybeSpawnEvent(s, time, rng);
+  const notice = maybeSpawnInspection(s, rng);
   if (t % 6 === 0) autoRestock(s);
 
   for (const shop of s.shops) shop.served = 0;
@@ -86,12 +92,17 @@ export function stepTick(s: MallState, ctx: StepContext = { nobodyPresent: false
 
   s.tick = t + 1;
 
-  // 沒人在場時遇到「放著會吃大虧」的事件：時鐘停在這裡等人處理
+  // 沒人在場時遇到「放著會吃大虧」的事件或稽查預告：時鐘停在這裡等人處理
+  let halt = false;
   if (spawned?.uid && spawned.def.attention === "pause" && ctx.nobodyPresent && s.clock.pauseOnEvents) {
     s.clock.holds.events.push(spawned.uid);
-    return true;
+    halt = true;
   }
-  return false;
+  if (notice && ctx.nobodyPresent && s.clock.pauseOnEvents) {
+    s.clock.holds.events.push(notice.uid);
+    halt = true;
+  }
+  return halt;
 }
 
 export function isOpen(s: MallState, time: TimeInfo): boolean {
@@ -184,7 +195,7 @@ function runCustomers(s: MallState, time: TimeInfo, rng: Rng): number {
     const share = (time.weekend ? p.weekendHourShare : p.hourShare)[time.hour] ?? 0;
     const daily = p.dailyBase * (time.weekend ? p.weekendMult : 1);
     const lambda =
-      ((daily * share) / TICKS_PER_HOUR) * indexFactor(s, p) * divMult * trafficMult(s, p.id, s.tick);
+      ((daily * share) / TICKS_PER_HOUR) * indexFactor(s, p) * divMult * trafficMult(s, p.id, s.tick) * promoTraffic(s, p.id);
     const n = rng.poisson(lambda);
     for (let i = 0; i < n; i++) units += serveGroup(s, rng, p, open);
   }
@@ -198,7 +209,7 @@ function pickShop(s: MallState, rng: Rng, p: PersonaDef, shops: Shop[], withOuts
     if (!cat) return 0;
     const d = (cat.demand[p.id] ?? 0) * demandMult(s, cat.id, s.tick);
     if (d <= 0) return 0;
-    const priceF = clamp(Math.exp(p.sensitivity * (1 - shop.price / cat.refPrice)), 0.15, 1.6);
+    const priceF = clamp(Math.exp(p.sensitivity * (1 - effectivePrice(s, shop) / cat.refPrice)), 0.15, 1.6);
     const qualityF = 0.6 + 0.8 * shopQuality(shop);
     const queueF = 1 - 0.5 * Math.min(1, shop.served / shopCapacity(shop));
     return d * priceF * qualityF * queueF;
@@ -248,7 +259,8 @@ function serveGroup(s: MallState, rng: Rng, p: PersonaDef, open: Shop[]): number
 /** 把一筆成交記進帳：營收、庫存、統計、滿意度，以及（可能的）客訴累積。回傳份數。 */
 export function recordSale(s: MallState, rng: Rng, p: PersonaDef, shop: Shop, cat: CategoryDef, qty: number): number {
   const hasStock = categoryHasStock(cat) && shop.mode === "direct";
-  const revenue = qty * shop.price;
+  const revenue = qty * effectivePrice(s, shop); // 活動折扣：客人實際付的錢
+  noteSale(s, revenue);
   shop.served += qty;
   shop.day.units += qty;
   shop.day.groups++;
@@ -288,9 +300,9 @@ export function recordSale(s: MallState, rng: Rng, p: PersonaDef, shop: Shop, ca
 
 function satisfaction(s: MallState, p: PersonaDef, shop: Shop, refPrice: number): number {
   const q = shopQuality(shop);
-  const value = clamp(refPrice / shop.price, 0.5, 1.5);
+  const value = clamp(refPrice / effectivePrice(s, shop), 0.5, 1.5);
   const weight = 0.1 + 0.08 * p.sensitivity;
-  const base = 0.28 + 0.4 * q + weight * (value - 0.5);
+  const base = 0.28 + 0.4 * q + weight * (value - 0.5) + promoSatBonus(s);
   return clamp(base * (0.75 + 0.25 * (s.cleanliness / 100)) * (0.75 + 0.25 * (s.equipment / 100)), 0, 1);
 }
 
@@ -371,6 +383,7 @@ function rollover(s: MallState, time: TimeInfo): void {
     }
   }
 
+  promoFatigueDaily(s); // 促銷疲勞慢慢消退
   regularsDaily(s); // 常客：久沒上門的漸漸疏遠、熟客粉絲帶來口碑
   generateDailyReviews(s); // 今天客人的感受 → 幾則線上評價（先於日報，才算得進去）
   s.reports.push(buildReport(s));

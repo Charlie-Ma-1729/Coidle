@@ -12,9 +12,11 @@ import {
   ZONE_BY_ID,
   type CategoryDef,
   type DayStats,
+  type InspectionState,
   type LogEntry,
   type MallState,
   type PersonaId,
+  type PromoState,
   type Shop,
   type ShopDayStats,
   type Slot,
@@ -51,6 +53,7 @@ export function newDayStats(day: number, idx: { localRep: number; touristHeat: n
     starsSum: 0,
     regularNotes: [],
     regularVisits: 0,
+    systemNotes: [],
   };
 }
 
@@ -97,6 +100,15 @@ export function makeShop(s: MallState, category: string, name: string, slot: num
   };
 }
 
+export function newPromoState(): PromoState {
+  return { active: [], scheduled: [], fatigue: 0, lastEnd: {}, history: [] };
+}
+
+/** 第一次稽查大約在開幕後 4～6 個遊戲日 */
+export function newInspectionState(startTick: number): InspectionState {
+  return { pending: [], compliance: 70, log: [], nextAt: { hygiene: startTick + 4 * 288, fire: startTick + 6 * 288 } };
+}
+
 /** nowMs 是建立當下的真實時間，用來設定時鐘錨點（測試可省略） */
 export function createInitialState(seed: number, startTick: number, nowMs = 0): MallState {
   const t = timeInfo(startTick);
@@ -105,7 +117,7 @@ export function createInitialState(seed: number, startTick: number, nowMs = 0): 
     for (let i = 0; i < z.slots; i++) slots.push({ id: slots.length, zone: z.id, shopId: null });
   }
   const s: MallState = {
-    version: 4,
+    version: 5,
     clock: newClock(nowMs, startTick),
     seed: seed >>> 0,
     tick: startTick,
@@ -131,6 +143,8 @@ export function createInitialState(seed: number, startTick: number, nowMs = 0): 
     grievances: {},
     inbox: [],
     regulars: initialRegulars(),
+    promos: newPromoState(),
+    inspections: newInspectionState(startTick),
     reviewLog: [],
     guestPrefs: { complaintStance: "balanced", autoReplyReviews: true },
     walk: { nextTick: 0, voices: [] },

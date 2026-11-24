@@ -168,7 +168,7 @@ describe("screens render with real simulated state", () => {
       s.clock.holds.events.push("ev7");
     });
     await mount(<ClockBanner />);
-    expect(container.textContent).toContain("有重要事件等你決定");
+    expect(container.textContent).toContain("有重要的事等你決定");
     expect(container.textContent).toContain("颱風接近");
     expect(container.textContent).toContain("提早閉館");
     expect(container.textContent).toContain("全部採預設處理並恢復");
@@ -198,6 +198,125 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).toContain("已回覆：誠懇道歉／改進");
     expect(container.textContent).toContain("逾時將依偏好自動");
     expect(container.querySelectorAll(".stars").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("Marketing lists the catalog, active and scheduled promos, fatigue and history", async () => {
+    store.state.value = publicState(0, (s) => {
+      s.promos.fatigue = 0.5;
+      s.promos.active.push({ uid: "pr1", defId: "discount_day", startTick: s.tick - 20, endTick: s.tick + 100, factor: 0.7, groups: 42, revenue: 123_000 });
+      s.promos.scheduled.push({ uid: "pr2", defId: "collab", startTick: s.tick + 300, cost: 120_000 });
+      s.promos.history.push({ defId: "tasting", startTick: 1, endTick: 80, groups: 30, revenue: 90_000, cost: 15_000 });
+    });
+    const { Marketing } = await import("./screens/Marketing");
+    await mount(<Marketing />);
+    expect(container.textContent).toContain("促銷疲勞");
+    expect(container.textContent).toContain("新活動效果約 70%");
+    expect(container.textContent).toContain("進行中・還有約");
+    expect(container.textContent).toContain("至今接待 42 組客人");
+    expect(container.textContent).toContain("排程中");
+    expect(container.textContent).toContain("取消（退回 ¥120,000）");
+    for (const name of ["全館折扣日", "週年慶", "買一送一", "免費試吃"]) expect(container.textContent).toContain(name);
+    expect(container.textContent).toContain("進行中或已排程"); // 折扣日不能重複開
+    expect(container.textContent).toContain("期間營收是預算的 6.0 倍");
+  });
+
+  it("Marketing disables launching when funds are short and offers start-time presets", async () => {
+    store.state.value = publicState(0, (s) => {
+      s.funds = 1000;
+    });
+    const { Marketing } = await import("./screens/Marketing");
+    await mount(<Marketing />);
+    expect(container.textContent).toContain("資金不足");
+    expect(container.textContent).toContain("今晚 18:00");
+    expect(container.textContent).toContain("下個假日 11:00");
+    const buttons = Array.from(container.querySelectorAll("button")).filter((b) => b.textContent?.includes("立刻開辦")) as HTMLButtonElement[];
+    expect(buttons.length).toBeGreaterThan(0);
+    expect(buttons.every((b) => b.disabled)).toBe(true);
+  });
+
+  it("InspectionCard shows the live score and prep options, then the chosen prep", async () => {
+    const { InspectionCard } = await import("./components/InspectionCard");
+    const { inspectionScore } = await import("@coidle/shared");
+    const s = publicState(0, (st) => {
+      st.cleanliness = 60;
+      st.equipment = 40;
+      st.inspections.pending.push({ uid: "ins1", kind: "hygiene", notifiedTick: st.tick, inspectTick: st.tick + 60, prep: null });
+    });
+    store.state.value = s;
+    await mount(<InspectionCard s={s} n={s.inspections.pending[0]!} />);
+    expect(container.textContent).toContain("食品衛生稽查");
+    expect(container.textContent).toContain(`評估分數（現在來就是這個分）${inspectionScore("hygiene", s.cleanliness, s.equipment)}`);
+    for (const label of ["照常營業", "例行整理", "全力備戰"]) expect(container.textContent).toContain(label);
+    expect(container.textContent).toContain("到時會自動「例行整理」");
+
+    const done = { ...s.inspections.pending[0]!, prep: "full" as const };
+    await mount(<InspectionCard s={s} n={done} />);
+    expect(container.textContent).toContain("已準備：全力備戰");
+  });
+
+  it("ClockBanner lists a paused inspection notice with its prep options", async () => {
+    const { ClockBanner } = await import("./components/ClockBanner");
+    store.state.value = publicState(0, (st) => {
+      st.inspections.pending.push({ uid: "ins2", kind: "fire", notifiedTick: st.tick, inspectTick: st.tick + 60, prep: null });
+      st.clock.holds.events.push("ins2");
+    });
+    await mount(<ClockBanner />);
+    expect(container.textContent).toContain("有重要的事等你決定");
+    expect(container.textContent).toContain("消防安全檢查");
+    expect(container.textContent).toContain("時間因此暫停中");
+    expect(container.textContent).toContain("全部採預設處理並恢復");
+  });
+
+  it("Ops shows compliance, both live scores and past inspection results", async () => {
+    store.state.value = publicState(0, (s) => {
+      s.inspections.compliance = 35;
+      s.inspections.log.push({ tick: s.tick - 50, kind: "hygiene", score: 30, outcome: "fine", fine: 80_000, prep: "none", surprise: true });
+    });
+    const { Ops } = await import("./screens/Ops");
+    await mount(<Ops />);
+    expect(container.textContent).toContain("稽查與合規");
+    expect(container.textContent).toContain("合規 35");
+    expect(container.textContent).toContain("若現在來衛生稽查");
+    expect(container.textContent).toContain("若現在來消防檢查");
+    expect(container.textContent).toContain("30 分・罰款");
+    expect(container.textContent).toContain("（突擊）");
+    expect(container.textContent).toContain("罰款 ¥80,000");
+  });
+
+  it("Overview shows inspection notices at the top", async () => {
+    store.state.value = publicState(0, (s) => {
+      s.inspections.pending.push({ uid: "ins3", kind: "hygiene", notifiedTick: s.tick, inspectTick: s.tick + 60, prep: null });
+    });
+    const { Overview } = await import("./screens/Overview");
+    await mount(<Overview />);
+    expect(container.textContent).toContain("衛生單位預告");
+  });
+
+  it("More offers ops, marketing and team", async () => {
+    store.state.value = publicState(0);
+    store.user.value = { id: 1, username: "u", displayName: "我" };
+    store.mallId.value = 1;
+    store.mallInfo.value = { id: 1, name: "測試", inviteCode: "ABCD2345", members: [{ userId: 1, displayName: "我", role: "gm", isOwner: true, joinedAt: 0 }] };
+    const { More } = await import("./screens/More");
+    const nav = await import("./nav");
+    nav.moreSub.value = "marketing";
+    await mount(<More />);
+    expect(container.textContent).toContain("📣 行銷");
+    expect(container.textContent).toContain("活動目錄");
+  });
+
+  it("nextTickAt finds the next occurrence of an hour, and the next weekend", async () => {
+    const f = await import("./format");
+    const { timeInfo } = await import("@coidle/shared");
+    const base = START + 3 * 288 + 7 * 12 + 4; // 某天 ~07:20
+    const t18 = f.nextTickAt(base, 18);
+    expect(timeInfo(t18).hour).toBe(18);
+    expect(timeInfo(t18).minute).toBe(0);
+    expect(t18).toBeGreaterThan(base);
+    expect(t18 - base).toBeLessThanOrEqual(288);
+    const wk = f.nextTickAt(base, 11, true);
+    expect(timeInfo(wk).weekend).toBe(true);
+    expect(timeInfo(wk).hour).toBe(11);
   });
 
   it("Regulars lists met regulars with actions and keeps strangers hidden behind hints", async () => {

@@ -1,13 +1,15 @@
 import { moreSub, type MoreSub } from "../nav";
+import { Marketing } from "./Marketing";
 import { Ops } from "./Ops";
 import { Team } from "./Team";
 
 const SUBS: { id: MoreSub; label: string }[] = [
   { id: "ops", label: "⚙️ 營運" },
+  { id: "marketing", label: "📣 行銷" },
   { id: "team", label: "👥 團隊" },
 ];
 
-/** 次要功能收在這裡，手機底部導覽才不會擠。之後的行銷、供應商、商戰也會放進來。 */
+/** 次要功能收在這裡，手機底部導覽才不會擠。之後的供應商、商戰也會放進來。 */
 export function More() {
   return (
     <>
@@ -18,7 +20,7 @@ export function More() {
           </button>
         ))}
       </nav>
-      {moreSub.value === "ops" ? <Ops /> : <Team />}
+      {moreSub.value === "ops" ? <Ops /> : moreSub.value === "marketing" ? <Marketing /> : <Team />}
     </>
   );
 }

@@ -2,7 +2,9 @@ import { randomInt } from "node:crypto";
 import {
   CATEGORY_BY_ID,
   EVENT_BY_ID,
+  INSPECTIONS,
   PRESENCE_WINDOW_MS,
+  PROMO_BY_ID,
   REGULAR_BY_ID,
   ROLE_IDS,
   isPaused,
@@ -82,6 +84,19 @@ export function describeCommand(s: MallState, cmd: Command, actor: string): stri
       return null; // 巡場中的小動作不洗版團隊動態
     case "setGuestPrefs":
       return `${actor} 調整了客人互動的處理偏好`;
+    case "schedulePromo": {
+      const name = PROMO_BY_ID[cmd.defId]?.name ?? "活動";
+      return cmd.startTick === undefined || cmd.startTick <= s.tick ? `${actor} 開辦了「${name}」` : `${actor} 排程了「${name}」`;
+    }
+    case "cancelPromo": {
+      const sc = s.promos.scheduled.find((x) => x.uid === cmd.uid);
+      return `${actor} 取消了排程的「${(sc && PROMO_BY_ID[sc.defId]?.name) ?? "活動"}」`;
+    }
+    case "prepareInspection": {
+      const n = s.inspections.pending.find((x) => x.uid === cmd.uid);
+      const kind = n ? INSPECTIONS[n.kind].name : "稽查";
+      return `${actor} 為${kind}做了準備（${{ none: "照常營業", basic: "例行整理", full: "全力備戰" }[cmd.level]}）`;
+    }
     case "regularAction": {
       const name = REGULAR_BY_ID[cmd.regularId]?.name ?? "常客";
       const verb = { greet: "聊了聊", remember: "記住了喜好", gift: "送了小禮", reserve: "保留了專屬座位", unreserve: "取消了專屬座位" }[cmd.action];
@@ -232,8 +247,10 @@ export class MallService {
       if (known.has(uid)) continue;
       const pending = after.pending.find((p) => p.uid === uid);
       const def = pending ? EVENT_BY_ID[pending.defId] : undefined;
-      if (!def) continue;
-      this.notifier?.notify(mallId, { title: `⏸ 商場已暫停：${def.title}`, body: "有一件重要的事需要你決定，處理後時間會自動繼續。" });
+      const notice = after.inspections.pending.find((p) => p.uid === uid);
+      const title = def?.title ?? (notice ? `${INSPECTIONS[notice.kind].name}預告` : null);
+      if (!title) continue;
+      this.notifier?.notify(mallId, { title: `⏸ 商場已暫停：${title}`, body: "有一件重要的事需要你決定，處理後時間會自動繼續。" });
     }
   }
 

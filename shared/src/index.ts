@@ -6,6 +6,7 @@ export * from "./game/time";
 export * from "./game/helpers";
 export * from "./game/guests";
 export * from "./game/regulars";
+export * from "./game/promotions";
 
 export interface HealthResponse {
   ok: true;

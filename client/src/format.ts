@@ -41,6 +41,17 @@ export function realDuration(ticks: number, speed = 1): string {
   return h < 24 ? `約 ${h.toFixed(h < 10 ? 1 : 0).replace(/\.0$/, "")} 小時` : `約 ${(h / 24).toFixed(1).replace(/\.0$/, "")} 天`;
 }
 
+/** 從現在往後數，下一個「HH:00」的 tick（weekendOnly：只算假日） */
+export function nextTickAt(tick: number, hour: number, weekendOnly = false): number {
+  const t = timeInfo(tick);
+  const nowInDay = t.hour * 12 + Math.floor(t.minute / 5);
+  let target = tick + (((hour * 12 - nowInDay + 288) % 288) || 288);
+  if (weekendOnly) {
+    for (let i = 0; i < 8 && !timeInfo(target).weekend; i++) target += 288;
+  }
+  return target;
+}
+
 export function signed(n: number, digits = 1): string {
   const v = n.toFixed(digits);
   return n > 0 ? `+${v}` : v;

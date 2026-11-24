@@ -121,7 +121,7 @@ describe("event pause in the sim", () => {
     const v1 = { ...createInitialState(1, 1000, 0), version: 1, protection: true, lastActionTick: 5 } as Record<string, unknown>;
     delete v1.clock;
     const m = migrateState(v1, 123_456);
-    expect(m.version).toBe(4);
+    expect(m.version).toBe(5);
     expect(m.clock.anchorTick).toBe(1000);
     expect(m.clock.anchorRealMs).toBe(123_456);
     expect("protection" in m).toBe(false);
@@ -231,7 +231,8 @@ describe("clock API and service", () => {
   it("idle pause triggers at the exact threshold and resumes (without catch-up) when someone visits", async () => {
     const a = makeApp();
     const { owner, id } = await setup(a);
-    await call(a, owner, "POST", `/api/malls/${id}/clock`, { idlePauseDays: 2 });
+    // 關掉遇事暫停：8 個遊戲日內稽查預告會先把時鐘停住，這裡只想測「久未上線」本身
+    await call(a, owner, "POST", `/api/malls/${id}/clock`, { idlePauseDays: 2, pauseOnEvents: false });
     const start = (await call(a, owner, "GET", `/api/malls/${id}/state`)).json();
 
     a.clock.t += 10 * 24 * HOUR; // 10 天沒人上線

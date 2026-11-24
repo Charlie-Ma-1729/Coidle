@@ -234,6 +234,7 @@ input[type="range"] { width: 100%; accent-color: var(--pink); }
 .report-row { display: grid; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .report-row:last-child { border-bottom: 0; }
 
+.promo { display: grid; gap: 8px; padding: 12px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); }
 .regular { display: grid; gap: 8px; padding: 12px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); }
 .story { padding: 8px 10px; border-left: 2px solid var(--pink); background: rgba(255, 255, 255, 0.03); border-radius: 0 10px 10px 0; }
 .story.locked { border-left-color: var(--line); }
