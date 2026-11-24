@@ -2,6 +2,7 @@ import { REFRESH_COST, REFRESH_GAIN, TECH_BY_ID, TECH_CANCEL_REFUND, techBlocker
 import { applyIndexDelta } from "./events";
 import type { GuestResult } from "./guests";
 import { prepareInspection } from "./inspections";
+import { bump } from "./meta";
 import { addLog } from "./state";
 
 const money = (n: number) => `¥${Math.round(n).toLocaleString("en-US")}`;
@@ -42,6 +43,7 @@ export function techTick(s: MallState): void {
   for (const j of due) {
     if (s.tech.done.includes(j.id)) continue;
     s.tech.done.push(j.id);
+    bump(s, "techs");
     const def = TECH_BY_ID[j.id];
     addLog(s, "info", `🔬 科技研發完成：${def?.icon ?? ""}「${def?.name ?? j.id}」！`);
     if (s.today.systemNotes.length < 8) s.today.systemNotes.push(`研發完成：${def?.name ?? j.id}`);

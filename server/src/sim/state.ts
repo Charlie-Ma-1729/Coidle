@@ -30,6 +30,7 @@ import {
 import { initialRegulars } from "./regulars";
 import { timeInfo } from "./time";
 import { newLeasingState } from "./leasing";
+import { initGoals, newMetaState } from "./meta";
 import { newTaxState } from "./tax";
 import { newTechState } from "./tech";
 import { syncWorkshop } from "./workshop";
@@ -144,7 +145,7 @@ export function createInitialState(seed: number, startTick: number, nowMs = 0): 
     for (let i = 0; i < z.slots; i++) slots.push({ id: slots.length, zone: z.id, shopId: null });
   }
   const s: MallState = {
-    version: 9,
+    version: 10,
     clock: newClock(nowMs, startTick),
     seed: seed >>> 0,
     tick: startTick,
@@ -178,6 +179,7 @@ export function createInitialState(seed: number, startTick: number, nowMs = 0): 
     tax: newTaxState(),
     tech: newTechState(),
     leasing: newLeasingState(startTick),
+    meta: newMetaState(startTick),
     reviewLog: [],
     guestPrefs: { complaintStance: "balanced", autoReplyReviews: true },
     walk: { nextTick: 0, voices: [] },
@@ -194,6 +196,7 @@ export function createInitialState(seed: number, startTick: number, nowMs = 0): 
     s.shops.push(shop);
   });
   syncWorkshop(s);
+  initGoals(s);
   addLog(s, "info", "商場開幕了。祝生意興隆！");
   return s;
 }

@@ -245,6 +245,39 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).toContain("租約到期");
   });
 
+  it("Goals screen shows today's and the week's goals, a team event with its tasks, and the contribution board", async () => {
+    store.state.value = publicState(3, (s) => {
+      s.meta.team.nextAt = s.tick;
+      s.meta.team.size = 3;
+    });
+    const { Goals } = await import("./screens/Goals");
+    await mount(<Goals />);
+    expect(container.textContent).toContain("今日目標");
+    expect(container.textContent).toContain("本週團隊目標");
+    expect(container.textContent).toContain("團隊事件");
+    expect(container.textContent).toContain("隊員貢獻");
+    expect(container.querySelectorAll(".meter, .meter-track").length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("Achievements screen shows the star rating, clue collection with the guess box, and hides secret achievements", async () => {
+    store.state.value = publicState(2);
+    const { Achievements } = await import("./screens/Achievements");
+    await mount(<Achievements />);
+    expect(container.textContent).toContain("商場評鑑");
+    expect(container.textContent).toContain("線索收集");
+    expect(container.textContent).toContain("猜猜看");
+    expect(container.textContent).toContain("開幕大吉");
+    expect(container.textContent).toContain("？？？");
+    expect(container.textContent).not.toContain("我知道這是哪裡");
+  });
+
+  it("Overview shows the star rating chip", async () => {
+    store.state.value = publicState(1);
+    const { Overview } = await import("./screens/Overview");
+    await mount(<Overview />);
+    expect(container.textContent).toMatch(/★/);
+  });
+
   it("Reports shows an empty state before the first report", async () => {
     store.state.value = publicState(0);
     const { Reports } = await import("./screens/Reports");

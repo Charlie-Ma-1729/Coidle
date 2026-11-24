@@ -47,6 +47,7 @@ import {
   type Unlock,
 } from "./recipes";
 import type { Rng } from "./rng";
+import { bump } from "./meta";
 import { addLog, nextId } from "./state";
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -336,6 +337,8 @@ function resolveJob(s: MallState, job: RndJob, rng: Rng): void {
   const first = !(job.sig in ws.tried);
   const res = evaluate(shop.category, job.picks, chefLevel(s, shop), rng, ws.discovered);
   ws.tried[job.sig] = res.outcome;
+  bump(s, "research");
+  if (res.outcome === "signature") bump(s, "signatures");
   ws.skill[shop.id] = (ws.skill[shop.id] ?? 0) + 1;
   const learned = first && res.outcome !== "burnt" ? revealTraits(s, job.picks, rng) : [];
 

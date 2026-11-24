@@ -593,7 +593,7 @@ export interface MallClock {
 }
 
 export interface MallState {
-  version: 9;
+  version: 10;
   clock: MallClock;
   seed: number;
   tick: number;
@@ -629,6 +629,7 @@ export interface MallState {
   tax: TaxState;
   tech: TechState;
   leasing: LeasingState;
+  meta: MetaState;
   reviewLog: ReviewRecord[];
   guestPrefs: GuestPrefs;
   walk: { nextTick: number; voices: WalkVoice[] };
@@ -870,5 +871,75 @@ export interface LeasingState {
   renewals: LeaseRenewal[];
   /** 下次可能有新品牌來洽談的 tick */
   nextAt: number;
+  log: { tick: number; text: string }[];
+}
+
+// ───────── 目標、團隊事件、成就與線索 ─────────
+
+export interface GoalPick {
+  id: string;
+  /** 達成門檻（依這座商場近期的表現換算） */
+  target: number;
+  /** 達成獎金 */
+  reward: number;
+  done: boolean;
+}
+
+/** 一個週期（一天或一週）的目標：進度＝現在的累計 − 週期開始時的累計 */
+export interface GoalPeriod {
+  /** 週期編號（遊戲日序，或週序） */
+  key: number;
+  picks: GoalPick[];
+  base: Record<string, number>;
+  bonusPaid: boolean;
+}
+
+export interface TeamContribution {
+  taskId: string;
+  actorId: string;
+  name: string;
+  tick: number;
+}
+
+export interface TeamEventState {
+  uid: string;
+  defId: string;
+  startTick: number;
+  deadlineTick: number;
+  /** 需要幾位不同的隊員各認領一項 */
+  needed: number;
+  contributions: TeamContribution[];
+}
+
+export interface TeamMember {
+  name: string;
+  /** 下過幾次指令、完成過幾項團隊任務 */
+  actions: number;
+  tasks: number;
+  lastTick: number;
+}
+
+export interface MetaState {
+  startTick: number;
+  /** 累計計數（接待、營收、處理客訴…） */
+  tally: Record<string, number>;
+  /** 看過的事件（id → 次數），線索收集用 */
+  seen: Record<string, number>;
+  day: GoalPeriod;
+  week: GoalPeriod;
+  team: {
+    event: TeamEventState | null;
+    nextAt: number;
+    /** 商場成員人數（由伺服器同步） */
+    size: number;
+    members: Record<string, TeamMember>;
+  };
+  /** 成就 id → 解鎖時的 tick */
+  achievements: Record<string, number>;
+  /** 線索 id → 發現時的 tick */
+  clues: Record<string, number>;
+  placeSolved: boolean;
+  guesses: number;
+  lastGuessTick: number;
   log: { tick: number; text: string }[];
 }

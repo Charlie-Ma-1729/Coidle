@@ -7,8 +7,10 @@ import {
   billsDueWithin,
   chosenSupplier,
   familyShopCount,
+  TEAM_EVENT_BY_ID,
   guestTodoCount,
   leaseEnabled,
+  mallStars,
   timeInfo,
   periodOf,
   type PublicMallState,
@@ -18,7 +20,8 @@ import { InspectionCard } from "../components/InspectionCard";
 import { Btn, Card, Chip, Empty, Meter } from "../components/ui";
 import { clockText, money, moneyShort, num, pct } from "../format";
 import { goTo } from "../nav";
-import { state } from "../store";
+import { state, user } from "../store";
+import { Stars } from "./Achievements";
 
 function PendingEvents({ s }: { s: PublicMallState }) {
   // 面對客人的事件放在「客人」分頁；總覽只顯示其餘事件，另加一個提醒
@@ -35,6 +38,17 @@ function PendingEvents({ s }: { s: PublicMallState }) {
       {others.map((p) => (
         <EventChoiceCard key={p.uid} s={s} p={p} />
       ))}
+      {s.meta.team.event && !s.meta.team.event.contributions.some((c) => c.actorId === String(user.value?.id ?? "")) && (
+        <div class="alert cyan">
+          <h4>🧑‍🤝‍🧑 團隊事件：{TEAM_EVENT_BY_ID[s.meta.team.event.defId]?.title}</h4>
+          <p class="small dim">需要 {s.meta.team.event.needed} 位隊員各認領一項任務（目前 {s.meta.team.event.contributions.length} 位）。</p>
+          <div class="row">
+            <Btn small kind="primary" onClick={() => goTo("more", "goals")}>
+              去認領
+            </Btn>
+          </div>
+        </div>
+      )}
       {s.leasing.renewals.length > 0 && (
         <div class="alert cyan">
           <h4>📄 有 {s.leasing.renewals.length} 份租約到期等你決定</h4>
@@ -124,6 +138,9 @@ export function Overview() {
         <Chip tone={period === "peak" ? "amber" : period === "quiet" ? "dim" : "green"}>{period === "peak" ? "🔥 尖峰時段" : period === "quiet" ? "離峰時段" : "一般時段"}</Chip>
         <Chip tone={open ? "green" : "red"}>{open ? `營業中（至 ${s.hours.close}:00）` : `打烊中（${s.hours.open}:00 開）`}</Chip>
         <Chip tone="amber">Lv.{s.level}</Chip>
+        <Chip tone="pink">
+          <Stars n={mallStars(s as never)} />
+        </Chip>
       </div>
 
       <PendingEvents s={s} />

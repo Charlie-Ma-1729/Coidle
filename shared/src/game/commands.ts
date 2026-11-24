@@ -53,4 +53,8 @@ export type Command =
   | { type: "declineTenant"; candidateId: string }
   | { type: "resolveRenewal"; uid: string; action: "renew" | "raise" | "release" }
   | { type: "terminateLease"; shopId: string }
+  /** 團隊事件：認領一項任務（需要不同隊員各自認領；身分由伺服器填入） */
+  | { type: "contribute"; taskId: string }
+  /** 猜猜這座商場像是哪裡（只留含蓄線索，答案以雜湊比對） */
+  | { type: "guessPlace"; text: string }
   | { type: "setLease"; shopId: string; enabled: boolean; rent?: number; commission?: number };

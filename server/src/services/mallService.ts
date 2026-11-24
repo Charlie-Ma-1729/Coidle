@@ -116,6 +116,10 @@ export function describeCommand(s: MallState, cmd: Command, actor: string): stri
       const kind = n ? INSPECTIONS[n.kind].name : "稽查";
       return `${actor} 為${kind}做了準備（${{ none: "照常營業", basic: "例行整理", full: "全力備戰" }[cmd.level]}）`;
     }
+    case "contribute":
+      return `${actor} 認領了團隊事件的一項任務`;
+    case "guessPlace":
+      return null;
     case "startTech":
       return `${actor} 開始研發科技「${TECH_BY_ID[cmd.id]?.name ?? "新科技"}」`;
     case "cancelTech":
@@ -259,6 +263,9 @@ export class MallService {
     const before = this.load(mallId);
     const nowMs = this.now();
     let s = before;
+    // 團隊事件需要知道有幾位成員
+    const size = Math.max(1, this.repo.members(mallId).length);
+    if (s.meta.team.size !== size) s.meta.team.size = size;
 
     // 久未上線：在「最後一次造訪 + N 天」那個精確時間點暫停
     const days = s.clock.idlePauseDays;
@@ -325,7 +332,7 @@ export class MallService {
   runCommand(mallId: number, user: { id: number; displayName: string }, cmd: Command): CommandResult & { publicState?: PublicMallState } {
     let current = this.sync(mallId);
     current = this.visit(mallId, current);
-    const result = applyCommand(current, cmd);
+    const result = applyCommand(current, cmd, { id: String(user.id), name: user.displayName });
     if (!result.ok) return result;
     const after = result.state;
     // 處理完重要事件、時鐘從暫停回到運轉：錨點移到現在，暫停期間不補算

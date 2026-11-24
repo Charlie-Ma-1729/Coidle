@@ -28,6 +28,6 @@ export function checkText(text: unknown, rule: TextRule): string | null {
   for (const w of REAL_BRANDS) if (lower.includes(w.toLowerCase())) return `含真實品牌「${w}」`;
   for (const w of BAD_WORDS) if (lower.includes(w.toLowerCase())) return `含不當字眼「${w}」`;
   if (/[Ѐ-ӿ؀-ۿ]/.test(t)) return "含非預期的文字";
-  if (/[぀-ヿ]{6,}/.test(t)) return "日文假名過多"; // 允許少量日文風味，但整句日文不收
+  if (/[぀-ヿ]{8,}/.test(t)) return "日文假名過多"; // 允許少量日文風味，但整句日文不收
   return null;
 }

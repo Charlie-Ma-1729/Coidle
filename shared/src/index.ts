@@ -13,6 +13,7 @@ export * from "./game/workshop";
 export * from "./game/tax";
 export * from "./game/tech";
 export * from "./game/lease";
+export * from "./game/meta";
 
 export interface HealthResponse {
   ok: true;

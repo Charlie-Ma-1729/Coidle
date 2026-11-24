@@ -7,6 +7,7 @@ import type {
   PersonaId,
   ZoneDef,
 } from "./types";
+import { ZONE_EVENTS } from "./events_zones";
 
 // ───────── 時間與全域常數 ─────────
 export const TICK_MINUTES = 5;
@@ -815,6 +816,7 @@ export const EVENTS: EventDef[] = [
     effects: [{ t: "supplierDiscover" }],
   },
 ];
+EVENTS.push(...ZONE_EVENTS); // 各區域的專屬事件
 export const EVENT_BY_ID = Object.fromEntries(EVENTS.map((e) => [e.id, e])) as Record<string, EventDef>;
 
 /**

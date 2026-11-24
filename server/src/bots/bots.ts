@@ -1,4 +1,4 @@
-import { CATEGORIES, CATEGORY_BY_ID, PROMOS, TECHS, TICKS_PER_DAY, isZoneUnlocked, techBlocker, techSlots, type MallState, type SlotKind } from "@coidle/shared";
+import { CATEGORIES, CATEGORY_BY_ID, PROMOS, TEAM_EVENT_BY_ID, TECHS, TICKS_PER_DAY, isZoneUnlocked, techBlocker, techSlots, type MallState, type SlotKind } from "@coidle/shared";
 import { advanceTo, applyCommand, createInitialState, createRng, type Command } from "../sim";
 import { resolveInbox } from "../sim/guests";
 
@@ -41,7 +41,7 @@ export interface BotRun {
 const PREFERRED = ["takoyaki", "kushikatsu", "ramen", "kissaten", "udon", "bubble_tea", "curry", "sweets", "fashion", "drugstore", "select_shop", "brunch", "italian", "cinema", "arcade_vr", "yakiniku", "sushi", "izakaya", "gym", "spa"];
 
 function tryApply(s: MallState, cmd: Command): MallState {
-  const r = applyCommand(s, cmd);
+  const r = applyCommand(s, cmd, { id: "bot", name: "機器人" });
   return r.ok ? r.state : s;
 }
 
@@ -61,6 +61,11 @@ function diligentDay(s0: MallState, rnd: () => number, f: Features = ALL): MallS
   if (f.upkeep) s = tryApply(s, { type: "setCleaning", level: s.cleanliness < 70 ? 2 : s.cleanliness > 90 ? 1 : s.cleaningLevel });
   if (f.upkeep) s = tryApply(s, { type: "setMaintenance", level: s.equipment < 70 ? 2 : s.equipment > 92 ? 1 : s.maintenanceLevel });
 
+  // 團隊事件：機器人一個人就認領一項
+  if (f.regulars && s.meta.team.event && !s.meta.team.event.contributions.length) {
+    const def = TEAM_EVENT_BY_ID[s.meta.team.event.defId];
+    if (def) s = tryApply(s, { type: "contribute", taskId: def.tasks[0]!.id });
+  }
   // 租戶：有品牌來洽談就簽（挑品質×知名度最高的），續約一律照開價
   if (f.lease) {
     for (const r of s.leasing.renewals.slice()) s = tryApply(s, { type: "resolveRenewal", uid: r.uid, action: "renew" });

@@ -20,6 +20,7 @@ import {
 import { applyIndexDelta } from "./events";
 import type { GuestResult } from "./guests";
 import type { Rng } from "./rng";
+import { bump } from "./meta";
 import { addLog, nextId } from "./state";
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -127,6 +128,7 @@ export function resolveInspection(s: MallState, kind: InspectionKind, prep: Insp
     }
   }
 
+  if (outcome === "excellent" || outcome === "pass") bump(s, "inspections");
   s.inspections.log.unshift({ tick: s.tick, kind, score, outcome, fine: info.fine, prep, surprise });
   if (s.inspections.log.length > MAX_INSPECTION_LOG) s.inspections.log.length = MAX_INSPECTION_LOG;
   const text = `${def.icon} ${def.name}結果：${score} 分・${info.label}${info.fine ? `（罰款 ${money(info.fine)}）` : ""}`;

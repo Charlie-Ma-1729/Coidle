@@ -28,6 +28,7 @@ import {
 import { applyIndexDelta } from "./events";
 import type { GuestResult } from "./guests";
 import { createRng, hash32, type Rng } from "./rng";
+import { bump } from "./meta";
 import { addLog, nextId } from "./state";
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -96,6 +97,7 @@ export function signTenant(s: MallState, candidateId: string, slotId?: number): 
   const tenant: Tenant = { brand: c.brand, quality: c.quality, fame: c.fame, rent: c.rent, commission: c.commission, startTick: start, endTick: start + c.termDays * TICKS_PER_DAY, satisfaction: 60, lowDays: 0 };
   s.builds.push({ id: nextId(s, "bld"), kind: "open", slot, category: c.category, completeTick: start, cost: 0, tenant });
   s.leasing.candidates = s.leasing.candidates.filter((x) => x.id !== c.id);
+  bump(s, "tenants");
   logLease(s, `與「${c.brand}」（${cat.name}）簽下 ${c.termDays} 天租約：每日租金 ${money(c.rent)}、抽成 ${Math.round(c.commission * 100)}%。`);
   return { ok: true, note: `簽約完成，「${c.brand}」開始裝修` };
 }

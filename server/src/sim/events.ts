@@ -1,5 +1,6 @@
 import { EVENTS, EVENT_BY_ID, FAMILY_ORDER, PERSONA_BY_ID, familyShopCount, type EffectSpec, type EventDef, type MallState, type PersonaId } from "@coidle/shared";
 import type { Rng } from "./rng";
+import { noteSeen } from "./meta";
 import { addLog, isZoneUnlocked, nextId } from "./state";
 import {
   applyFamilyFreshness,
@@ -157,6 +158,7 @@ export function spawnEvent(s: MallState, def: EventDef, rng: Rng): string | null
   s.cooldowns[def.id] = s.tick + def.cooldownTicks;
   addLog(s, "event", `【${def.title}】${def.text}`);
   s.today.events.push(def.title);
+  noteSeen(s, def.id);
   applyEffects(s, def.effects, rng);
   if (!def.choice) return null;
   const uid = nextId(s, "ev");

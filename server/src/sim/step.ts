@@ -52,6 +52,7 @@ import { rivalsDaily, rivalsTick } from "./rivals";
 import { deliveryTerms, quoteOrder, recordOrder, suppliersTick, warnSupplyTrouble } from "./suppliers";
 import { buildReport } from "./report";
 import { applyTenantToShop, leasingDaily } from "./leasing";
+import { metaDaily } from "./meta";
 import { dailyOverhead, dailyWages, taxDaily } from "./tax";
 import { techAutoInspection, techDaily, techTick } from "./tech";
 import { syncWorkshop, workshopDaily, workshopTick } from "./workshop";
@@ -455,6 +456,7 @@ function rollover(s: MallState, time: TimeInfo): void {
   s.reports.push(buildReport(s));
   if (s.reports.length > MAX_REPORTS) s.reports.splice(0, s.reports.length - MAX_REPORTS);
 
+  metaDaily(s, time); // 目標驗收、團隊事件、成就與線索（也在各店當日統計重置之前）
   leasingDaily(s); // 招商：新品牌來洽談、租戶滿意度、續約（要在各店當日統計重置之前）
   checkLevelUp(s);
   for (const shop of s.shops) {

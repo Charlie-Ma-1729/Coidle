@@ -22,6 +22,7 @@ import { regularAction } from "./regulars";
 import { rivalCounter, rivalIntel, rivalPact } from "./rivals";
 import { cancelContract, chooseSupplier, signContract } from "./suppliers";
 import { rngForTick } from "./rng";
+import { bump, contribute, guessPlace, trackActor, type Actor } from "./meta";
 import { counterTenant, declineTenant, resolveRenewal, signTenant, terminateLease } from "./leasing";
 import { cancelTech, startTech } from "./tech";
 import { cancelRnd, discardDish, listDish, startRnd, syncWorkshop, tastingAction, unlistDish } from "./workshop";
@@ -41,7 +42,7 @@ const isInt = (v: unknown): v is number => typeof v === "number" && Number.isInt
  * 才能確保指令作用在與離線結算一致的時間點上。
  * 回傳新的狀態（不修改傳入的物件）。
  */
-export function applyCommand(state: MallState, cmd: Command): CommandResult {
+export function applyCommand(state: MallState, cmd: Command, actor?: Actor): CommandResult {
   const s = structuredClone(state);
   const err = (error: string): CommandResult => ({ ok: false, error });
   const findShop = (id: string) => s.shops.find((x) => x.id === id);
@@ -182,6 +183,7 @@ export function applyCommand(state: MallState, cmd: Command): CommandResult {
     case "schedulePromo": {
       const r = schedulePromo(s, cmd.defId, cmd.startTick);
       if (!r.ok) return err(r.error);
+      bump(s, "promos");
       break;
     }
 
@@ -200,12 +202,14 @@ export function applyCommand(state: MallState, cmd: Command): CommandResult {
     case "resolveInbox": {
       const r = resolveInbox(s, cmd.uid, cmd.optionId);
       if (!r.ok) return err(r.error);
+      bump(s, "handled");
       break;
     }
 
     case "walkFloor": {
       const r = walkFloor(s, rngForTick(s.seed, s.tick ^ 0x3c6ef372), isOpen(s, timeInfo(s.tick)));
       if (!r.ok) return err(r.error);
+      bump(s, "walks");
       break;
     }
 
@@ -320,6 +324,18 @@ export function applyCommand(state: MallState, cmd: Command): CommandResult {
       break;
     }
 
+    case "contribute": {
+      const r = contribute(s, cmd.taskId, actor);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "guessPlace": {
+      const r = guessPlace(s, cmd.text);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
     case "startTech": {
       const r = startTech(s, cmd.id);
       if (!r.ok) return err(r.error);
@@ -381,5 +397,6 @@ export function applyCommand(state: MallState, cmd: Command): CommandResult {
   }
 
   syncWorkshop(s); // 指令可能解鎖新素材或線索（刺探情報、簽約…）
+  trackActor(s, actor, cmd.type);
   return { ok: true, state: s };
 }
