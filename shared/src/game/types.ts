@@ -227,6 +227,9 @@ export interface DailyReport {
   notes: string[];
 }
 
+/** 傳給玩家的狀態：不含亂數種子與內部冷卻表 */
+export type PublicMallState = Omit<MallState, "seed" | "cooldowns">;
+
 export interface MallState {
   version: 1;
   seed: number;
