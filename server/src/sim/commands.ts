@@ -7,6 +7,7 @@ import {
   UPGRADE_BASE_COST,
   UPGRADE_TICKS,
   categoryHasStock,
+  type Command,
   type MallState,
   type RestockRule,
 } from "@coidle/shared";
@@ -15,19 +16,7 @@ import { rngForTick } from "./rng";
 import { addLog, isFeatureEnabled, isZoneUnlocked, nextId } from "./state";
 import { placeOrder } from "./step";
 
-export type Command =
-  | { type: "touch" }
-  | { type: "setPrice"; shopId: string; price: number }
-  | { type: "setHours"; open: number; close: number }
-  | { type: "setRestock"; shopId: string; rule: Partial<RestockRule> }
-  | { type: "orderStock"; shopId: string; qty: number }
-  | { type: "setCleaning"; level: 0 | 1 | 2 }
-  | { type: "setMaintenance"; level: 0 | 1 | 2 }
-  | { type: "buildShop"; slot: number; category: string }
-  | { type: "upgradeShop"; shopId: string }
-  | { type: "refreshShop"; shopId: string }
-  | { type: "resolveEvent"; uid: string; optionId: string }
-  | { type: "setLease"; shopId: string; enabled: boolean; rent?: number; commission?: number };
+export type { Command };
 
 export type CommandResult = { ok: true; state: MallState } | { ok: false; error: string };
 

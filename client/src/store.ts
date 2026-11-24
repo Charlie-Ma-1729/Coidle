@@ -1,0 +1,99 @@
+import { signal } from "@preact/signals";
+import type { ActivityEntry, Command, MallSummary, MeResponse, PublicMallState } from "@coidle/shared";
+import { api, ApiError, type MallInfo } from "./api";
+import { connectMall, disconnectMall } from "./ws";
+
+export const user = signal<MeResponse["user"] | null>(null);
+export const myMalls = signal<MallSummary[]>([]);
+/** 啟動時是否已確認過登入狀態 */
+export const authReady = signal(false);
+export const mallId = signal<number | null>(null);
+export const mallInfo = signal<MallInfo | null>(null);
+export const state = signal<PublicMallState | null>(null);
+export const activity = signal<ActivityEntry[]>([]);
+export const online = signal(false);
+export const busy = signal(false);
+
+export interface Toast {
+  id: number;
+  text: string;
+  kind: "info" | "ok" | "error";
+}
+export const toasts = signal<Toast[]>([]);
+let toastSeq = 1;
+export function toast(text: string, kind: Toast["kind"] = "info"): void {
+  const id = toastSeq++;
+  toasts.value = [...toasts.value, { id, text, kind }];
+  setTimeout(() => (toasts.value = toasts.value.filter((t) => t.id !== id)), kind === "error" ? 5000 : 2800);
+}
+
+export function errMsg(e: unknown): string {
+  return e instanceof ApiError || e instanceof Error ? e.message : "發生錯誤";
+}
+
+export async function bootstrap(): Promise<void> {
+  try {
+    const me = await api.me();
+    user.value = me.user;
+    myMalls.value = me.malls;
+    const saved = Number(localStorage.getItem("coidle.mall"));
+    if (saved && me.malls.some((m) => m.id === saved)) await openMall(saved);
+    else if (me.malls.length === 1 && me.malls[0]) await openMall(me.malls[0].id);
+  } catch {
+    user.value = null;
+  } finally {
+    authReady.value = true;
+  }
+}
+
+export async function refreshMe(): Promise<void> {
+  const me = await api.me();
+  user.value = me.user;
+  myMalls.value = me.malls;
+}
+
+export async function openMall(id: number): Promise<void> {
+  mallId.value = id;
+  localStorage.setItem("coidle.mall", String(id));
+  const [info, st, act] = await Promise.all([api.mall(id), api.state(id), api.activity(id)]);
+  mallInfo.value = info;
+  state.value = st;
+  activity.value = act;
+  connectMall(id);
+}
+
+export function leaveMall(): void {
+  disconnectMall();
+  mallId.value = null;
+  mallInfo.value = null;
+  state.value = null;
+  activity.value = [];
+  localStorage.removeItem("coidle.mall");
+}
+
+export async function logout(): Promise<void> {
+  try {
+    await api.logout();
+  } finally {
+    leaveMall();
+    user.value = null;
+    myMalls.value = [];
+  }
+}
+
+/** 送出指令；成功時以伺服器回傳的新狀態為準 */
+export async function run(cmd: Command, okText?: string): Promise<boolean> {
+  const id = mallId.value;
+  if (id === null) return false;
+  busy.value = true;
+  try {
+    state.value = await api.command(id, cmd);
+    if (okText) toast(okText, "ok");
+    return true;
+  } catch (e) {
+    toast(errMsg(e), "error");
+    return false;
+  } finally {
+    busy.value = false;
+  }
+}

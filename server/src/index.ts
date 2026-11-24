@@ -1,6 +1,8 @@
 import { buildApp } from "./app";
 
-const { app, service, repo, config } = buildApp();
+// 開發用：DEV_CLOCK_OFFSET_HOURS 讓伺服器的時鐘往前撥（快轉測試離線／日報）。正式環境請勿設定。
+const clockOffsetMs = Number(process.env.DEV_CLOCK_OFFSET_HOURS ?? 0) * 3_600_000;
+const { app, service, repo, config } = buildApp({ now: () => Date.now() + clockOffsetMs });
 
 // 排程：每 30 秒把所有商場推進到「現在」——玩家離線時商場照樣營業
 service.tickAll();

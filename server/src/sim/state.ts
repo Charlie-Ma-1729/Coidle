@@ -137,12 +137,7 @@ export function createInitialState(seed: number, startTick: number): MallState {
   return s;
 }
 
-export function isZoneUnlocked(s: MallState, zoneId: string): boolean {
-  const forced = s.flags[`zone:${zoneId}`];
-  if (forced !== undefined) return forced;
-  const z = ZONE_BY_ID[zoneId];
-  return !!z && s.level >= z.unlockLevel;
-}
+export { isZoneUnlocked } from "@coidle/shared";
 
 export function isFeatureEnabled(s: MallState, name: string): boolean {
   return s.flags[`feature:${name}`] === true;

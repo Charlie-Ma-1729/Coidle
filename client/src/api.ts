@@ -1,0 +1,58 @@
+import type {
+  ActivityEntry,
+  Command,
+  MeResponse,
+  MemberInfo,
+  PublicMallState,
+  RoleId,
+} from "@coidle/shared";
+
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method,
+      headers: body === undefined ? undefined : { "content-type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      credentials: "same-origin",
+    });
+  } catch {
+    throw new ApiError(0, "連不到伺服器，請檢查網路");
+  }
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!res.ok) throw new ApiError(res.status, data?.error ?? "發生錯誤");
+  return data as T;
+}
+
+export interface MallInfo {
+  id: number;
+  name: string;
+  inviteCode?: string;
+  members: MemberInfo[];
+}
+
+export const api = {
+  me: () => request<MeResponse>("GET", "/api/me"),
+  register: (username: string, password: string, displayName: string, signupSecret?: string) =>
+    request<{ ok: true }>("POST", "/api/auth/register", { username, password, displayName, signupSecret }),
+  login: (username: string, password: string) => request<{ ok: true }>("POST", "/api/auth/login", { username, password }),
+  logout: () => request<{ ok: true }>("POST", "/api/auth/logout", {}),
+  createMall: (name: string) => request<{ id: number; inviteCode: string }>("POST", "/api/malls", { name }),
+  joinMall: (code: string, role?: RoleId) => request<{ id: number }>("POST", "/api/malls/join", { code, role }),
+  mall: (id: number) => request<MallInfo>("GET", `/api/malls/${id}`),
+  state: (id: number) => request<PublicMallState>("GET", `/api/malls/${id}/state`),
+  activity: (id: number) => request<ActivityEntry[]>("GET", `/api/malls/${id}/activity?limit=40`),
+  command: (id: number, command: Command) => request<PublicMallState>("POST", `/api/malls/${id}/commands`, { command }),
+  setRole: (id: number, role: RoleId) => request<{ members: MemberInfo[] }>("POST", `/api/malls/${id}/role`, { role }),
+  regenInvite: (id: number) => request<{ inviteCode: string }>("POST", `/api/malls/${id}/invite/regenerate`, {}),
+};
