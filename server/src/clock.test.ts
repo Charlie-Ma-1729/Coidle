@@ -161,6 +161,8 @@ async function setup(a: ReturnType<typeof makeApp>) {
   const { id, inviteCode } = (await call(a, owner, "POST", "/api/malls", { name: "測試" })).json();
   const friend = await login(a, "friend");
   await call(a, friend, "POST", "/api/malls/join", { code: inviteCode });
+  // 商場的亂數種子是隨機的；關掉「遇事暫停」，這裡的測試才不會偶爾被隨機事件攔下（事件暫停本身另有測試）
+  await call(a, owner, "POST", `/api/malls/${id}/clock`, { pauseOnEvents: false });
   return { owner, friend, id: id as number };
 }
 
@@ -173,6 +175,7 @@ describe("clock API and service", () => {
   it("any member can slow the clock down, and the game day length follows the preset", async () => {
     const a = makeApp();
     const { owner, friend, id } = await setup(a);
+    await call(a, owner, "POST", `/api/malls/${id}/clock`, { pauseOnEvents: false }); // 不受隨機暫停事件影響
     const t0 = (await call(a, owner, "GET", `/api/malls/${id}/state`)).json().tick;
 
     const r = await call(a, friend, "POST", `/api/malls/${id}/clock`, { speed: "slow" }); // 24 小時 / 遊戲日
@@ -274,6 +277,7 @@ describe("pause on important events (service level)", () => {
       s.clock.anchorTick = AUG;
       s.clock.anchorRealMs = a.clock.t;
       s.seed = attempt + 1;
+      s.clock.pauseOnEvents = true; // 這組測試正是要測遇事暫停
       a.repo.addPushSub(1, "https://push.example/abc", "p256dhkeyvalue", "authkeyvalue", a.clock.t);
       if (present) a.service.addConnection(id, 1);
       else s.clock.lastVisitRealMs = a.clock.t - 2 * HOUR; // 最近沒人操作

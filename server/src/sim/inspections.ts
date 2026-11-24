@@ -34,6 +34,18 @@ function hasFoodShop(s: MallState): boolean {
   return s.shops.some((x) => x.mode === "direct" && CATEGORY_BY_ID[x.category]?.group === "food");
 }
 
+/**
+ * 沒人在場時，這次稽查值不值得讓時鐘暫停等人？
+ * 只有「照預設做基本整理，結果仍會被警告以上處分」才值得——狀況好的商場放著不管也會合格，不必打擾。
+ */
+export function inspectionAtRisk(s: MallState, kind: InspectionKind): boolean {
+  const opt = prepOption(DEFAULT_PREP);
+  const afford = s.funds >= opt.cost;
+  const clean = clamp(s.cleanliness + (afford ? opt.clean : 0), 0, 100);
+  const equip = clamp(s.equipment + (afford ? opt.equip : 0), 0, 100);
+  return inspectionScore(kind, clean, equip) < 60;
+}
+
 /** 把備戰的效果與費用實際套用（呼叫端已確認資金夠） */
 function applyPrep(s: MallState, level: InspectionPrep): void {
   const opt = prepOption(level);

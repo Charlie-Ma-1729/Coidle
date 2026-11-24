@@ -219,10 +219,10 @@ export function trafficMult(s: MallState, persona: PersonaId, tick: number): num
   return m;
 }
 
-/** 有效品質：等級決定上限，新鮮感過低會打折（新鮮感 20 時約打 64 折）；菜單上的招牌與新品再加分 */
+/** 有效品質：等級決定上限，新鮮感過低會打折（新鮮感 20 時打 6 折）；菜單上的招牌與新品再加分 */
 export function shopQuality(shop: Shop): number {
   const base = (SHOP_QUALITY[shop.level] ?? 0.5) + menuQualityBonus(shop);
-  return base * (0.55 + 0.45 * (shop.freshness / 100));
+  return base * (0.5 + 0.5 * (shop.freshness / 100));
 }
 
 export function shopCapacity(shop: Shop): number {

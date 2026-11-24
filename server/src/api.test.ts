@@ -207,6 +207,7 @@ describe("offline progress", () => {
   it("the mall keeps earning while nobody is online", async () => {
     const a = makeApp();
     const { owner, id } = await setupMall(a);
+    await call(a, owner.cookie, "POST", `/api/malls/${id}/clock`, { pauseOnEvents: false }); // 這個測試只看離線賺錢，不受隨機的暫停事件影響
     const before = (await call(a, owner.cookie, "GET", `/api/malls/${id}/state`)).json();
     a.clock.t += 18 * HOUR; // 離線 18 真實小時 ＝ 3 個遊戲日
     a.service.tickAll(); // 排程
@@ -224,6 +225,7 @@ describe("offline progress", () => {
       const a1 = makeApp({ dbPath, now: () => clockT });
       const { owner, id } = await setupMall(a1);
       const cookie = owner.cookie;
+      await call(a1, cookie, "POST", `/api/malls/${id}/clock`, { pauseOnEvents: false });
       const s1 = (await call(a1, cookie, "GET", `/api/malls/${id}/state`)).json();
       await a1.app.close();
       opened.pop();

@@ -40,7 +40,7 @@ export const CLEANING_RESTORE_PER_TICK = [0.01, 0.06, 0.12] as const;
 export const MAINTENANCE_RESTORE_PER_TICK = [0, 0.05, 0.1] as const;
 export const SUPPLY_LEAD_TICKS = 36;
 export const SUPPLY_LOT = 50;
-export const UPGRADE_BASE_COST = 400_000;
+export const UPGRADE_BASE_COST = 1_200_000;
 export const UPGRADE_TICKS = 96;
 export const MAX_SHOP_LEVEL = 3;
 export const SHOP_QUALITY = [0, 0.5, 0.65, 0.8] as const; // 依 level 索引
@@ -156,21 +156,21 @@ export const ZONE_BY_ID = Object.fromEntries(ZONES.map((z) => [z.id, z]));
 export const LEVELS: LevelDef[] = [
   { level: 1, minRevenue: 0, minIndexAvg: 0 },
   { level: 2, minRevenue: 30_000_000, minIndexAvg: 48 },
-  { level: 3, minRevenue: 90_000_000, minIndexAvg: 50 },
-  { level: 4, minRevenue: 220_000_000, minIndexAvg: 52 },
-  { level: 5, minRevenue: 450_000_000, minIndexAvg: 54 },
-  { level: 6, minRevenue: 800_000_000, minIndexAvg: 56 },
-  { level: 7, minRevenue: 1_400_000_000, minIndexAvg: 58 },
-  { level: 8, minRevenue: 2_200_000_000, minIndexAvg: 60 },
+  { level: 3, minRevenue: 120_000_000, minIndexAvg: 50 },
+  { level: 4, minRevenue: 350_000_000, minIndexAvg: 52 },
+  { level: 5, minRevenue: 800_000_000, minIndexAvg: 54 },
+  { level: 6, minRevenue: 1_500_000_000, minIndexAvg: 56 },
+  { level: 7, minRevenue: 2_600_000_000, minIndexAvg: 58 },
+  { level: 8, minRevenue: 4_200_000_000, minIndexAvg: 60 },
 ];
 
 // ───────── 業態 ─────────
 type D = Partial<Record<PersonaId, number>>;
 const GROUP_DEFAULTS: Record<CategoryGroup, { wage: number; buildCost: number; buildTicks: number }> = {
-  food: { wage: 25_000, buildCost: 600_000, buildTicks: 144 },
-  retail: { wage: 25_000, buildCost: 700_000, buildTicks: 168 },
-  entertainment: { wage: 40_000, buildCost: 1_200_000, buildTicks: 288 },
-  service: { wage: 30_000, buildCost: 900_000, buildTicks: 216 },
+  food: { wage: 25_000, buildCost: 900_000, buildTicks: 144 },
+  retail: { wage: 25_000, buildCost: 1_050_000, buildTicks: 168 },
+  entertainment: { wage: 40_000, buildCost: 1_800_000, buildTicks: 288 },
+  service: { wage: 30_000, buildCost: 1_350_000, buildTicks: 216 },
 };
 
 function cat(

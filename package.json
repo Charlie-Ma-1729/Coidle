@@ -13,6 +13,7 @@
     "build:client": "vite build --config client/vite.config.ts client",
     "start": "tsx --tsconfig tsconfig.json server/src/index.ts",
     "test": "vitest run",
+    "sim": "tsx --tsconfig tsconfig.json server/src/bots/run.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {

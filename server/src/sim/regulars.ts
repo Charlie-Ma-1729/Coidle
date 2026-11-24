@@ -156,7 +156,7 @@ function visit(s: MallState, rng: Rng, reg: RegularState, def: RegularDef, p: Pe
     }
   }
   const signature = shop.menu.some((e) => e.recipeId !== null && RECIPE_REGULAR[e.recipeId] === def.id);
-  gain(s, reg, def, 1.2 + (shop.freshness > 70 ? 0.4 : 0) + (shop.level >= 2 ? 0.3 : 0) + (signature ? 1 : 0));
+  gain(s, reg, def, 0.75 * (1.2 + (shop.freshness > 70 ? 0.4 : 0) + (shop.level >= 2 ? 0.3 : 0)) + (signature ? 1 : 0));
   return qty;
 }
 

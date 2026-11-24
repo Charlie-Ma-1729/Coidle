@@ -36,7 +36,7 @@ import {
 } from "@coidle/shared";
 import { expireModifiers, maybeSpawnEvent, resolveDeadlines } from "./events";
 import { generateDailyReviews, noteGrievance, resolveInboxDeadlines } from "./guests";
-import { maybeSpawnInspection, runDueInspections } from "./inspections";
+import { inspectionAtRisk, maybeSpawnInspection, runDueInspections } from "./inspections";
 import { effectivePrice, endPromos, noteSale, promoFatigueDaily, promoSatBonus, promoTraffic, startDuePromos } from "./promos";
 import { regularsDaily, runRegulars } from "./regulars";
 import { rivalsDaily, rivalsTick } from "./rivals";
@@ -111,7 +111,7 @@ export function stepTick(s: MallState, ctx: StepContext = { nobodyPresent: false
     s.clock.holds.events.push(spawned.uid);
     halt = true;
   }
-  if (notice && ctx.nobodyPresent && s.clock.pauseOnEvents) {
+  if (notice && ctx.nobodyPresent && s.clock.pauseOnEvents && inspectionAtRisk(s, notice.kind)) {
     s.clock.holds.events.push(notice.uid);
     halt = true;
   }
@@ -342,7 +342,7 @@ function satisfaction(s: MallState, p: PersonaDef, shop: Shop, refPrice: number)
   const q = shopQuality(shop) * supplierQualityFactor(s, shop.category);
   const value = clamp(refPrice / effectivePrice(s, shop), 0.5, 1.5);
   const weight = 0.1 + 0.08 * p.sensitivity;
-  const base = 0.28 + 0.4 * q + weight * (value - 0.5) + promoSatBonus(s) + 0.06 * menuAppeal(shop, p.id);
+  const base = 0.16 + 0.62 * q + weight * (value - 0.5) + promoSatBonus(s) + 0.06 * menuAppeal(shop, p.id);
   return clamp(base * (0.75 + 0.25 * (s.cleanliness / 100)) * (0.75 + 0.25 * (s.equipment / 100)), 0, 1);
 }
 
@@ -373,8 +373,13 @@ function nudgeIndex(s: MallState, which: IndexId, target: number, alpha: number)
 }
 
 // ───────── 維運、固定成本、故障 ─────────
+/** 商場越大，清潔與維護團隊越大：能力與費用都隨店數放大（5 間店時為 1 倍） */
+export function facilityScale(s: MallState): number {
+  return Math.max(1, 0.4 + 0.12 * s.shops.length);
+}
+
 function dailyFixedCost(s: MallState): number {
-  let c = UTILITIES_PER_DAY + CLEANING_COST_PER_DAY[s.cleaningLevel] + MAINTENANCE_COST_PER_DAY[s.maintenanceLevel];
+  let c = UTILITIES_PER_DAY + (CLEANING_COST_PER_DAY[s.cleaningLevel] + MAINTENANCE_COST_PER_DAY[s.maintenanceLevel]) * facilityScale(s);
   for (const shop of s.shops) {
     if (shop.mode === "lease") continue;
     const cat = CATEGORY_BY_ID[shop.category];
@@ -389,8 +394,9 @@ function upkeep(s: MallState, units: number, rng: Rng): void {
   s.funds -= fixed;
   s.today.fixed += fixed;
 
-  s.cleanliness = clamp(s.cleanliness + CLEANING_RESTORE_PER_TICK[s.cleaningLevel] - units * 0.009, 0, 100);
-  s.equipment = clamp(s.equipment + MAINTENANCE_RESTORE_PER_TICK[s.maintenanceLevel] - units * 0.007, 0, 100);
+  const scale = facilityScale(s);
+  s.cleanliness = clamp(s.cleanliness + CLEANING_RESTORE_PER_TICK[s.cleaningLevel] * scale - units * 0.009, 0, 100);
+  s.equipment = clamp(s.equipment + MAINTENANCE_RESTORE_PER_TICK[s.maintenanceLevel] * scale - units * 0.007, 0, 100);
 
   const breakdownP = s.equipment < 10 ? 0.012 : s.equipment < 30 ? 0.004 : 0;
   if (breakdownP > 0 && s.shops.length > 0 && rng.chance(breakdownP)) {
