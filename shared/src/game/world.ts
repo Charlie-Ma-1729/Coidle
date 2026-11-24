@@ -8,7 +8,7 @@ export * from "./coop";
 
 const DAY_MS = 86_400_000;
 /** 世界的起點：NPC 商場的成長曲線與賽季的邊界都從這天算起 */
-export const WORLD_EPOCH_MS = Date.UTC(2026, 10, 25);
+export const WORLD_EPOCH_MS = Date.UTC(2026, 10, 1);
 export const SEASON_DAYS = 28;
 export const SEASON_MS = SEASON_DAYS * DAY_MS;
 /** 參加賽季獎勵：商場至少要開了這麼久，而且近 30 天有營收 */

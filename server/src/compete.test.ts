@@ -98,10 +98,9 @@ describe("a successful attack", () => {
     const sa = a.service.sync(t.malls[0]!);
     const sb = a.service.sync(t.malls[1]!);
     expect(f0 - sa.funds).toBeGreaterThanOrEqual(competeCost(3) - 1);
-    const mine = sa.modifiers.find((m) => m.kind === "traffic" && m.persona === "tourist");
-    const theirs = sb.modifiers.find((m) => m.kind === "traffic" && m.persona === "tourist");
-    expect(mine && "mult" in mine ? mine.mult : 0).toBe(COMPETE_SELF_MULT);
-    expect(theirs && "mult" in theirs ? theirs.mult : 0).toBe(COMPETE_TARGET_MULT);
+    const has = (s: MallState, mult: number) => s.modifiers.some((m) => m.kind === "traffic" && m.persona === "tourist" && m.mult === mult);
+    expect(has(sa, COMPETE_SELF_MULT)).toBe(true);
+    expect(has(sb, COMPETE_TARGET_MULT)).toBe(true);
     expect(sb.world.notices[0]!.text).toContain("商場0");
     expect(sa.world.notices[0]!.text).toContain("商場1");
     // 第三方沒有任何影響
