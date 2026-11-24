@@ -1,5 +1,5 @@
 import { signal } from "@preact/signals";
-import { registerEvents, type ActivityEntry, type Command, type MallSummary, type MeResponse, type PublicMallState } from "@coidle/shared";
+import { registerEvents, registerRegulars, type ActivityEntry, type Command, type MallSummary, type MeResponse, type PublicMallState } from "@coidle/shared";
 import { api, ApiError, type ClockPatch, type MallInfo } from "./api";
 import { connectMall, disconnectMall } from "./ws";
 
@@ -57,6 +57,7 @@ export async function openMall(id: number): Promise<void> {
   localStorage.setItem("coidle.mall", String(id));
   // 先取得新增的事件定義（AI 事件），畫面才認得待決事件
   await api.contentEvents().then((r) => registerEvents(r.events), () => undefined);
+  await api.contentRegulars().then((r) => registerRegulars(r.regulars), () => undefined);
   const [info, st, act] = await Promise.all([api.mall(id), api.state(id), api.activity(id)]);
   mallInfo.value = info;
   state.value = st;

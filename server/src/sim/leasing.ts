@@ -14,6 +14,7 @@ import {
   TICKS_PER_DAY,
   baselineRevenue,
   brandName,
+  isCategoryAvailable,
   isZoneUnlocked,
   leaseEnabled,
   leaseRemainingRent,
@@ -29,6 +30,7 @@ import { applyIndexDelta } from "./events";
 import type { GuestResult } from "./guests";
 import { createRng, hash32, type Rng } from "./rng";
 import { bump } from "./meta";
+import { flavor } from "./flavor";
 import { addLog, nextId } from "./state";
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -50,7 +52,7 @@ function emptySlots(s: MallState, zone: string): number[] {
 
 // ───────── 候選品牌 ─────────
 function makeCandidate(s: MallState, rng: Rng): TenantCandidate | null {
-  const cats = CATEGORIES.filter((c) => isZoneUnlocked(s, c.zone) && emptySlots(s, c.zone).length > 0);
+  const cats = CATEGORIES.filter((c) => isCategoryAvailable(s, c.id) && emptySlots(s, c.zone).length > 0);
   if (cats.length === 0) return null;
   const have = new Set(s.shops.map((x) => x.category));
   const pending = new Set(s.leasing.candidates.map((c) => c.category));
@@ -63,14 +65,24 @@ function makeCandidate(s: MallState, rng: Rng): TenantCandidate | null {
   const rent = Math.max(1000, Math.round((marketRent(cat.id) * (1.15 - 0.35 * (fame / 100)) * (0.9 + 0.2 * rng.next())) / 100) * 100);
   const taken = new Set([...s.shops.map((x) => x.name), ...s.leasing.candidates.map((c) => c.brand)]);
   let brand = "";
-  for (let i = 0; i < 12; i++) {
-    brand = brandName(cat.group, rng.int(0, 999), rng.int(0, 999));
-    if (!taken.has(brand)) break;
+  let blurb: string | undefined;
+  // 內容池裡有 AI 想的品牌名時，一半的機率用它（池子是空的就完全不動亂數，結果和以前一樣）
+  const pool = (flavor().brands?.(cat.group) ?? []).filter((b) => !taken.has(b.name));
+  if (pool.length > 0 && rng.chance(0.5)) {
+    const pick = pool[rng.int(0, pool.length - 1)]!;
+    brand = pick.name;
+    blurb = pick.blurb;
+  } else {
+    for (let i = 0; i < 12; i++) {
+      brand = brandName(cat.group, rng.int(0, 999), rng.int(0, 999));
+      if (!taken.has(brand)) break;
+    }
   }
   if (taken.has(brand)) return null;
   return {
     id: nextId(s, "tc"),
     brand,
+    ...(blurb ? { blurb } : {}),
     category: cat.id,
     quality,
     fame,

@@ -9,6 +9,7 @@ import {
   RIVAL_BY_ID,
   SUPPLIER_BY_ID,
   TECH_BY_ID,
+  ZONE_BY_ID,
   ROLE_IDS,
   isPaused,
   reanchor,
@@ -67,6 +68,8 @@ export function describeCommand(s: MallState, cmd: Command, actor: string): stri
       return `${actor} 把設備維護等級調到 ${cmd.level}`;
     case "buildShop":
       return `${actor} 開始興建「${CATEGORY_BY_ID[cmd.category]?.name ?? "新店"}」`;
+    case "expandZone":
+      return `${actor} 擴建了「${ZONE_BY_ID[cmd.zone]?.name ?? "區域"}」`;
     case "upgradeShop":
       return `${actor} 讓「${shopName(cmd.shopId)}」開始翻新`;
     case "refreshShop":

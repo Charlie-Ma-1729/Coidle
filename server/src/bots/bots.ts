@@ -1,4 +1,4 @@
-import { CATEGORIES, CATEGORY_BY_ID, PROMOS, TEAM_EVENT_BY_ID, TECHS, TICKS_PER_DAY, isZoneUnlocked, techBlocker, techSlots, type MallState, type SlotKind } from "@coidle/shared";
+import { CATEGORIES, CATEGORY_BY_ID, PROMOS, ZONES, expandInfo, isCategoryAvailable, TEAM_EVENT_BY_ID, TECHS, TICKS_PER_DAY, isZoneUnlocked, techBlocker, techSlots, type MallState, type SlotKind } from "@coidle/shared";
 import { advanceTo, applyCommand, createInitialState, createRng, type Command } from "../sim";
 import { resolveInbox } from "../sim/guests";
 
@@ -38,7 +38,7 @@ export interface BotRun {
   broke: boolean;
 }
 
-const PREFERRED = ["takoyaki", "kushikatsu", "ramen", "kissaten", "udon", "bubble_tea", "curry", "sweets", "fashion", "drugstore", "select_shop", "brunch", "italian", "cinema", "arcade_vr", "yakiniku", "sushi", "izakaya", "gym", "spa"];
+const PREFERRED = ["takoyaki", "kushikatsu", "ramen", "kissaten", "udon", "bubble_tea", "curry", "sweets", "fashion", "drugstore", "select_shop", "brunch", "italian", "cinema", "arcade_vr", "yakiniku", "sushi", "izakaya", "gym", "spa", "gyoza", "onigiri", "taiyaki", "convenience", "cosmetics", "bowling", "claw", "anime_goods", "camera", "nail", "yoga", "tonkatsu", "craft_beer", "food_truck", "capsule_hotel"];
 
 function tryApply(s: MallState, cmd: Command): MallState {
   const r = applyCommand(s, cmd, { id: "bot", name: "機器人" });
@@ -77,12 +77,30 @@ function diligentDay(s0: MallState, rnd: () => number, f: Features = ALL): MallS
     const next = TECHS.filter((t) => !techBlocker(s, t)).sort((a, b) => a.cost - b.cost)[0];
     if (next && s.funds > next.cost * 3) s = tryApply(s, { type: "startTech", id: next.id });
   }
-  // 擴張：資金夠就開下一間（優先常客喜歡的類型）
+  // 擴張：資金夠就開下一間（優先常客喜歡的類型）；沒有空店面時，錢很多就擴建
   if (expand && s.funds > 2_500_000 && s.builds.length === 0) {
     const have = new Set(s.shops.map((x) => x.category));
-    const slot = s.slots.find((x) => !x.shopId && isZoneUnlocked(s, x.zone));
-    const cat = PREFERRED.map((id) => CATEGORY_BY_ID[id]).find((c) => c && !have.has(c.id) && slot && c.zone === slot.zone) ?? CATEGORIES.find((c) => slot && c.zone === slot.zone && !have.has(c.id));
-    if (slot && cat) s = tryApply(s, { type: "buildShop", slot: slot.id, category: cat.id });
+    const open = s.slots.filter((x) => !x.shopId && isZoneUnlocked(s, x.zone));
+    const usable = (zone: string, fresh: boolean) =>
+      [...PREFERRED.map((id) => CATEGORY_BY_ID[id]), ...CATEGORIES].find((c) => c && c.zone === zone && isCategoryAvailable(s, c.id) && (!fresh || !have.has(c.id)));
+    let done = false;
+    for (const slot of open) {
+      const cat = usable(slot.zone, true) ?? usable(slot.zone, false);
+      if (cat && s.funds > cat.buildCost * 1.5) {
+        s = tryApply(s, { type: "buildShop", slot: slot.id, category: cat.id });
+        done = true;
+        break;
+      }
+    }
+    if (!done && open.length === 0) {
+      for (const z of ZONES) {
+        const info = expandInfo(s, z.id);
+        if (isZoneUnlocked(s, z.id) && info.canBuy && s.funds > info.cost * 4) {
+          s = tryApply(s, { type: "expandZone", zone: z.id });
+          break;
+        }
+      }
+    }
   }
   // 翻新：資金很寬裕時
   for (const shop of s.shops) {

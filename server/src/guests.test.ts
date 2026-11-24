@@ -344,7 +344,7 @@ describe("determinism and migration with the guest layer", () => {
     const v2 = { ...createInitialState(1, 100), version: 2 } as unknown as Record<string, unknown>;
     for (const k of ["grievances", "inbox", "reviewLog", "guestPrefs", "walk"]) delete v2[k];
     const m = migrateState(v2, 0);
-    expect(m.version).toBe(10);
+    expect(m.version).toBe(11);
     expect(m.inbox).toEqual([]);
     expect(m.guestPrefs.complaintStance).toBe("balanced");
     expect(m.walk.voices).toEqual([]);

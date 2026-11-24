@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
-import { EVENTS, registerEvents, type EventDef } from "@coidle/shared";
+import { EVENTS, REGULARS, registerEvents, registerRegulars, type EventDef, type RegularDef } from "@coidle/shared";
 import type { Repo } from "../db/repo";
-import type { FlavorMood, FlavorSource, FlavorTier } from "../sim/flavor";
-import { checkEvent, checkNews, checkReview, NEWS_MOODS, REVIEW_TIERS, type Checked } from "./content";
+import type { BrandFlavor, FlavorGroup, FlavorMood, FlavorSource, FlavorTier } from "../sim/flavor";
+import { BRAND_GROUPS, checkBrand, checkDish, checkEvent, checkNews, checkRegular, checkReview, NEWS_MOODS, REVIEW_TIERS, type Checked } from "./content";
 import { chat, extractJson, LlmError, type ChatMessage, type ChatResult } from "./openrouter";
-import { eventPrompt, newsPrompt, reviewPrompt } from "./prompts";
+import { brandPrompt, dishPrompt, eventPrompt, newsPrompt, regularPrompt, reviewPrompt } from "./prompts";
 
 // AI 內容服務：離線批次生成 → 嚴格驗證 → 內容池。
 // 絕不在玩家操作當下呼叫模型；預算耗盡或沒有金鑰就什麼都不做，遊戲照常用手寫內容。
@@ -31,10 +31,10 @@ const SAFETY = 0.85;
 /** 單日花費上限：每月預算的 8%（避免一天燒掉大半） */
 const DAILY_SHARE = 0.08;
 /** 內容池目標數量 */
-export const TARGETS = { newsPerMood: 12, reviewsPerTier: 12, eventsOpen: 4, eventsMax: 40 } as const;
+export const TARGETS = { newsPerMood: 12, reviewsPerTier: 12, eventsOpen: 4, eventsMax: 40, brandsPerGroup: 12, dishesPerGroup: 12, regularsOpen: 2, regularsMax: 12 } as const;
 
 export type ChatFn = (o: Parameters<typeof chat>[0]) => Promise<ChatResult>;
-export type ContentKind = "news" | "review" | "event";
+export type ContentKind = "news" | "review" | "event" | "brand" | "dish" | "regular";
 
 export interface BudgetStatus {
   windowStart: number;
@@ -61,6 +61,8 @@ const hashOf = (kind: string, text: string) => createHash("sha1").update(kind + 
 export class ContentService {
   private news: Record<FlavorMood, string[]> = { good: [], bad: [], neutral: [], season: [] };
   private reviews: Record<FlavorTier, string[]> = { high: [], mid: [], low: [] };
+  private brands: Record<FlavorGroup, BrandFlavor[]> = { food: [], retail: [], entertainment: [], service: [] };
+  private dishes: Record<FlavorGroup, string[]> = { food: [], retail: [], entertainment: [], service: [] };
   private busy = false;
 
   constructor(
@@ -133,13 +135,26 @@ export class ContentService {
       const p = row.payload as { tier: FlavorTier; text: string };
       this.reviews[p.tier]?.push(p.text);
     }
+    for (const g of BRAND_GROUPS) {
+      this.brands[g] = [];
+      this.dishes[g] = [];
+    }
+    for (const row of this.repo.contentList("brand", "active", 1000)) {
+      const p = row.payload as { group: FlavorGroup; name: string; blurb: string };
+      this.brands[p.group]?.push({ name: p.name, blurb: p.blurb });
+    }
+    for (const row of this.repo.contentList("dish", "active", 1000)) {
+      const p = row.payload as { group: FlavorGroup; name: string };
+      this.dishes[p.group]?.push(p.name);
+    }
+    registerRegulars(this.repo.contentList("regular", "active", 100).map((r) => r.payload as RegularDef));
     const events = this.repo.contentList("event", "active", 200).map((r) => r.payload as EventDef);
     const retired = this.repo.contentList("event", "retired", 200).map((r) => ({ ...(r.payload as EventDef), weight: 0 }));
     registerEvents([...events, ...retired]);
   }
 
   flavorSource(): FlavorSource {
-    return { news: (m) => this.news[m], reviews: (t) => this.reviews[t] };
+    return { news: (m) => this.news[m], reviews: (t) => this.reviews[t], brands: (g) => this.brands[g], dishes: (g) => this.dishes[g] };
   }
 
   /** 玩家端需要知道的事件定義（含已下架的，因為還可能有進行中的待決事件） */
@@ -147,13 +162,29 @@ export class ContentService {
     return EVENTS.filter((e) => e.id.startsWith("ai_"));
   }
 
+  /** 玩家端需要知道的新常客（名字、簡介與故事） */
+  publicRegulars(): RegularDef[] {
+    return REGULARS.filter((r) => r.id.startsWith("ai_"));
+  }
+
   // ───────── 生成 ─────────
   async generate(kind: ContentKind, count?: number): Promise<GenResult> {
     const res: GenResult = { kind, ok: false, asked: 0, accepted: 0, rejected: [], costUsd: 0 };
     if (this.busy) return { ...res, error: "另一個生成工作正在進行" };
-    const n = count ?? (kind === "event" ? 4 : 12);
-    const messages = kind === "news" ? newsPrompt(n) : kind === "review" ? reviewPrompt(n) : eventPrompt(n, this.titles());
-    const maxTokens = kind === "event" ? 2000 : 1400;
+    const n = count ?? (kind === "event" ? 4 : kind === "regular" ? 3 : 12);
+    const messages =
+      kind === "news"
+        ? newsPrompt(n)
+        : kind === "review"
+          ? reviewPrompt(n)
+          : kind === "brand"
+            ? brandPrompt(n)
+            : kind === "dish"
+              ? dishPrompt(n)
+              : kind === "regular"
+                ? regularPrompt(n, REGULARS.map((r) => r.name))
+                : eventPrompt(n, this.titles());
+    const maxTokens = kind === "event" || kind === "regular" ? 2400 : 1400;
     const why = this.allowed(this.estimate(messages, maxTokens));
     if (why) return { ...res, error: why };
 
@@ -206,12 +237,33 @@ export class ContentService {
   }
 
   private check(kind: ContentKind, raw: unknown): Checked<unknown> {
-    return kind === "news" ? checkNews(raw) : kind === "review" ? checkReview(raw) : checkEvent(raw);
+    switch (kind) {
+      case "news":
+        return checkNews(raw);
+      case "review":
+        return checkReview(raw);
+      case "brand":
+        return checkBrand(raw);
+      case "dish":
+        return checkDish(raw);
+      case "regular":
+        return checkRegular(raw);
+      default:
+        return checkEvent(raw);
+    }
   }
 
   private store(kind: ContentKind, value: unknown): boolean {
-    const text = kind === "event" ? (value as EventDef).title + (value as EventDef).text : (value as { text: string }).text;
-    const status = kind === "event" && !this.cfg.autoApproveEvents ? "pending" : "active";
+    const text =
+      kind === "event"
+        ? (value as EventDef).title + (value as EventDef).text
+        : kind === "regular"
+          ? (value as RegularDef).name
+          : kind === "brand" || kind === "dish"
+            ? (value as { name: string }).name
+            : (value as { text: string }).text;
+    // 事件會影響數值、常客是有名有姓的角色：預設要人工核准才上線
+    const status = (kind === "event" || kind === "regular") && !this.cfg.autoApproveEvents ? "pending" : "active";
     return this.repo.addContent(kind, status, hashOf(kind, text), value, this.cfg.model, this.now());
   }
 
@@ -224,15 +276,21 @@ export class ContentService {
     if (!this.enabled) return null;
     if (NEWS_MOODS.some((m) => this.news[m].length < TARGETS.newsPerMood)) return this.generate("news", 12);
     if (REVIEW_TIERS.some((t) => this.reviews[t].length < TARGETS.reviewsPerTier)) return this.generate("review", 12);
+    if (BRAND_GROUPS.some((g) => this.brands[g].length < TARGETS.brandsPerGroup)) return this.generate("brand", 12);
+    if (BRAND_GROUPS.some((g) => this.dishes[g].length < TARGETS.dishesPerGroup)) return this.generate("dish", 12);
     const pending = this.repo.contentCount("event", "pending");
     const total = this.repo.contentCount("event", "active") + pending;
     if (pending < TARGETS.eventsOpen && total < TARGETS.eventsMax) return this.generate("event", 4);
+    const rp = this.repo.contentCount("regular", "pending");
+    const rt = this.repo.contentCount("regular", "active") + rp;
+    if (rp < TARGETS.regularsOpen && rt < TARGETS.regularsMax) return this.generate("regular", 3);
     return null;
   }
 
   // ───────── 管理 ─────────
+  /** 事件或新常客（待審）核准上線 */
   approveEvent(id: number): boolean {
-    const row = this.repo.contentList("event", null, 500).find((r) => r.id === id);
+    const row = [...this.repo.contentList("event", null, 500), ...this.repo.contentList("regular", null, 500)].find((r) => r.id === id);
     if (!row || row.status !== "pending") return false;
     this.repo.setContentStatus(id, "active");
     this.reload();
@@ -241,10 +299,10 @@ export class ContentService {
 
   /** 待審的直接拒絕；已上線的改為「下架」（權重歸零，進行中的待決事件仍能處理） */
   rejectEvent(id: number): boolean {
-    const row = this.repo.contentList("event", null, 500).find((r) => r.id === id);
+    const row = [...this.repo.contentList("event", null, 500), ...this.repo.contentList("regular", null, 500)].find((r) => r.id === id);
     if (!row) return false;
     if (row.status === "pending") this.repo.setContentStatus(id, "rejected");
-    else if (row.status === "active") this.repo.setContentStatus(id, "retired");
+    else if (row.status === "active" && row.kind === "event") this.repo.setContentStatus(id, "retired");
     else return false;
     this.reload();
     return true;

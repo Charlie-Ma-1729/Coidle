@@ -145,7 +145,7 @@ export function createInitialState(seed: number, startTick: number, nowMs = 0): 
     for (let i = 0; i < z.slots; i++) slots.push({ id: slots.length, zone: z.id, shopId: null });
   }
   const s: MallState = {
-    version: 10,
+    version: 11,
     clock: newClock(nowMs, startTick),
     seed: seed >>> 0,
     tick: startTick,

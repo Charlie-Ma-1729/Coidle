@@ -1,6 +1,9 @@
 import {
   CATEGORY_BY_ID,
   MAX_SHOP_LEVEL,
+  ZONE_BY_ID,
+  expandInfo,
+  isCategoryAvailable,
   REFRESH_COST,
   REFRESH_GAIN,
   SUPPLY_LOT,
@@ -113,6 +116,7 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
       if (!slot || !cat) return err("店面或業態無效");
       if (cat.zone !== slot.zone) return err("這個業態不能開在這個區域");
       if (!isZoneUnlocked(s, slot.zone)) return err("這個區域尚未解鎖");
+      if (!isCategoryAvailable(s, cat.id)) return err(`這個業態要商場 Lv.${cat.minLevel ?? 1} 才能開`);
       if (slot.shopId || s.builds.some((b) => b.slot === slot.id)) return err("這個店面已被使用或正在施工");
       const lic = licenseOf(cat.id); // 許認可：規費與審查時間
       const total = cat.buildCost + (lic?.fee ?? 0);
@@ -127,6 +131,18 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
         cost: total,
       });
       addLog(s, "build", `開始興建「${cat.name}」。${lic ? `（同步辦理：${lic.name}）` : ""}`);
+      break;
+    }
+
+    case "expandZone": {
+      const z = ZONE_BY_ID[cmd.zone];
+      if (!z) return err("區域無效");
+      if (!isZoneUnlocked(s, z.id)) return err("這個區域尚未解鎖");
+      const info = expandInfo(s, z.id);
+      if (!info.canBuy) return err(info.reason ?? "目前不能擴建");
+      s.funds -= info.cost;
+      s.slots.push({ id: s.slots.length, zone: z.id, shopId: null });
+      addLog(s, "build", `「${z.name}」擴建完成，多了一個店面（第 ${info.n + 1}／${info.max} 次擴建）。`);
       break;
     }
 

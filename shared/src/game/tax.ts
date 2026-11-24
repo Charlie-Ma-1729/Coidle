@@ -1,4 +1,5 @@
-import { CATEGORY_BY_ID, TICKS_PER_DAY } from "./data";
+import { CATEGORY_BY_ID, TICKS_PER_DAY, ZONES } from "./data";
+import { expandCost, expansionsOf } from "./expansion";
 import type { MallState, Obligation, ObligationKind, SupplierDef } from "./types";
 
 // 日本的稅務與法規。
@@ -13,8 +14,8 @@ export const CONSUMPTION_REDUCED = 0.08;
 
 /** 這個業態賣出的東西適用的稅率。診所（保險診療）與認可托育是非課稅 */
 export function consumptionRate(category: string): number {
-  if (["grocery", "bubble_tea", "sweets"].includes(category)) return CONSUMPTION_REDUCED;
-  if (["clinic", "daycare"].includes(category)) return 0;
+  if (["grocery", "bubble_tea", "sweets", "onigiri", "taiyaki", "bakery", "juice_bar"].includes(category)) return CONSUMPTION_REDUCED;
+  if (["clinic", "daycare", "dental"].includes(category)) return 0;
   return CONSUMPTION_STANDARD;
 }
 
@@ -101,8 +102,12 @@ export const BONUS_FACTOR = 0.4;
 export const LATE_FEE_PER_DAY = 0.0002;
 
 /** 店面累積的投資額（建造與翻新），當作固定資產稅的課稅基礎 */
-export function assessedValue(s: Pick<MallState, "shops">): number {
+export function assessedValue(s: Pick<MallState, "shops"> & Partial<Pick<MallState, "slots">>): number {
   let v = BUILDING_BASE_VALUE;
+  if (s.slots) {
+    const slots = s.slots;
+    for (const z of ZONES) for (let i = 0; i < expansionsOf({ slots }, z.id); i++) v += expandCost(z.id, i);
+  }
   for (const sh of s.shops) {
     const cat = CATEGORY_BY_ID[sh.category];
     if (cat) v += cat.buildCost * sh.level;
@@ -132,8 +137,19 @@ export interface LicenseDef {
 const FOOD: LicenseDef = { name: "飲食店營業許可", law: "食品衛生法（保健所許可、需有食品衛生責任者）", fee: 20_000, extraTicks: 24 };
 export const LICENSES: Record<string, LicenseDef> = {
   ...Object.fromEntries(
-    ["ramen", "takoyaki", "kushikatsu", "kissaten", "udon", "bubble_tea", "sweets", "curry", "brunch", "italian", "fastfood", "yakiniku", "sushi", "hotpot", "fine_dining"].map((c) => [c, FOOD]),
+    ["ramen", "takoyaki", "kushikatsu", "kissaten", "udon", "bubble_tea", "sweets", "curry", "brunch", "italian", "fastfood", "yakiniku", "sushi", "hotpot", "fine_dining", "gyoza", "onigiri", "taiyaki", "oden", "soba", "bakery", "karaage", "juice_bar", "tonkatsu", "unagi", "teppanyaki", "kaiseki"].map((c) => [c, FOOD]),
   ),
+  convenience: { name: "食品販售許可（含菸酒販售登記）", law: "食品衛生法（保健所）・酒稅法（稅務署）", fee: 25_000, extraTicks: 48 },
+  food_truck: { name: "移動飲食店營業許可", law: "食品衛生法（各地保健所，車輛需檢查）", fee: 20_000, extraTicks: 24 },
+  craft_beer: { name: "飲食店營業許可＋深夜酒類提供飲食店營業申報", law: "食品衛生法／風營法（警察署申報）", fee: 35_000, extraTicks: 48 },
+  wine_bar: { name: "飲食店營業許可＋深夜酒類提供飲食店營業申報", law: "食品衛生法／風營法（警察署申報）", fee: 35_000, extraTicks: 48 },
+  beer_garden: { name: "飲食店營業許可＋深夜酒類提供飲食店營業申報", law: "食品衛生法／風營法（警察署申報）", fee: 35_000, extraTicks: 48 },
+  dental: { name: "診所開設申報（牙科）", law: "醫療法（保健所；開設者須為牙醫師或醫療法人）", fee: 50_000, extraTicks: 96 },
+  nail: { name: "美容所開設申報", law: "美容師法（保健所檢查、需有美容師）", fee: 25_000, extraTicks: 48 },
+  live_house: { name: "劇場營業的消防與建築檢查", law: "消防法・建築基準法", fee: 60_000, extraTicks: 72 },
+  capsule_hotel: { name: "旅館業營業許可（簡易宿所）", law: "旅館業法（保健所；消防與建築基準合格證明）", fee: 80_000, extraTicks: 144 },
+  travel_agency: { name: "旅行業登錄", law: "旅行業法（觀光廳／都道府縣；需有旅行業務取扱管理者與營業保證金）", fee: 90_000, extraTicks: 96 },
+  cosmetics: { name: "化粧品販售的相關申報", law: "藥機法（化粧品販賣；醫藥部外品另需登錄）", fee: 10_000, extraTicks: 24 },
   grocery: { name: "食品販售許可", law: "食品衛生法（保健所）", fee: 15_000, extraTicks: 24 },
   izakaya: { name: "飲食店營業許可＋深夜酒類提供飲食店營業申報", law: "食品衛生法／風營法（警察署申報）", fee: 35_000, extraTicks: 48 },
   bar: { name: "飲食店營業許可＋深夜酒類提供飲食店營業申報", law: "食品衛生法／風營法（警察署申報）", fee: 35_000, extraTicks: 48 },

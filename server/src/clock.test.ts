@@ -121,7 +121,7 @@ describe("event pause in the sim", () => {
     const v1 = { ...createInitialState(1, 1000, 0), version: 1, protection: true, lastActionTick: 5 } as Record<string, unknown>;
     delete v1.clock;
     const m = migrateState(v1, 123_456);
-    expect(m.version).toBe(10);
+    expect(m.version).toBe(11);
     expect(m.clock.anchorTick).toBe(1000);
     expect(m.clock.anchorRealMs).toBe(123_456);
     expect("protection" in m).toBe(false);

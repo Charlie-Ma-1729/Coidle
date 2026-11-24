@@ -306,6 +306,11 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     requireUser(req, repo, now());
     return { events: content.publicEvents() };
   });
+  // ── 玩家端：核准上線的新常客（名字、簡介與故事）
+  app.get("/api/content/regulars", async (req) => {
+    requireUser(req, repo, now());
+    return { regulars: content.publicRegulars() };
+  });
 
   // ── AI 內容管理（需要 ADMIN_TOKEN）
   const admin = (req: { headers: Record<string, unknown> }) => {
@@ -323,6 +328,10 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
         review: repo.contentCount("review", "active"),
         eventActive: repo.contentCount("event", "active"),
         eventPending: repo.contentCount("event", "pending"),
+        brand: repo.contentCount("brand", "active"),
+        dish: repo.contentCount("dish", "active"),
+        regularActive: repo.contentCount("regular", "active"),
+        regularPending: repo.contentCount("regular", "pending"),
       },
       recent: repo.ledgerRecent(10),
     };
@@ -335,7 +344,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   app.post("/api/admin/ai/generate", async (req) => {
     admin(req);
     const b = body(req);
-    if (!["news", "review", "event"].includes(b.kind as string)) throw new ServiceError(400, "kind 無效");
+    if (!["news", "review", "event", "brand", "dish", "regular"].includes(b.kind as string)) throw new ServiceError(400, "kind 無效");
     const count = typeof b.count === "number" ? Math.min(20, Math.max(1, Math.floor(b.count))) : undefined;
     return content.generate(b.kind as ContentKind, count);
   });

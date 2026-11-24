@@ -5,9 +5,19 @@
 export type FlavorMood = "good" | "bad" | "neutral" | "season";
 export type FlavorTier = "high" | "mid" | "low";
 
+export type FlavorGroup = "food" | "retail" | "entertainment" | "service";
+export interface BrandFlavor {
+  name: string;
+  blurb: string;
+}
+
 export interface FlavorSource {
   news(mood: FlavorMood): readonly string[];
   reviews(tier: FlavorTier): readonly string[];
+  /** 招商用的虛構品牌名（可省略） */
+  brands?(group: FlavorGroup): readonly BrandFlavor[];
+  /** 研發出原創商品時用的名字（可省略） */
+  dishes?(group: FlavorGroup): readonly string[];
 }
 
 const EMPTY: FlavorSource = { news: () => [], reviews: () => [] };

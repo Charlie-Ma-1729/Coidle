@@ -1,5 +1,5 @@
-import { initialSupply, newClock, type MallState } from "@coidle/shared";
-import { initialRegulars } from "./regulars";
+import { initialSupply, newClock, ZONES, type MallState } from "@coidle/shared";
+import { initialRegulars, syncRegulars } from "./regulars";
 import { newLeasingState } from "./leasing";
 import { initGoals, newMetaState } from "./meta";
 import { newTaxState } from "./tax";
@@ -18,10 +18,11 @@ import { syncWorkshop } from "./workshop";
  * v7 → v8：加入稅務與法規（消費稅、法人稅等、固定資產稅、社會保險、獎金）。
  * v8 → v9：加入科技樹與出租招商（租戶、候選品牌、續約）。
  * v9 → v10：加入目標、團隊事件、成就與線索收集。
+ * v10 → v11：各區基本店面數增加（補上新店面）。
  */
 export function migrateState(raw: unknown, nowMs: number): MallState {
   const s = raw as Record<string, unknown> & { version?: number; tick: number; today?: Record<string, unknown> };
-  if (s.version === 10) return s as unknown as MallState;
+  if (s.version === 11) return s as unknown as MallState;
   if (s.version === 1 || s.version === undefined) {
     delete s.protection;
     delete s.lastActionTick;
@@ -76,6 +77,18 @@ export function migrateState(raw: unknown, nowMs: number): MallState {
     s.meta = newMetaState(s.tick);
     initGoals(s as unknown as MallState);
     s.version = 10;
+  }
+  if (s.version === 10) {
+    // 各區基本店面數增加：在每個區域補上新增的店面（編號接在最後面）
+    const slots = (s.slots ?? []) as { id: number; zone: string; shopId: string | null }[];
+    for (const z of ZONES) {
+      const have = slots.filter((x) => x.zone === z.id).length;
+      for (let i = have; i < z.slots; i++) slots.push({ id: slots.length, zone: z.id, shopId: null });
+    }
+    s.slots = slots;
+    s.version = 11;
+    syncRegulars(s as unknown as MallState);
+    syncWorkshop(s as unknown as MallState);
   }
   return s as unknown as MallState;
 }

@@ -242,6 +242,200 @@ export const REGULARS: RegularDef[] = [
       { at: 65, title: "減重挑戰", text: "他在店裡辦了一場「三個月減重挑戰」，報名的人比預期的多三倍。", reward: { funds: 60_000, idx: 1.2 } },
     ],
   },
+
+  {
+    id: "ojisan_h",
+    name: "橋本大叔",
+    persona: "commuter",
+    fav: "oden",
+    alt: "onigiri",
+    budget: 1.2,
+    hint: "冬天總是縮著脖子、口袋裡塞著報紙的大叔。",
+    bio: "在附近的批發市場做了一輩子，凌晨三點起床，這時間點只有熱湯才暖得了身子。",
+    traits: ["要多一點蘿蔔", "只喝熱的", "討厭浪費"],
+    stories: [
+      { at: 30, title: "凌晨的蘿蔔", text: "他說市場的凌晨最冷，一碗關東煮是這輩子最便宜的幸福。", reward: { funds: 20_000, idx: 0.4 } },
+      { at: 65, title: "介紹同行", text: "他把市場的夥伴一個個帶來，早班的店面突然熱鬧了起來。", reward: { funds: 55_000, idx: 0.9 } },
+    ],
+  },
+  {
+    id: "hana",
+    name: "花婆婆",
+    persona: "local",
+    fav: "soba",
+    alt: "taiyaki",
+    budget: 1.15,
+    hint: "拄著拐杖、總是在中午前就到的老太太。",
+    bio: "年輕時在老街開過麵店，現在只當客人，卻比誰都挑剔。",
+    traits: ["要看廚房", "愛聊以前", "吃得很慢"],
+    stories: [
+      { at: 30, title: "老店的湯", text: "她悄悄說起以前麵店的湯頭，每天凌晨四點就開始熬。「現在的年輕人不懂。」", reward: { funds: 20_000, idx: 0.4 } },
+      { at: 65, title: "傳授技藝", text: "她願意教你們一點老麵店的訣竅，說：「不要讓老味道消失。」", reward: { funds: 50_000, idx: 1.0 } },
+    ],
+  },
+  {
+    id: "rina",
+    name: "莉奈",
+    persona: "student",
+    fav: "claw",
+    alt: "taiyaki",
+    budget: 1.1,
+    hint: "書包上掛滿吊飾、一手拿零食一手握搖桿的女高中生。",
+    bio: "夾娃娃機的常勝軍，朋友們都說她手上有魔法。",
+    traits: ["要限定款", "會分享戰利品", "遇到失敗會碎碎念"],
+    stories: [
+      { at: 30, title: "戰利品", text: "她把夾到的娃娃分給同學，說：「這是你們店贊助的啦！」", reward: { funds: 15_000, idx: 0.5 } },
+      { at: 65, title: "夾機社團", text: "她在學校成立了「夾機研究會」，週末全員到你的店報到。", reward: { funds: 45_000, idx: 1.0 } },
+    ],
+  },
+  {
+    id: "takeshi",
+    name: "武志",
+    persona: "family",
+    fav: "bowling",
+    alt: "tonkatsu",
+    budget: 1.25,
+    hint: "週末固定帶著一家人來、打完球一定要吃頓好的的爸爸。",
+    bio: "在公司擔任主管，唯一放鬆的方式就是跟家人打保齡球。",
+    traits: ["愛報分數", "請客大方", "怕輸給兒子"],
+    stories: [
+      { at: 30, title: "家庭盃", text: "他興沖沖宣布要辦一場「家庭盃」，邀請了整個社區的家庭。", reward: { funds: 25_000, idx: 0.5 } },
+      { at: 65, title: "公司聯誼", text: "他把公司的年度聯誼辦在這裡，一次帶來四十個人。", reward: { funds: 65_000, idx: 1.1 } },
+    ],
+  },
+  {
+    id: "ayako",
+    name: "綾子",
+    persona: "local",
+    fav: "florist",
+    alt: "bakery",
+    budget: 1.3,
+    hint: "每週五固定來買一束花、還會順手帶塊麵包的女士。",
+    bio: "獨居的退休教師，說家裡有花，一個人也不孤單。",
+    traits: ["愛挑顏色", "一定要手寫卡片", "會和花聊天"],
+    stories: [
+      { at: 30, title: "週五的花", text: "她說每週五買花，是為了給自己的週末一個儀式感。", reward: { funds: 20_000, idx: 0.5 } },
+      { at: 65, title: "社區花圃", text: "她提議把商場旁邊的空地做成社區花圃，居民們都來幫忙。", reward: { funds: 50_000, idx: 1.2 } },
+    ],
+  },
+  {
+    id: "leo",
+    name: "里歐",
+    persona: "tourist",
+    fav: "camera",
+    alt: "vinyl",
+    budget: 1.5,
+    hint: "脖子上掛著老相機、操著一口生硬日語的外國旅人。",
+    bio: "從海的另一端來的攝影師，每年都來拍老街，說這裡有他最愛的光影。",
+    traits: ["愛拍老招牌", "會寄明信片", "什麼都想試試"],
+    stories: [
+      { at: 30, title: "老街的光影", text: "他給你看相機裡的照片，每一張都是黃昏的老街。「我想把這裡帶回去。」", reward: { funds: 30_000, idx: 0.6 } },
+      { at: 65, title: "攝影展", text: "他在商場辦了一場小小的攝影展，主題是「這條街的二十四小時」。", reward: { funds: 70_000, idx: 1.3 } },
+    ],
+  },
+  {
+    id: "shun",
+    name: "俊",
+    persona: "student",
+    fav: "anime_goods",
+    alt: "gamestore",
+    budget: 1.4,
+    hint: "背著大背包、手裡抱著好幾袋周邊的宅宅大學生。",
+    bio: "電器街長大的孩子，什麼冷門動漫都能聊上三個小時。",
+    traits: ["要限定版", "會排隊", "講到喜歡的作品會停不下來"],
+    stories: [
+      { at: 30, title: "排隊的人", text: "他在新品開賣前一天就來排隊，還帶了折疊椅和泡麵。", reward: { funds: 20_000, idx: 0.5 } },
+      { at: 65, title: "同人展", text: "他號召了一群同好，在商場辦了一場小小的同人展。", reward: { funds: 55_000, idx: 1.1 } },
+    ],
+  },
+  {
+    id: "ken",
+    name: "賢",
+    persona: "commuter",
+    fav: "craft_beer",
+    alt: "wine_bar",
+    budget: 1.35,
+    hint: "領帶塞在口袋、準時在七點整出現在吧台的上班族。",
+    bio: "金融業的中階主管，白天看數字、晚上只想喝一杯有故事的酒。",
+    traits: ["愛聊啤酒", "不吃辣", "會推薦同事"],
+    stories: [
+      { at: 30, title: "週五的第一杯", text: "他說每週五的第一杯是一個儀式，「這一杯下去，工作就結束了」。", reward: { funds: 25_000, idx: 0.5 } },
+      { at: 65, title: "品酒會", text: "他邀請了十幾位同好辦了一場品酒會，每個人都喝得很盡興。", reward: { funds: 65_000, idx: 1.1 } },
+    ],
+  },
+  {
+    id: "noriko",
+    name: "紀子",
+    persona: "family",
+    fav: "cram_school",
+    alt: "toy_store",
+    budget: 1.3,
+    hint: "一手牽著一個、手裡還提著另一個孩子書包的媽媽。",
+    bio: "三個孩子的媽媽，每天的行程比企業主管還滿。",
+    traits: ["時間很緊", "愛比較", "最怕孩子不開心"],
+    stories: [
+      { at: 30, title: "孩子的笑臉", text: "她說只要看到孩子下課後開心地跑出來，一天的疲憊就消失了。", reward: { funds: 20_000, idx: 0.5 } },
+      { at: 65, title: "家長會", text: "她在家長群組裡力推你們，隔週來了一整批新家庭。", reward: { funds: 55_000, idx: 1.0 } },
+    ],
+  },
+  {
+    id: "marco",
+    name: "馬可",
+    persona: "tourist",
+    fav: "unagi",
+    alt: "teppanyaki",
+    budget: 1.6,
+    hint: "拿著厚厚一本美食日誌、每道菜都要拍照的旅人。",
+    bio: "來自南歐的廚師，專程飛來吃遍這座城市，並把心得寫成書。",
+    traits: ["愛拍照", "會問食材來源", "給小費很大方"],
+    stories: [
+      { at: 30, title: "日誌上的名字", text: "他在日誌上寫下你的店名，旁邊畫了三顆星。", reward: { funds: 35_000, idx: 0.7 } },
+      { at: 65, title: "美食書", text: "他的新書裡有一整章寫你的店，出版後國外的客人開始慕名而來。", reward: { funds: 80_000, idx: 1.5 } },
+    ],
+  },
+  {
+    id: "yuna",
+    name: "由奈",
+    persona: "couple",
+    fav: "escape_room",
+    alt: "live_house",
+    budget: 1.25,
+    hint: "總是和不同朋友一起出現、每次都帶著筆記本的女孩。",
+    bio: "推理小說迷，說她的夢想是破解全世界所有的密室。",
+    traits: ["愛寫筆記", "討厭劇透", "解完謎一定要喝杯茶"],
+    stories: [
+      { at: 30, title: "推理筆記", text: "她的筆記本裡密密麻麻寫滿了推理，說要寫成一本小說。", reward: { funds: 20_000, idx: 0.5 } },
+      { at: 65, title: "推理之夜", text: "她號召了一群推理迷，一起挑戰了一場通宵解謎。", reward: { funds: 55_000, idx: 1.1 } },
+    ],
+  },
+  {
+    id: "sora",
+    name: "空",
+    persona: "commuter",
+    fav: "yoga",
+    alt: "juice_bar",
+    budget: 1.3,
+    hint: "清晨腋下夾著瑜伽墊、笑容總是很淡然的女士。",
+    bio: "國際企業的資深顧問，說每天早上的四十分鐘，是她唯一屬於自己的時間。",
+    traits: ["不愛說話", "只喝無糖", "愛推薦課程"],
+    stories: [
+      { at: 30, title: "屬於自己的時間", text: "她說在瑜伽墊上，所有的會議和電話都沒了。", reward: { funds: 25_000, idx: 0.5 } },
+      { at: 65, title: "企業團課", text: "她把公司的瑜伽團課辦在你的店裡，整層樓的人都來了。", reward: { funds: 60_000, idx: 1.1 } },
+    ],
+  },
 ];
 
 export const REGULAR_BY_ID = Object.fromEntries(REGULARS.map((r) => [r.id, r])) as Record<string, RegularDef>;
+
+/**
+ * 執行期加入新的常客（AI 內容池核准後）。
+ * 伺服器啟動時載入；前端登入後向伺服器取得同一份，才能顯示他們的名字與故事。
+ */
+export function registerRegulars(defs: RegularDef[]): void {
+  for (const d of defs) {
+    const i = REGULARS.findIndex((r) => r.id === d.id);
+    if (i >= 0) REGULARS[i] = d;
+    else REGULARS.push(d);
+    REGULAR_BY_ID[d.id] = d;
+  }
+}

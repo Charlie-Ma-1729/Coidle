@@ -36,6 +36,7 @@ function Candidate({ s, c }: { s: PublicMallState; c: TenantCandidate }) {
         </b>
         <Chip tone="dim">{cat?.name}</Chip>
       </div>
+      {c.blurb && <p class="small dim">{c.blurb}</p>}
       <div class="grid two">
         <Meter label="品牌品質" value={c.quality * 100} hint={`${Math.round(c.quality * 100)}`} tone="pink" />
         <Meter label="知名度（帶客力）" value={c.fame} hint={`${c.fame}`} tone="cyan" />

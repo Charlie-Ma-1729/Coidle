@@ -131,7 +131,17 @@ describe("screens render with real simulated state", () => {
     const f1Tab = Array.from(container.querySelectorAll(".zone-tab")).find((b) => b.textContent?.includes("1F")) as HTMLElement;
     f1Tab.click();
     await tick();
-    expect(container.querySelectorAll("button.empty-slot").length).toBe(8);
+    expect(container.querySelectorAll("button.empty-slot").length).toBe(10);
+  });
+
+  it("Floor offers zone expansion and every category has an icon", async () => {
+    store.state.value = publicState(1);
+    const { Floor } = await import("./screens/Floor");
+    await mount(<Floor />);
+    expect(container.textContent).toContain("擴建店面");
+    const { CATEGORIES } = await import("@coidle/shared");
+    const { categoryIcon } = await import("./icons");
+    for (const c of CATEGORIES) expect(categoryIcon(c.id), c.id).not.toBe("🏬");
   });
 
   it("Reports renders after a few days", async () => {

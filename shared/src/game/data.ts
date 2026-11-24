@@ -143,14 +143,14 @@ export const PERSONA_BY_ID = Object.fromEntries(PERSONAS.map((p) => [p.id, p])) 
 
 // ───────── 區域 ─────────
 export const ZONES: ZoneDef[] = [
-  { id: "b1", name: "B1 美食街", tier: 1, slots: 8, unlockLevel: 1, description: "連通車站的地下美食街，日常客流的根基。" },
-  { id: "f1", name: "1F 時尚與生活", tier: 2, slots: 8, unlockLevel: 2, description: "服飾、藥妝、選物與停車場，另有輕食簡餐。" },
-  { id: "ent", name: "娛樂區", tier: 3, slots: 6, unlockLevel: 3, description: "電影院、親子遊樂場、電玩與 KTV，帶動周邊餐飲。" },
-  { id: "cul", name: "3C 與文創", tier: 4, slots: 6, unlockLevel: 4, description: "電器旗艦、書店與文創快閃市集。" },
-  { id: "life", name: "生活服務", tier: 5, slots: 6, unlockLevel: 5, description: "健身、SPA、診所、美容與托育。" },
-  { id: "dining", name: "高樓層餐飲與夜間街區", tier: 6, slots: 8, unlockLevel: 6, description: "景觀餐廳、燒肉、居酒屋橫丁與酒吧。" },
-  { id: "plaza", name: "活動廣場與展望台", tier: 7, slots: 3, unlockLevel: 7, description: "屋頂花園、展望台與大型活動檔期。" },
-  { id: "biz", name: "商務與旅宿", tier: 8, slots: 5, unlockLevel: 8, description: "共享辦公、會議中心與旅館。" },
+  { id: "b1", name: "B1 美食街", tier: 1, slots: 10, maxExpand: 4, unlockLevel: 1, description: "連通車站的地下美食街，日常客流的根基。" },
+  { id: "f1", name: "1F 時尚與生活", tier: 2, slots: 10, maxExpand: 4, unlockLevel: 2, description: "服飾、美妝、藥妝、選物與停車場，另有便利商店與輕食簡餐。" },
+  { id: "ent", name: "娛樂區", tier: 3, slots: 7, maxExpand: 3, unlockLevel: 3, description: "電影院、保齡球、密室逃脫、電玩與 KTV，帶動周邊餐飲。" },
+  { id: "cul", name: "3C 與文創", tier: 4, slots: 8, maxExpand: 3, unlockLevel: 4, description: "電器旗艦、相機、動漫周邊、書店、唱片行與文創快閃市集。" },
+  { id: "life", name: "生活服務", tier: 5, slots: 8, maxExpand: 3, unlockLevel: 5, description: "健身、SPA、診所、美容、托育與各種生活修繕。" },
+  { id: "dining", name: "高樓層餐飲與夜間街區", tier: 6, slots: 10, maxExpand: 4, unlockLevel: 6, description: "景觀餐廳、燒肉、豬排、鰻魚飯、居酒屋橫丁與酒吧。" },
+  { id: "plaza", name: "活動廣場與展望台", tier: 7, slots: 4, maxExpand: 2, unlockLevel: 7, description: "屋頂花園、展望台、餐車與市集的大型活動檔期。" },
+  { id: "biz", name: "商務與旅宿", tier: 8, slots: 6, maxExpand: 3, unlockLevel: 8, description: "共享辦公、會議中心、旅館與旅客服務。" },
 ];
 export const ZONE_BY_ID = Object.fromEntries(ZONES.map((z) => [z.id, z]));
 
@@ -183,7 +183,7 @@ function cat(
   costRatio: number,
   baseCapacity: number,
   demand: D,
-  extra: Partial<Pick<CategoryDef, "wage" | "buildCost" | "buildTicks">> = {},
+  extra: Partial<Pick<CategoryDef, "wage" | "buildCost" | "buildTicks" | "minLevel">> = {},
 ): CategoryDef {
   return { id, name, group, zone, refPrice, costRatio, baseCapacity, demand, ...GROUP_DEFAULTS[group], ...extra };
 }
@@ -199,6 +199,14 @@ export const CATEGORIES: CategoryDef[] = [
   cat("bubble_tea", "手搖飲", "food", "b1", 550, 0.25, 5, { student: 1, couple: 0.7, tourist: 0.6, family: 0.4, commuter: 0.4, local: 0.3 }),
   cat("sweets", "和菓子／甜點", "food", "b1", 700, 0.3, 3, { tourist: 0.8, couple: 0.8, family: 0.6, local: 0.5, student: 0.5 }),
   cat("curry", "咖哩飯", "food", "b1", 900, 0.32, 3, { commuter: 0.8, student: 0.8, local: 0.7, family: 0.5, tourist: 0.4 }),
+  cat("gyoza", "餃子・中華小吃", "food", "b1", 800, 0.3, 4, { commuter: 0.8, student: 0.8, local: 0.7, family: 0.5, tourist: 0.5, couple: 0.3 }),
+  cat("onigiri", "飯糰・便當", "food", "b1", 500, 0.35, 5, { commuter: 1, student: 0.7, local: 0.7, tourist: 0.4, family: 0.4 }),
+  cat("taiyaki", "鯛魚燒・點心屋", "food", "b1", 450, 0.28, 5, { student: 0.9, tourist: 0.8, couple: 0.7, family: 0.7, local: 0.4 }),
+  cat("oden", "關東煮", "food", "b1", 700, 0.3, 4, { commuter: 0.8, local: 0.8, couple: 0.5, tourist: 0.5, student: 0.4 }, { minLevel: 2 }),
+  cat("soba", "蕎麥麵", "food", "b1", 850, 0.3, 3, { commuter: 0.8, local: 0.7, tourist: 0.6, couple: 0.4 }, { minLevel: 2 }),
+  cat("bakery", "麵包烘焙坊", "food", "b1", 600, 0.3, 5, { local: 0.8, family: 0.7, commuter: 0.7, student: 0.5, tourist: 0.3 }, { minLevel: 2 }),
+  cat("karaage", "唐揚雞", "food", "b1", 700, 0.34, 4, { student: 0.9, commuter: 0.8, family: 0.7, local: 0.6, tourist: 0.5 }, { minLevel: 2 }),
+  cat("juice_bar", "鮮榨果汁", "food", "b1", 600, 0.3, 4, { couple: 0.7, tourist: 0.7, student: 0.6, commuter: 0.5, family: 0.5 }, { minLevel: 3 }),
   // ── 1F 時尚與生活
   cat("fashion", "服飾", "retail", "f1", 5500, 0.55, 2, { student: 0.8, couple: 0.8, tourist: 0.7, family: 0.4, local: 0.3, commuter: 0.3 }),
   cat("drugstore", "藥妝", "retail", "f1", 1500, 0.7, 4, { tourist: 1, local: 0.7, commuter: 0.6, family: 0.6, student: 0.5, couple: 0.4 }),
@@ -207,16 +215,32 @@ export const CATEGORIES: CategoryDef[] = [
   cat("brunch", "早午餐", "food", "f1", 1300, 0.32, 3, { couple: 0.9, local: 0.6, family: 0.6, tourist: 0.5, student: 0.4 }),
   cat("italian", "義式餐廳", "food", "f1", 1600, 0.33, 3, { couple: 0.9, family: 0.7, local: 0.5, tourist: 0.5, student: 0.4 }),
   cat("fastfood", "速食連鎖", "food", "f1", 650, 0.32, 6, { student: 0.9, family: 0.8, commuter: 0.7, local: 0.5, tourist: 0.4 }),
+  cat("convenience", "便利商店", "retail", "f1", 550, 0.7, 6, { commuter: 1, student: 0.9, local: 0.8, tourist: 0.6, family: 0.5, couple: 0.4 }, { wage: 30_000, minLevel: 2 }),
+  cat("cosmetics", "美妝", "retail", "f1", 3500, 0.55, 3, { couple: 0.8, tourist: 0.9, student: 0.7, local: 0.4, commuter: 0.4 }, { minLevel: 2 }),
+  cat("shoes", "鞋履", "retail", "f1", 7000, 0.55, 2, { student: 0.8, couple: 0.7, tourist: 0.6, commuter: 0.5, family: 0.4 }, { minLevel: 2 }),
+  cat("accessory", "飾品", "retail", "f1", 2500, 0.5, 3, { couple: 0.9, student: 0.8, tourist: 0.7, local: 0.3 }, { minLevel: 3 }),
+  cat("toy_store", "玩具模型", "retail", "f1", 2800, 0.6, 3, { family: 0.9, student: 0.6, tourist: 0.5, couple: 0.3 }, { minLevel: 3 }),
+  cat("florist", "花店", "retail", "f1", 2000, 0.5, 3, { local: 0.7, couple: 0.8, commuter: 0.5, tourist: 0.3 }, { minLevel: 3 }),
   // ── 娛樂區
   cat("cinema", "電影院", "entertainment", "ent", 1900, 0.35, 8, { couple: 1, student: 0.9, family: 0.8, local: 0.5, tourist: 0.4, commuter: 0.3 }),
   cat("kids_play", "親子遊樂場", "entertainment", "ent", 1200, 0.15, 6, { family: 1, local: 0.2 }),
   cat("arcade_vr", "電玩／VR 館", "entertainment", "ent", 1500, 0.2, 5, { student: 1, couple: 0.7, tourist: 0.6, local: 0.3, family: 0.3 }),
   cat("karaoke", "KTV", "entertainment", "ent", 2000, 0.15, 5, { student: 0.9, couple: 0.6, local: 0.6, commuter: 0.4, tourist: 0.5 }),
+  cat("bowling", "保齡球館", "entertainment", "ent", 1600, 0.15, 6, { student: 0.9, couple: 0.7, family: 0.7, commuter: 0.6, local: 0.5 }),
+  cat("claw", "夾娃娃機專區", "entertainment", "ent", 800, 0.3, 8, { student: 1, couple: 0.8, family: 0.8, tourist: 0.5, local: 0.3 }),
+  cat("escape_room", "密室逃脫", "entertainment", "ent", 3000, 0.15, 3, { couple: 0.9, student: 0.9, tourist: 0.6, commuter: 0.4, family: 0.4 }, { minLevel: 4 }),
+  cat("live_house", "展演空間", "entertainment", "ent", 3500, 0.2, 4, { student: 0.8, couple: 0.7, local: 0.5, tourist: 0.5 }, { minLevel: 4 }),
+  cat("craft_studio", "手作體驗工房", "entertainment", "ent", 2800, 0.3, 3, { family: 0.8, couple: 0.8, tourist: 0.8, student: 0.5 }, { minLevel: 4 }),
   // ── 3C 與文創
   cat("electronics", "3C 旗艦店", "retail", "cul", 18_000, 0.78, 2, { tourist: 0.7, student: 0.6, local: 0.5, commuter: 0.5, couple: 0.3, family: 0.3 }, { buildCost: 1_500_000 }),
   cat("bookstore", "書店", "retail", "cul", 1600, 0.65, 3, { local: 0.7, student: 0.7, commuter: 0.5, couple: 0.5, family: 0.4, tourist: 0.3 }),
   cat("stationery", "文具選物", "retail", "cul", 1200, 0.6, 3, { student: 0.8, tourist: 0.6, local: 0.5, couple: 0.4 }),
   cat("popup", "快閃市集", "retail", "cul", 2000, 0.5, 3, { tourist: 0.8, student: 0.7, couple: 0.7, family: 0.5, local: 0.4 }),
+  cat("camera", "相機器材", "retail", "cul", 25_000, 0.8, 2, { tourist: 0.8, student: 0.5, local: 0.5, couple: 0.4 }, { buildCost: 1_500_000 }),
+  cat("anime_goods", "動漫周邊", "retail", "cul", 2500, 0.6, 4, { student: 1, tourist: 0.9, couple: 0.4, local: 0.4 }),
+  cat("gamestore", "遊戲專賣", "retail", "cul", 6000, 0.75, 3, { student: 0.9, commuter: 0.5, family: 0.5, local: 0.4, tourist: 0.4 }, { minLevel: 5 }),
+  cat("vinyl", "唱片・黑膠行", "retail", "cul", 3500, 0.6, 2, { local: 0.7, couple: 0.6, tourist: 0.7, student: 0.5 }, { minLevel: 5 }),
+  cat("art_gallery", "藝廊", "entertainment", "cul", 1000, 0.15, 4, { couple: 0.9, tourist: 0.8, local: 0.5, family: 0.4 }, { minLevel: 5 }),
   // ── 生活服務
   cat("gym", "健身房", "service", "life", 1800, 0.1, 4, { commuter: 0.8, local: 0.7, student: 0.5, couple: 0.3 }),
   cat("spa", "SPA／按摩", "service", "life", 4500, 0.2, 2, { tourist: 0.8, couple: 0.8, local: 0.4, commuter: 0.5 }),
@@ -224,6 +248,12 @@ export const CATEGORIES: CategoryDef[] = [
   cat("salon", "美容美髮", "service", "life", 5000, 0.2, 1, { couple: 0.7, local: 0.6, commuter: 0.5, student: 0.5, tourist: 0.3 }),
   cat("daycare", "托育中心", "service", "life", 2500, 0.25, 3, { family: 0.9, local: 0.3 }),
   cat("laundry", "共享洗衣", "service", "life", 800, 0.2, 3, { tourist: 0.7, student: 0.6, local: 0.6, commuter: 0.4 }),
+  cat("nail", "美甲", "service", "life", 6000, 0.2, 1, { couple: 0.8, student: 0.5, local: 0.5, tourist: 0.5, commuter: 0.4 }),
+  cat("yoga", "瑜伽教室", "service", "life", 2500, 0.1, 4, { commuter: 0.7, local: 0.6, couple: 0.4, tourist: 0.3 }),
+  cat("dental", "牙科診所", "service", "life", 6000, 0.25, 2, { local: 0.8, family: 0.7, commuter: 0.6, tourist: 0.1 }, { minLevel: 6 }),
+  cat("cram_school", "補習班", "service", "life", 4000, 0.15, 3, { family: 0.9, student: 0.6, local: 0.3 }, { minLevel: 6 }),
+  cat("photo_studio", "寫真館", "service", "life", 5000, 0.2, 2, { tourist: 0.8, family: 0.8, couple: 0.8, local: 0.3 }, { minLevel: 6 }),
+  cat("repair", "3C・衣物修繕", "service", "life", 3000, 0.3, 3, { local: 0.7, commuter: 0.7, student: 0.6, tourist: 0.3 }, { minLevel: 6 }),
   // ── 高樓層餐飲與夜間街區
   cat("yakiniku", "燒肉", "food", "dining", 3500, 0.42, 3, { couple: 0.8, family: 0.8, commuter: 0.6, local: 0.5, tourist: 0.7, student: 0.4 }),
   cat("sushi", "壽司", "food", "dining", 2800, 0.4, 3, { tourist: 1, couple: 0.8, family: 0.7, local: 0.5, commuter: 0.4 }),
@@ -231,13 +261,26 @@ export const CATEGORIES: CategoryDef[] = [
   cat("bar", "酒吧", "food", "dining", 1800, 0.22, 3, { couple: 0.9, commuter: 0.7, tourist: 0.6, local: 0.5 }),
   cat("fine_dining", "景觀 Fine dining", "food", "dining", 8000, 0.38, 2, { couple: 1, tourist: 0.7, local: 0.2, commuter: 0.3 }),
   cat("hotpot", "火鍋", "food", "dining", 2600, 0.38, 3, { family: 0.8, student: 0.7, local: 0.6, couple: 0.6, tourist: 0.5, commuter: 0.5 }),
+  cat("tonkatsu", "豬排專門店", "food", "dining", 2000, 0.36, 3, { commuter: 0.8, local: 0.8, family: 0.7, tourist: 0.6, student: 0.5 }),
+  cat("craft_beer", "精釀啤酒屋", "food", "dining", 2000, 0.22, 4, { commuter: 0.9, tourist: 0.8, couple: 0.6, local: 0.5 }),
+  cat("unagi", "鰻魚飯", "food", "dining", 3800, 0.45, 3, { tourist: 0.9, local: 0.6, couple: 0.6, family: 0.6 }, { minLevel: 7 }),
+  cat("wine_bar", "葡萄酒吧", "food", "dining", 2400, 0.25, 3, { couple: 1, commuter: 0.7, tourist: 0.6 }, { minLevel: 7 }),
+  cat("teppanyaki", "鐵板燒", "food", "dining", 4500, 0.4, 3, { couple: 0.9, tourist: 0.9, family: 0.6, local: 0.4 }, { minLevel: 7 }),
+  cat("kaiseki", "懷石料理", "food", "dining", 12_000, 0.4, 2, { couple: 0.8, tourist: 0.8, local: 0.3, commuter: 0.3 }, { minLevel: 8 }),
   // ── 活動廣場與展望台
   cat("observatory", "展望台", "entertainment", "plaza", 1200, 0.1, 6, { tourist: 1, couple: 0.9, family: 0.7, local: 0.3, student: 0.5 }, { buildCost: 1_500_000 }),
   cat("event_space", "活動場地", "service", "plaza", 5000, 0.3, 2, { family: 0.5, couple: 0.5, student: 0.6, tourist: 0.5, local: 0.4 }, { buildCost: 1_800_000 }),
+  cat("food_truck", "餐車廣場", "food", "plaza", 900, 0.32, 5, { tourist: 0.8, student: 0.8, family: 0.7, couple: 0.6, local: 0.5, commuter: 0.5 }),
+  cat("flea_market", "跳蚤市集", "retail", "plaza", 1800, 0.5, 4, { tourist: 0.9, local: 0.7, family: 0.6, couple: 0.6, student: 0.6 }),
+  cat("beer_garden", "屋頂啤酒花園", "food", "plaza", 2200, 0.25, 5, { commuter: 0.9, tourist: 0.8, couple: 0.8, local: 0.6 }, { minLevel: 8 }),
   // ── 商務與旅宿
   cat("coworking", "共享辦公", "service", "biz", 1800, 0.15, 3, { commuter: 0.9, local: 0.4, student: 0.4 }),
   cat("conference", "會議中心", "service", "biz", 6000, 0.25, 1, { commuter: 0.7, local: 0.3 }),
   cat("hotel", "旅館", "service", "biz", 12_000, 0.3, 1, { tourist: 1, couple: 0.5, commuter: 0.3 }, { buildCost: 3_000_000, buildTicks: 432 }),
+  cat("capsule_hotel", "膠囊旅館", "service", "biz", 4500, 0.25, 2, { tourist: 0.9, commuter: 0.6 }, { buildCost: 2_000_000, buildTicks: 360 }),
+  cat("travel_agency", "旅行社", "service", "biz", 3000, 0.2, 2, { tourist: 0.5, commuter: 0.6, local: 0.5, family: 0.5 }),
+  cat("luggage", "行李寄放", "service", "biz", 800, 0.05, 10, { tourist: 1, commuter: 0.4 }, { wage: 15_000, buildCost: 800_000, buildTicks: 144 }),
+  cat("print_shop", "影印・郵務", "service", "biz", 500, 0.2, 6, { commuter: 0.8, student: 0.7, local: 0.5 }, { wage: 20_000, buildCost: 900_000 }),
 ];
 export const CATEGORY_BY_ID = Object.fromEntries(CATEGORIES.map((c) => [c.id, c])) as Record<string, CategoryDef>;
 

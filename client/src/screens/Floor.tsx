@@ -1,9 +1,9 @@
 import { useState } from "preact/hooks";
-import { CATEGORY_BY_ID, ZONES, categoryHasStock, isZoneUnlocked, ticksToRealMinutes, type PublicMallState, type Shop, type Slot } from "@coidle/shared";
-import { Chip, Empty } from "../components/ui";
-import { moneyShort } from "../format";
+import { CATEGORY_BY_ID, ZONES, categoryHasStock, expandInfo, isZoneUnlocked, ticksToRealMinutes, type PublicMallState, type Shop, type Slot } from "@coidle/shared";
+import { Btn, Chip, Empty } from "../components/ui";
+import { money, moneyShort } from "../format";
 import { categoryIcon, ZONE_ICONS } from "../icons";
-import { state } from "../store";
+import { run, state } from "../store";
 import { BuildSheet } from "./BuildSheet";
 import { ShopSheet } from "./ShopSheet";
 
@@ -82,6 +82,27 @@ function SlotTile({ s, slot, onShop, onBuild }: { s: PublicMallState; slot: Slot
   );
 }
 
+function ExpandCard({ s, zoneId }: { s: PublicMallState; zoneId: string }) {
+  const info = expandInfo(s, zoneId);
+  if (info.n >= info.max) return <p class="small dim">🏗️ 這個區域已擴建到上限（{info.max}／{info.max}）。</p>;
+  return (
+    <div class="card">
+      <div class="row between">
+        <div>
+          <b>🏗️ 擴建店面</b>
+          <p class="small dim">
+            再蓋一個店面（已擴建 {info.n}／{info.max}）。越蓋越貴，擴建費也會計入固定資產稅。
+            {s.level < info.minLevel && ` 商場達到 Lv.${info.minLevel} 才能繼續擴建。`}
+          </p>
+        </div>
+        <Btn small kind="primary" disabled={!info.canBuy} onClick={() => run({ type: "expandZone", zone: zoneId }, "擴建完成，多了一個店面")}>
+          {money(info.cost)}
+        </Btn>
+      </div>
+    </div>
+  );
+}
+
 export function Floor() {
   const s = state.value;
   const [zoneId, setZoneId] = useState("b1");
@@ -134,6 +155,7 @@ export function Floor() {
       )}
 
       {unlocked && slots.length === 0 && <Empty>這個區域沒有店面。</Empty>}
+      {unlocked && zone.maxExpand > 0 && <ExpandCard s={s} zoneId={zone.id} />}
       {shopId && <ShopSheet shopId={shopId} onClose={() => setShopId(null)} />}
       {buildSlot !== null && <BuildSheet slotId={buildSlot} onClose={() => setBuildSlot(null)} />}
     </>

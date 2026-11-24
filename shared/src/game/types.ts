@@ -48,6 +48,8 @@ export interface CategoryDef {
   buildCost: number;
   /** 建造所需 tick 數 */
   buildTicks: number;
+  /** 商場要到這個等級才能開（省略＝區域開放就能開） */
+  minLevel?: number;
 }
 
 export interface ZoneDef {
@@ -55,6 +57,8 @@ export interface ZoneDef {
   name: string;
   tier: number;
   slots: number;
+  /** 最多還能擴建幾個店面 */
+  maxExpand: number;
   /** 解鎖所需商場等級 */
   unlockLevel: number;
   description: string;
@@ -593,7 +597,7 @@ export interface MallClock {
 }
 
 export interface MallState {
-  version: 10;
+  version: 11;
   clock: MallClock;
   seed: number;
   tick: number;
@@ -853,6 +857,8 @@ export interface TenantCandidate {
   expireTick: number;
   /** 已經還過價（只能還一次） */
   countered: boolean;
+  /** 品牌簡介（來自 AI 內容池時才有） */
+  blurb?: string;
 }
 
 /** 租約到期的續約洽談 */

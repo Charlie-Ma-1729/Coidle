@@ -1,10 +1,10 @@
 // AI 內容管理指令列。用法（需要 .env 裡的 OPENROUTER_API_KEY）：
 //   npm run ai -- status
-//   npm run ai -- generate news|review|event [數量]
-//   npm run ai -- list [news|review|event] [pending|active|retired|rejected]
-//   npm run ai -- approve <事件 id>        上線一個待審的 AI 事件
-//   npm run ai -- reject <id>              拒絕待審事件／下架已上線事件
-//   npm run ai -- remove <id>              移除一則快訊或評價
+//   npm run ai -- generate news|review|event|brand|dish|regular [數量]
+//   npm run ai -- list [news|review|event|brand|dish|regular] [pending|active|retired|rejected]
+//   npm run ai -- approve <id>             上線一個待審的 AI 事件或新常客
+//   npm run ai -- reject <id>              拒絕待審的事件或常客／下架已上線事件
+//   npm run ai -- remove <id>              移除一則快訊、評價、品牌名或商品名
 import { loadConfig } from "../config";
 import { openDb } from "../db/db";
 import { Repo } from "../db/repo";
@@ -28,6 +28,7 @@ function status(): void {
   console.log(`已花 ${usd(bd.spentUsd)}／可用上限 ${usd(bd.capUsd)}（月預算 ${usd(config.ai.budgetUsd)} 的 85%）　剩 ${usd(bd.remainingUsd)}`);
   console.log(`最近 24 小時：${bd.calls24h} 次呼叫、${usd(bd.spent24hUsd)}`);
   console.log(`內容池：快訊 ${repo.contentCount("news", "active")}　評價 ${repo.contentCount("review", "active")}　事件 上線 ${repo.contentCount("event", "active")}／待審 ${repo.contentCount("event", "pending")}`);
+  console.log(`　　　　品牌名 ${repo.contentCount("brand", "active")}　商品名 ${repo.contentCount("dish", "active")}　新常客 上線 ${repo.contentCount("regular", "active")}／待審 ${repo.contentCount("regular", "pending")}`);
   for (const r of repo.ledgerRecent(5)) console.log(`  ${new Date(r.ts).toISOString()}  ${r.purpose.padEnd(6)} ${usd(r.cost_usd)}  ${r.ok ? "ok" : "失敗"}  ${r.note ?? ""}`);
 }
 
@@ -36,8 +37,8 @@ switch (cmd) {
     status();
     break;
   case "generate": {
-    if (!["news", "review", "event"].includes(a ?? "")) {
-      console.error("用法：generate news|review|event [數量]");
+    if (!["news", "review", "event", "brand", "dish", "regular"].includes(a ?? "")) {
+      console.error("用法：generate news|review|event|brand|dish|regular [數量]");
       process.exit(1);
     }
     const r = await svc.generate(a as ContentKind, b ? Number(b) : undefined);
@@ -47,17 +48,17 @@ switch (cmd) {
   }
   case "list": {
     for (const it of repo.contentList(a ?? null, b ?? null, 60)) {
-      const p = it.payload as { title?: string; text?: string; mood?: string; tier?: string; choice?: { options: { label: string; effects: unknown }[] } };
-      console.log(`#${it.id} [${it.kind}/${it.status}] ${p.title ? `《${p.title}》 ` : ""}${p.mood ?? p.tier ?? ""} ${p.text ?? ""}`);
+      const p = it.payload as { title?: string; text?: string; mood?: string; tier?: string; name?: string; blurb?: string; group?: string; bio?: string; fav?: string; choice?: { options: { label: string; effects: unknown }[] } };
+      console.log(`#${it.id} [${it.kind}/${it.status}] ${p.title ? `《${p.title}》 ` : ""}${p.name ? `${p.name}${p.group ? `（${p.group}）` : ""}${p.fav ? `（愛 ${p.fav}）` : ""} ` : ""}${p.mood ?? p.tier ?? ""} ${p.text ?? p.blurb ?? p.bio ?? ""}`);
       if (p.choice) for (const o of p.choice.options) console.log(`      - ${o.label} → ${JSON.stringify(o.effects)}`);
     }
     break;
   }
   case "approve":
-    console.log(svc.approveEvent(Number(a)) ? "已上線" : "找不到待審的事件");
+    console.log(svc.approveEvent(Number(a)) ? "已上線" : "找不到待審的項目");
     break;
   case "reject":
-    console.log(svc.rejectEvent(Number(a)) ? "已處理" : "找不到這個事件");
+    console.log(svc.rejectEvent(Number(a)) ? "已處理" : "找不到這個項目，或狀態不允許");
     break;
   case "remove":
     console.log(svc.removeText(Number(a)) ? "已移除" : "找不到這則內容");

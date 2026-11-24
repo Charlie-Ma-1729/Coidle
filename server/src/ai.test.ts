@@ -195,12 +195,17 @@ describe("generation pipeline and budget", () => {
     expect(repo.ledgerRecent(1)[0]!.cost_usd).toBeGreaterThan(0);
   });
 
-  it("top-up fills news first, then reviews, then proposes events, and stops when pools are full", async () => {
+  it("top-up fills news, reviews, brand and dish names, then proposes events, and stops when pools are full", async () => {
     const reviews = JSON.stringify({ items: Array.from({ length: 45 }, (_, i) => ({ tier: (["high", "mid", "low"] as const)[i % 3], text: `{shop}的東西真好吃，老闆又親切，下次還要帶朋友來（${i}）` })) });
-    const seq = [news(60), reviews, JSON.stringify({ items: [goodEvent("老街聯名小攤")] })];
+    const groups = ["food", "retail", "entertainment", "service"] as const;
+    const brands = JSON.stringify({ items: Array.from({ length: 52 }, (_, i) => ({ group: groups[i % 4], name: `星屑${i}堂`, blurb: "一間很有個性的小店，老闆總是笑咪咪的。" })) });
+    const dishes = JSON.stringify({ items: Array.from({ length: 52 }, (_, i) => ({ group: groups[i % 4], name: `晨光新品${i}號` })) });
+    const seq = [news(60), reviews, brands, dishes, JSON.stringify({ items: [goodEvent("老街聯名小攤")] })];
     const { svc, repo } = setup({ dailyCallCap: 50, budgetUsd: 10 }, (n) => seq[n - 1] ?? "{}");
     expect((await svc.topUp())?.kind).toBe("news");
     expect((await svc.topUp())?.kind).toBe("review");
+    expect((await svc.topUp())?.kind).toBe("brand");
+    expect((await svc.topUp())?.kind).toBe("dish");
     expect((await svc.topUp())?.kind).toBe("event");
     expect(repo.contentCount("event", "pending")).toBe(1);
   });

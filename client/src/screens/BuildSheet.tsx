@@ -1,4 +1,4 @@
-import { CATEGORIES, PERSONA_BY_ID, ZONE_BY_ID, licenseOf, type PersonaId } from "@coidle/shared";
+import { CATEGORIES, PERSONA_BY_ID, ZONE_BY_ID, isCategoryAvailable, licenseOf, type PersonaId } from "@coidle/shared";
 import { Btn, Chip, Sheet } from "../components/ui";
 import { money, realDuration } from "../format";
 import { categoryIcon, PERSONA_ICONS } from "../icons";
@@ -21,6 +21,7 @@ export function BuildSheet({ slotId, onClose }: { slotId: number; onClose: () =>
           .slice(0, 3);
         const lic = licenseOf(c.id);
         const afford = s.funds >= c.buildCost + (lic?.fee ?? 0);
+        const open = isCategoryAvailable(s, c.id);
         return (
           <div class="build-item" key={c.id}>
             <span class="b-ico">{categoryIcon(c.id)}</span>
@@ -45,12 +46,12 @@ export function BuildSheet({ slotId, onClose }: { slotId: number; onClose: () =>
             <Btn
               kind="primary"
               small
-              disabled={!afford}
+              disabled={!afford || !open}
               onClick={async () => {
                 if (await run({ type: "buildShop", slot: slotId, category: c.id }, `開始興建「${c.name}」`)) onClose();
               }}
             >
-              {money(c.buildCost + (lic?.fee ?? 0))}
+              {open ? money(c.buildCost + (lic?.fee ?? 0)) : `Lv.${c.minLevel}`}
             </Btn>
           </div>
         );

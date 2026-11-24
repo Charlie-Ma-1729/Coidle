@@ -11,6 +11,8 @@ export type Command =
   | { type: "setMaintenance"; level: 0 | 1 | 2 }
   | { type: "buildShop"; slot: number; category: string }
   | { type: "upgradeShop"; shopId: string }
+  /** 擴建：在已開放的區域多蓋一個店面（越蓋越貴） */
+  | { type: "expandZone"; zone: string }
   | { type: "refreshShop"; shopId: string }
   | { type: "resolveEvent"; uid: string; optionId: string }
   | { type: "resolveAllDefault" }

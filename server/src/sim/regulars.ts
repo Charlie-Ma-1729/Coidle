@@ -57,6 +57,12 @@ export function initialRegulars(): RegularState[] {
   return REGULARS.map((r) => newRegularState(r.id));
 }
 
+/** 名冊上有新朋友（新增的常客、核准上線的 AI 常客）時，替既有的商場補上他們的紀錄 */
+export function syncRegulars(s: MallState): void {
+  const have = new Set(s.regulars.map((r) => r.id));
+  for (const def of REGULARS) if (!have.has(def.id)) s.regulars.push(newRegularState(def.id));
+}
+
 function note(s: MallState, text: string): void {
   if (s.today.regularNotes.length < MAX_NOTES_PER_DAY) s.today.regularNotes.push(text);
 }
@@ -163,6 +169,7 @@ function visit(s: MallState, rng: Rng, reg: RegularState, def: RegularDef, p: Pe
 
 /** 日結算：久沒上門的常客漸漸疏遠；熟客粉絲替商場帶來一點口碑 */
 export function regularsDaily(s: MallState): void {
+  syncRegulars(s);
   let fans = 0;
   const maxFans = Math.floor(MAX_FAN_IDX / FAN_DAILY_IDX);
   for (const reg of s.regulars) {

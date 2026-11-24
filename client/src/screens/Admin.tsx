@@ -27,14 +27,30 @@ interface AiStatus {
   enabled: boolean;
   model: string;
   budget: { windowStart: string; windowEnd: string; spentUsd: number; capUsd: number; remainingUsd: number; calls24h: number; spent24hUsd: number };
-  pool: { news: number; review: number; eventActive: number; eventPending: number };
+  pool: { news: number; review: number; eventActive: number; eventPending: number; brand: number; dish: number; regularActive: number; regularPending: number };
   recent: { ts: number; purpose: string; model: string; cost_usd: number; ok: number; note: string | null }[];
 }
 interface PoolItem {
   id: number;
   kind: string;
   status: string;
-  payload: { title?: string; text?: string; mood?: string; tier?: string; choice?: { options: { label: string; effects: unknown }[] } };
+  payload: {
+    title?: string;
+    text?: string;
+    mood?: string;
+    tier?: string;
+    name?: string;
+    blurb?: string;
+    group?: string;
+    persona?: string;
+    fav?: string;
+    alt?: string;
+    hint?: string;
+    bio?: string;
+    traits?: string[];
+    stories?: { title: string; text: string }[];
+    choice?: { options: { label: string; effects: unknown }[] };
+  };
   created_at: number;
 }
 
@@ -50,6 +66,7 @@ export function Admin() {
   const [ai, setAi] = useState<AiStatus | null>(null);
   const [events, setEvents] = useState<PoolItem[]>([]);
   const [texts, setTexts] = useState<PoolItem[]>([]);
+  const [regulars, setRegulars] = useState<PoolItem[]>([]);
 
   const guard = async (fn: () => Promise<void>) => {
     try {
@@ -65,7 +82,9 @@ export function Admin() {
       const pending = await call<{ items: PoolItem[] }>("GET", "/api/admin/ai/items?kind=event", tk);
       setEvents(pending.items);
       const news = await call<{ items: PoolItem[] }>("GET", "/api/admin/ai/items?status=active", tk);
-      setTexts(news.items.filter((x) => x.kind !== "event"));
+      setTexts(news.items.filter((x) => x.kind !== "event" && x.kind !== "regular"));
+      const regs = await call<{ items: PoolItem[] }>("GET", "/api/admin/ai/items?kind=regular", tk);
+      setRegulars(regs.items);
       setAuthed(true);
       sessionStorage.setItem(tokenKey, tk);
       setMsg("");
@@ -163,10 +182,13 @@ export function Admin() {
                 <p class="small">
                   快訊 {ai.pool.news}・評價 {ai.pool.review}・事件 上線 {ai.pool.eventActive}／待審 {ai.pool.eventPending}
                 </p>
-                <div class="row">
-                  {(["news", "review", "event"] as const).map((k) => (
+                <p class="small">
+                  品牌名 {ai.pool.brand}・商品名 {ai.pool.dish}・新常客 上線 {ai.pool.regularActive}／待審 {ai.pool.regularPending}
+                </p>
+                <div class="row" style={{ flexWrap: "wrap" }}>
+                  {(["news", "review", "event", "brand", "dish", "regular"] as const).map((k) => (
                     <button key={k} class="btn btn-ghost btn-sm" disabled={!ai.enabled} onClick={() => act(() => call("POST", "/api/admin/ai/generate", token, { kind: k }), `已生成${k}`)}>
-                      立即生成{{ news: "快訊", review: "評價", event: "事件" }[k]}
+                      立即生成{{ news: "快訊", review: "評價", event: "事件", brand: "品牌名", dish: "商品名", regular: "常客" }[k]}
                     </button>
                   ))}
                 </div>
@@ -215,16 +237,52 @@ export function Admin() {
               </div>
 
               <div class="card">
-                <h3>快訊與評價（上線中，可移除）</h3>
+                <h3>新常客審核</h3>
+                {regulars.filter((e) => e.status === "pending" || e.status === "active").length === 0 && <p class="small dim">沒有待審或上線中的新常客。</p>}
+                {regulars
+                  .filter((e) => e.status === "pending" || e.status === "active")
+                  .map((e) => (
+                    <div key={e.id} style={{ marginBottom: "10px" }}>
+                      <b>
+                        #{e.id} {e.payload.name} <span class="chip">{e.status === "pending" ? "待審" : "上線中"}</span>
+                      </b>
+                      <p class="small dim">
+                        {e.payload.persona}・愛 {e.payload.fav}
+                        {e.payload.alt ? `（次選 ${e.payload.alt}）` : ""}
+                      </p>
+                      <p class="small">線索：{e.payload.hint}</p>
+                      <p class="small">{e.payload.bio}</p>
+                      <p class="small dim">特質：{e.payload.traits?.join("、")}</p>
+                      {e.payload.stories?.map((st, i) => (
+                        <p class="small dim" key={i}>
+                          故事 {i + 1}《{st.title}》{st.text}
+                        </p>
+                      ))}
+                      {e.status === "pending" && (
+                        <div class="row">
+                          <button class="btn btn-primary btn-sm" onClick={() => act(() => call("POST", `/api/admin/ai/events/${e.id}/approve`, token), "已核准上線")}>
+                            核准
+                          </button>
+                          <button class="btn btn-ghost btn-sm" onClick={() => act(() => call("POST", `/api/admin/ai/events/${e.id}/reject`, token), "已拒絕")}>
+                            拒絕
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+              </div>
+
+              <div class="card">
+                <h3>快訊、評價、品牌名與商品名（上線中，可移除）</h3>
                 <div class="log">
                   <ul>
                     {texts.slice(0, 40).map((x) => (
                       <li key={x.id}>
                         <time>
-                          #{x.id} {x.kind === "news" ? x.payload.mood : x.payload.tier}
+                          #{x.id} {x.kind === "news" ? x.payload.mood : x.kind === "review" ? x.payload.tier : `${x.kind}/${x.payload.group ?? ""}`}
                         </time>
                         <span>
-                          {x.payload.text}{" "}
+                          {x.payload.text ?? `${x.payload.name ?? ""}${x.payload.blurb ? `：${x.payload.blurb}` : ""}`}{" "}
                           <button class="linklike small" onClick={() => act(() => call("POST", `/api/admin/ai/items/${x.id}/remove`, token), "已移除")}>
                             移除
                           </button>

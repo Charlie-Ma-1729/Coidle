@@ -239,7 +239,7 @@ describe("determinism and migration", () => {
     delete v7.tax;
     delete v7.today.outTax;
     const m = migrateState(v7, 0);
-    expect(m.version).toBe(10);
+    expect(m.version).toBe(11);
     expect(m.tax.bills).toEqual([]);
     expect(m.today.outTax).toBe(0);
   });

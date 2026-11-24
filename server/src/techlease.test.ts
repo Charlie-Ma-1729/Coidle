@@ -359,7 +359,7 @@ describe("determinism and migration", () => {
     for (const sh of v8.shops) delete sh.tenant;
     v8.flags["feature:lease"] = false;
     const m = migrateState(v8, 0);
-    expect(m.version).toBe(10);
+    expect(m.version).toBe(11);
     expect(m.tech).toEqual({ done: [], jobs: [] });
     expect(m.leasing.candidates).toEqual([]);
     expect(m.shops.every((x) => x.tenant === null)).toBe(true);
