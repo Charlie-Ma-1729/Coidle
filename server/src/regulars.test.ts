@@ -323,7 +323,7 @@ describe("determinism and migration", () => {
     delete v3.regulars;
     (v3.today as Record<string, unknown>).regularNotes = undefined;
     const m = migrateState(v3, 0);
-    expect(m.version).toBe(6);
+    expect(m.version).toBe(7);
     expect(m.regulars).toHaveLength(REGULARS.length);
     expect(m.today.regularNotes).toEqual([]);
   });

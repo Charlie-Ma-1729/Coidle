@@ -9,6 +9,7 @@ export * from "./game/regulars";
 export * from "./game/promotions";
 export * from "./game/supply";
 export * from "./game/rivals";
+export * from "./game/workshop";
 
 export interface HealthResponse {
   ok: true;

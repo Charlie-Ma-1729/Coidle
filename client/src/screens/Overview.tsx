@@ -66,7 +66,7 @@ function Warnings({ s }: { s: PublicMallState }) {
   if (s.cleanliness < 40) warns.push({ tone: "amber", text: "館內太髒了，提高清潔等級吧" });
   if (s.equipment < 40) warns.push({ tone: "amber", text: "設備老舊，小心故障，提高維護等級" });
   const stale = s.shops.filter((x) => x.mode === "direct" && x.freshness < 40);
-  if (stale.length > 0) warns.push({ tone: "amber", text: `${stale.map((x) => `「${x.name}」`).join("")}菜單太老氣，客人覺得沒新鮮感` });
+  if (stale.length > 0) warns.push({ tone: "amber", text: `${stale.map((x) => `「${x.name}」`).join("")}菜單太老氣，客人覺得沒新鮮感（到「工坊」研發新作品）` });
   if (warns.length === 0) return null;
   return (
     <>

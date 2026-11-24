@@ -10,14 +10,14 @@ import { Guests } from "./screens/Guests";
 import { Lobby } from "./screens/Lobby";
 import { More } from "./screens/More";
 import { Overview } from "./screens/Overview";
-import { Reports } from "./screens/Reports";
+import { Workshop } from "./screens/Workshop";
 import { authReady, bootstrap, mallId, mallInfo, online, state, user } from "./store";
 
 const TABS: { id: Tab; icon: string; label: string }[] = [
   { id: "overview", icon: "🏠", label: "總覽" },
   { id: "floor", icon: "🏬", label: "樓層" },
   { id: "guests", icon: "🙋", label: "客人" },
-  { id: "reports", icon: "📰", label: "日報" },
+  { id: "workshop", icon: "🧪", label: "工坊" },
   { id: "more", icon: "☰", label: "更多" },
 ];
 
@@ -27,6 +27,7 @@ function MallShell() {
   const badges: Partial<Record<Tab, number>> = {
     overview: s ? s.pending.filter((p) => EVENT_BY_ID[p.defId]?.category !== "guest").length : 0,
     guests: s ? guestTodoCount(s) : 0,
+    workshop: s ? s.workshop.tastings.length : 0,
   };
   return (
     <div class="app">
@@ -70,8 +71,8 @@ function MallShell() {
             <Floor />
           ) : tab.value === "guests" ? (
             <Guests />
-          ) : tab.value === "reports" ? (
-            <Reports />
+          ) : tab.value === "workshop" ? (
+            <Workshop />
           ) : (
             <More />
           )}

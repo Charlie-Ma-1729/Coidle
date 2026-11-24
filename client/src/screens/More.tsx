@@ -1,6 +1,7 @@
 import { moreSub, type MoreSub } from "../nav";
 import { Marketing } from "./Marketing";
 import { Ops } from "./Ops";
+import { Reports } from "./Reports";
 import { Rivals } from "./Rivals";
 import { Suppliers } from "./Suppliers";
 import { Team } from "./Team";
@@ -10,6 +11,7 @@ const SUBS: { id: MoreSub; label: string }[] = [
   { id: "marketing", label: "📣 行銷" },
   { id: "suppliers", label: "📦 供應商" },
   { id: "rivals", label: "⚔️ 商戰" },
+  { id: "reports", label: "📰 日報" },
   { id: "team", label: "👥 團隊" },
 ];
 
@@ -25,7 +27,7 @@ export function More() {
           </button>
         ))}
       </nav>
-      {sub === "ops" ? <Ops /> : sub === "marketing" ? <Marketing /> : sub === "suppliers" ? <Suppliers /> : sub === "rivals" ? <Rivals /> : <Team />}
+      {sub === "ops" ? <Ops /> : sub === "marketing" ? <Marketing /> : sub === "suppliers" ? <Suppliers /> : sub === "rivals" ? <Rivals /> : sub === "reports" ? <Reports /> : <Team />}
     </>
   );
 }

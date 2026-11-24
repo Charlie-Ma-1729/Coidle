@@ -1,7 +1,7 @@
 import { signal } from "@preact/signals";
 
-export type Tab = "overview" | "floor" | "guests" | "reports" | "more";
-export type MoreSub = "ops" | "marketing" | "suppliers" | "rivals" | "team";
+export type Tab = "overview" | "floor" | "guests" | "workshop" | "more";
+export type MoreSub = "ops" | "marketing" | "suppliers" | "rivals" | "reports" | "team";
 
 export const tab = signal<Tab>("overview");
 export const moreSub = signal<MoreSub>("ops");

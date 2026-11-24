@@ -109,6 +109,8 @@ export interface Shop {
   /** 本 tick 已服務份數（內部使用，每 tick 重置） */
   served: number;
   day: ShopDayStats;
+  /** 目前上架的招牌／新品（研發工坊做出來的） */
+  menu: MenuEntry[];
 }
 
 export interface Slot {
@@ -580,7 +582,7 @@ export interface MallClock {
 }
 
 export interface MallState {
-  version: 6;
+  version: 7;
   clock: MallClock;
   seed: number;
   tick: number;
@@ -612,6 +614,7 @@ export interface MallState {
   inspections: InspectionState;
   supply: SupplyState;
   rivals: RivalsState;
+  workshop: WorkshopState;
   reviewLog: ReviewRecord[];
   guestPrefs: GuestPrefs;
   walk: { nextTick: number; voices: WalkVoice[] };
@@ -619,4 +622,123 @@ export interface MallState {
   reports: DailyReport[];
   log: LogEntry[];
   nextId: number;
+}
+
+// ───────── 研發工坊 ─────────
+
+/** 研發的四個槽位：主料／調味（風格）／手法／特色（選填） */
+export type SlotKind = "base" | "season" | "method" | "special";
+
+/** 玩家已經認識的素材。特性（標籤）要靠試做才會慢慢掌握 */
+export interface IngredientInfo {
+  id: string;
+  group: CategoryGroup;
+  slot: SlotKind;
+  name: string;
+  icon: string;
+  cost: number;
+  desc: string;
+}
+
+/** 食譜本裡的一道菜（餐飲）／商品／企劃／療程 */
+export interface Dish {
+  id: string;
+  name: string;
+  icon: string;
+  group: CategoryGroup;
+  /** 只能在這些業態上架；沒有限制就是同類型都可以 */
+  categories?: CategoryId[];
+  /** 隱藏配方的代號；null＝自己亂做出來的原創品 */
+  recipeId: string | null;
+  signature: boolean;
+  /** 0–100 */
+  quality: number;
+  /** 對各客群的吸引力 0–1 */
+  appeal: Partial<Record<PersonaId, number>>;
+  /** 突出的特性（標籤 id） */
+  tags: string[];
+  desc: string;
+  madeTick: number;
+  madeAt: string;
+  picks: Partial<Record<SlotKind, string>>;
+  /** 新鮮度 0–100：上架時慢慢退流行，收起來會慢慢回復（換季再上，客人又覺得新鮮） */
+  novelty: number;
+  /** 上架過幾次（第一次上架才有首賣效果） */
+  listedCount: number;
+}
+
+export interface MenuEntry {
+  dishId: string;
+  name: string;
+  icon: string;
+  signature: boolean;
+  recipeId: string | null;
+  quality: number;
+  appeal: Partial<Record<PersonaId, number>>;
+  /** 新鮮度 0–100：上架之後慢慢退流行 */
+  novelty: number;
+  listedTick: number;
+}
+
+export interface RndJob {
+  uid: string;
+  shopId: string;
+  picks: Partial<Record<SlotKind, string>>;
+  startTick: number;
+  endTick: number;
+  cost: number;
+  sig: string;
+}
+
+/** signature＝命中隱藏配方；original＝普通創作；flop＝搭配失衡；burnt＝手滑失敗；almost＝配方對了但火候差一點 */
+export type RndOutcome = "signature" | "original" | "flop" | "burnt" | "almost";
+
+export interface Tasting {
+  uid: string;
+  shopId: string;
+  createdTick: number;
+  deadlineTick: number;
+  outcome: RndOutcome;
+  dishId: string | null;
+  picks: Partial<Record<SlotKind, string>>;
+  feedback: string[];
+  /** 接近某個隱藏風味時的提示 */
+  clue: string | null;
+  /** 這次試做新掌握了哪些素材特性 */
+  learned: { ingredientId: string; tag: string }[];
+}
+
+export interface ExperimentLog {
+  tick: number;
+  shopName: string;
+  picks: Partial<Record<SlotKind, string>>;
+  outcome: RndOutcome;
+  dishName: string | null;
+  feedback: string[];
+}
+
+export interface ClueNote {
+  id: string;
+  tick: number;
+  source: string;
+  text: string;
+  /** 對應的配方已經被你發現了 */
+  solved: boolean;
+}
+
+export interface WorkshopState {
+  ingredients: IngredientInfo[];
+  /** 素材 id → 已掌握的特性（標籤 id） */
+  learned: Record<string, string[]>;
+  dishes: Dish[];
+  /** 已發現的隱藏配方代號 */
+  discovered: string[];
+  jobs: RndJob[];
+  tastings: Tasting[];
+  /** 試過的組合 → 結果（同樣的組合不會再給新線索） */
+  tried: Record<string, RndOutcome>;
+  /** 各店完成的研發次數（廚藝經驗） */
+  skill: Record<string, number>;
+  log: ExperimentLog[];
+  clues: ClueNote[];
 }

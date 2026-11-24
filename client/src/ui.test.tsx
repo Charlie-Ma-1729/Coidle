@@ -119,6 +119,45 @@ describe("screens render with real simulated state", () => {
     expect(container.querySelectorAll(".bars .bar").length).toBeGreaterThanOrEqual(3);
   });
 
+  it("Workshop shows the research bench with known ingredients, and a tasting card", async () => {
+    store.state.value = publicState(1, (s) => {
+      const shop = s.shops[0]!;
+      s.workshop.tastings.push({
+        uid: "tst1",
+        shopId: shop.id,
+        createdTick: s.tick,
+        deadlineTick: s.tick + 500,
+        outcome: "flop",
+        dishId: null,
+        picks: {},
+        feedback: ["太鹹了，喝了好幾杯水"],
+        clue: null,
+        learned: [],
+      });
+    });
+    const { Workshop } = await import("./screens/Workshop");
+    await mount(<Workshop />);
+    expect(container.textContent).toContain("廚房研發");
+    expect(container.textContent).toContain("豬里肌");
+    expect(container.textContent).toContain("試吃結果");
+    expect(container.textContent).toContain("太鹹了");
+    expect(container.textContent).not.toContain("rc_");
+  });
+
+  it("Workshop menu tab and notes tab render", async () => {
+    store.state.value = publicState(1);
+    const { Workshop } = await import("./screens/Workshop");
+    await mount(<Workshop />);
+    const tabs = Array.from(container.querySelectorAll("nav.zones button")) as HTMLButtonElement[];
+    tabs.find((b) => b.textContent?.includes("菜單"))!.click();
+    await tick();
+    expect(container.textContent).toContain("的菜單");
+    Array.from(container.querySelectorAll("nav.zones button") as unknown as HTMLButtonElement[]).find((b) => b.textContent?.includes("筆記"))!.click();
+    await tick();
+    expect(container.textContent).toContain("線索簿");
+    expect(container.textContent).toContain("素材圖鑑");
+  });
+
   it("Reports shows an empty state before the first report", async () => {
     store.state.value = publicState(0);
     const { Reports } = await import("./screens/Reports");

@@ -4,6 +4,7 @@ import {
   CLEANING_RESTORE_PER_TICK,
   FRESHNESS_DECAY_PER_DAY,
   FRESHNESS_FLOOR,
+  MENU_APPEAL_WEIGHT,
   INDEX_FLOOR_ABS,
   INDEX_FLOOR_RATIO,
   INDEX_MAX_DAILY_DROP,
@@ -17,6 +18,7 @@ import {
   SHOP_QUALITY,
   SUPPLY_FAMILIES,
   familyOf,
+  menuAppeal,
   rivalMult,
   supplierQualityFactor,
   SUPPLY_LEAD_TICKS,
@@ -40,6 +42,7 @@ import { regularsDaily, runRegulars } from "./regulars";
 import { rivalsDaily, rivalsTick } from "./rivals";
 import { deliveryTerms, quoteOrder, recordOrder, suppliersTick, warnSupplyTrouble } from "./suppliers";
 import { buildReport } from "./report";
+import { syncWorkshop, workshopDaily, workshopTick } from "./workshop";
 import { rngForTick, type Rng } from "./rng";
 import {
   addLog,
@@ -89,10 +92,12 @@ export function stepTick(s: MallState, ctx: StepContext = { nobodyPresent: false
   rivalsTick(s, rng);
   resolveDeadlines(s, rng);
   resolveInboxDeadlines(s);
+  workshopTick(s, rng);
   runDueInspections(s);
   const spawned = maybeSpawnEvent(s, time, rng);
   const notice = maybeSpawnInspection(s, rng);
   if (t % 6 === 0) autoRestock(s);
+  if (t % TICKS_PER_HOUR === 0) syncWorkshop(s);
 
   for (const shop of s.shops) shop.served = 0;
   const units = isOpen(s, time) ? runCustomers(s, time, rng) : 0;
@@ -247,7 +252,7 @@ function pickShop(s: MallState, rng: Rng, p: PersonaDef, shops: Shop[], withOuts
     const priceF = clamp(Math.exp(p.sensitivity * (1 - effectivePrice(s, shop) / cat.refPrice)), 0.15, 1.6);
     const qualityF = 0.6 + 0.8 * shopQuality(shop) * supplierQualityFactor(s, shop.category);
     const queueF = 1 - 0.5 * Math.min(1, shop.served / shopCapacity(shop));
-    return d * priceF * qualityF * queueF;
+    return d * priceF * qualityF * queueF * (1 + MENU_APPEAL_WEIGHT * menuAppeal(shop, p.id));
   });
   if (withOutside) weights.push(OUTSIDE_WEIGHT);
   const idx = rng.weighted(weights);
@@ -337,7 +342,7 @@ function satisfaction(s: MallState, p: PersonaDef, shop: Shop, refPrice: number)
   const q = shopQuality(shop) * supplierQualityFactor(s, shop.category);
   const value = clamp(refPrice / effectivePrice(s, shop), 0.5, 1.5);
   const weight = 0.1 + 0.08 * p.sensitivity;
-  const base = 0.28 + 0.4 * q + weight * (value - 0.5) + promoSatBonus(s);
+  const base = 0.28 + 0.4 * q + weight * (value - 0.5) + promoSatBonus(s) + 0.06 * menuAppeal(shop, p.id);
   return clamp(base * (0.75 + 0.25 * (s.cleanliness / 100)) * (0.75 + 0.25 * (s.equipment / 100)), 0, 1);
 }
 
@@ -420,6 +425,8 @@ function rollover(s: MallState, time: TimeInfo): void {
 
   rivalsDaily(s); // 對手的實力慢慢向相稱的水準靠攏
   promoFatigueDaily(s); // 促銷疲勞慢慢消退
+  workshopDaily(s); // 菜單新鮮度退流行、招牌帶來口碑
+  syncWorkshop(s);
   regularsDaily(s); // 常客：久沒上門的漸漸疏遠、熟客粉絲帶來口碑
   generateDailyReviews(s); // 今天客人的感受 → 幾則線上評價（先於日報，才算得進去）
   s.reports.push(buildReport(s));

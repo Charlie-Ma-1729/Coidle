@@ -8,6 +8,7 @@ import {
   PERSONA_IDS,
   SHOP_QUALITY,
   ZONES,
+  menuQualityBonus,
   initialRivals,
   initialSupply,
   newClock,
@@ -21,11 +22,13 @@ import {
   type PromoState,
   type RivalsState,
   type Shop,
+  type WorkshopState,
   type ShopDayStats,
   type Slot,
 } from "@coidle/shared";
 import { initialRegulars } from "./regulars";
 import { timeInfo } from "./time";
+import { syncWorkshop } from "./workshop";
 
 export function personaRecord(v = 0): Record<PersonaId, number> {
   return Object.fromEntries(PERSONA_IDS.map((p) => [p, v])) as Record<PersonaId, number>;
@@ -100,7 +103,12 @@ export function makeShop(s: MallState, category: string, name: string, slot: num
     closedUntilTick: 0,
     served: 0,
     day: newShopDayStats(),
+    menu: [],
   };
+}
+
+export function newWorkshopState(): WorkshopState {
+  return { ingredients: [], learned: {}, dishes: [], discovered: [], jobs: [], tastings: [], tried: {}, skill: {}, log: [], clues: [] };
 }
 
 export function newPromoState(): PromoState {
@@ -128,7 +136,7 @@ export function createInitialState(seed: number, startTick: number, nowMs = 0): 
     for (let i = 0; i < z.slots; i++) slots.push({ id: slots.length, zone: z.id, shopId: null });
   }
   const s: MallState = {
-    version: 6,
+    version: 7,
     clock: newClock(nowMs, startTick),
     seed: seed >>> 0,
     tick: startTick,
@@ -158,6 +166,7 @@ export function createInitialState(seed: number, startTick: number, nowMs = 0): 
     inspections: newInspectionState(startTick),
     supply: initialSupply(),
     rivals: newRivalsState(1, startTick),
+    workshop: newWorkshopState(),
     reviewLog: [],
     guestPrefs: { complaintStance: "balanced", autoReplyReviews: true },
     walk: { nextTick: 0, voices: [] },
@@ -173,6 +182,7 @@ export function createInitialState(seed: number, startTick: number, nowMs = 0): 
     slot.shopId = shop.id;
     s.shops.push(shop);
   });
+  syncWorkshop(s);
   addLog(s, "info", "商場開幕了。祝生意興隆！");
   return s;
 }
@@ -209,9 +219,9 @@ export function trafficMult(s: MallState, persona: PersonaId, tick: number): num
   return m;
 }
 
-/** 有效品質：等級決定上限，新鮮感過低會打折（新鮮感 20 時約打 64 折） */
+/** 有效品質：等級決定上限，新鮮感過低會打折（新鮮感 20 時約打 64 折）；菜單上的招牌與新品再加分 */
 export function shopQuality(shop: Shop): number {
-  const base = SHOP_QUALITY[shop.level] ?? 0.5;
+  const base = (SHOP_QUALITY[shop.level] ?? 0.5) + menuQualityBonus(shop);
   return base * (0.55 + 0.45 * (shop.freshness / 100));
 }
 

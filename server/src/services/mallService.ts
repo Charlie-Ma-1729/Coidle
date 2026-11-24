@@ -115,6 +115,18 @@ export function describeCommand(s: MallState, cmd: Command, actor: string): stri
       const kind = n ? INSPECTIONS[n.kind].name : "稽查";
       return `${actor} 為${kind}做了準備（${{ none: "照常營業", basic: "例行整理", full: "全力備戰" }[cmd.level]}）`;
     }
+    case "startRnd":
+      return `${actor} 讓「${shopName(cmd.shopId)}」開始研發新作品`;
+    case "cancelRnd":
+      return `${actor} 取消了「${shopName(cmd.shopId)}」的研發`;
+    case "tastingAction":
+      return `${actor} 處理了一份試吃結果`;
+    case "listDish":
+      return `${actor} 把新作品上架到「${shopName(cmd.shopId)}」的菜單`;
+    case "unlistDish":
+      return `${actor} 調整了「${shopName(cmd.shopId)}」的菜單`;
+    case "discardDish":
+      return null;
     case "regularAction": {
       const name = REGULAR_BY_ID[cmd.regularId]?.name ?? "常客";
       const verb = { greet: "聊了聊", remember: "記住了喜好", gift: "送了小禮", reserve: "保留了專屬座位", unreserve: "取消了專屬座位" }[cmd.action];

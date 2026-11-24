@@ -19,6 +19,7 @@ import { regularAction } from "./regulars";
 import { rivalCounter, rivalIntel, rivalPact } from "./rivals";
 import { cancelContract, chooseSupplier, signContract } from "./suppliers";
 import { rngForTick } from "./rng";
+import { cancelRnd, discardDish, listDish, startRnd, syncWorkshop, tastingAction, unlistDish } from "./workshop";
 import { addLog, isFeatureEnabled, isZoneUnlocked, nextId } from "./state";
 import { isOpen, placeOrder } from "./step";
 import { timeInfo } from "./time";
@@ -263,6 +264,43 @@ export function applyCommand(state: MallState, cmd: Command): CommandResult {
       break;
     }
 
+    case "startRnd": {
+      const r = startRnd(s, cmd.shopId, cmd.picks ?? {});
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "cancelRnd": {
+      const r = cancelRnd(s, cmd.shopId);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "tastingAction": {
+      if (!["list", "keep", "discard"].includes(cmd.action)) return err("操作無效");
+      const r = tastingAction(s, cmd.uid, cmd.action, cmd.slotIndex);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "listDish": {
+      const r = listDish(s, cmd.shopId, cmd.dishId, cmd.slotIndex);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "unlistDish": {
+      const r = unlistDish(s, cmd.shopId, cmd.slotIndex);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "discardDish": {
+      const r = discardDish(s, cmd.dishId);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
     case "setGuestPrefs": {
       if (cmd.complaintStance !== undefined) {
         if (!["soft", "balanced", "firm"].includes(cmd.complaintStance)) return err("處理偏好無效");
@@ -289,5 +327,6 @@ export function applyCommand(state: MallState, cmd: Command): CommandResult {
       return err("未知的指令");
   }
 
+  syncWorkshop(s); // 指令可能解鎖新素材或線索（刺探情報、簽約…）
   return { ok: true, state: s };
 }

@@ -1,4 +1,4 @@
-import type { RestockRule } from "./types";
+import type { RestockRule, SlotKind } from "./types";
 
 /** 玩家指令：前端送出、伺服器驗證並套用 */
 export type Command =
@@ -36,5 +36,12 @@ export type Command =
   | { type: "setRivalStance"; stance: "defend" | "neutral" | "aggressive" }
   /** 和常客互動：招呼、記住喜好、送小禮、保留／取消專屬座位 */
   | { type: "regularAction"; regularId: string; action: "greet" | "remember" | "gift" | "reserve" | "unreserve" }
+  /** 研發工坊：開始研發（每間店同時一件）、取消、處理試吃結果、菜單上下架 */
+  | { type: "startRnd"; shopId: string; picks: Partial<Record<SlotKind, string>> }
+  | { type: "cancelRnd"; shopId: string }
+  | { type: "tastingAction"; uid: string; action: "list" | "keep" | "discard"; slotIndex?: number }
+  | { type: "listDish"; shopId: string; dishId: string; slotIndex?: number }
+  | { type: "unlistDish"; shopId: string; slotIndex: number }
+  | { type: "discardDish"; dishId: string }
   | { type: "setGuestPrefs"; complaintStance?: "soft" | "balanced" | "firm"; autoReplyReviews?: boolean }
   | { type: "setLease"; shopId: string; enabled: boolean; rent?: number; commission?: number };

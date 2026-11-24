@@ -26,6 +26,7 @@ import { applyPersonaIndex } from "./events";
 import type { GuestResult } from "./guests";
 import { promoRegularGain } from "./promos";
 import type { Rng } from "./rng";
+import { RECIPE_REGULAR } from "./recipes";
 import { addLog, shopCapacity } from "./state";
 import type { TimeInfo } from "./time";
 
@@ -154,7 +155,8 @@ function visit(s: MallState, rng: Rng, reg: RegularState, def: RegularDef, p: Pe
       reg.tipsTotal += tip;
     }
   }
-  gain(s, reg, def, 1.2 + (shop.freshness > 70 ? 0.4 : 0) + (shop.level >= 2 ? 0.3 : 0));
+  const signature = shop.menu.some((e) => e.recipeId !== null && RECIPE_REGULAR[e.recipeId] === def.id);
+  gain(s, reg, def, 1.2 + (shop.freshness > 70 ? 0.4 : 0) + (shop.level >= 2 ? 0.3 : 0) + (signature ? 1 : 0));
   return qty;
 }
 
