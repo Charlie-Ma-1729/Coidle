@@ -7,6 +7,7 @@ import {
   UPGRADE_BASE_COST,
   UPGRADE_TICKS,
   categoryHasStock,
+  licenseOf,
   type Command,
   type MallState,
   type RestockRule,
@@ -108,17 +109,19 @@ export function applyCommand(state: MallState, cmd: Command): CommandResult {
       if (cat.zone !== slot.zone) return err("這個業態不能開在這個區域");
       if (!isZoneUnlocked(s, slot.zone)) return err("這個區域尚未解鎖");
       if (slot.shopId || s.builds.some((b) => b.slot === slot.id)) return err("這個店面已被使用或正在施工");
-      if (s.funds < cat.buildCost) return err("資金不足");
-      s.funds -= cat.buildCost;
+      const lic = licenseOf(cat.id); // 許認可：規費與審查時間
+      const total = cat.buildCost + (lic?.fee ?? 0);
+      if (s.funds < total) return err("資金不足");
+      s.funds -= total;
       s.builds.push({
         id: nextId(s, "bld"),
         kind: "open",
         slot: slot.id,
         category: cat.id,
-        completeTick: s.tick + cat.buildTicks,
-        cost: cat.buildCost,
+        completeTick: s.tick + cat.buildTicks + (lic?.extraTicks ?? 0),
+        cost: total,
       });
-      addLog(s, "build", `開始興建「${cat.name}」。`);
+      addLog(s, "build", `開始興建「${cat.name}」。${lic ? `（同步辦理：${lic.name}）` : ""}`);
       break;
     }
 

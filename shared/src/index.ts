@@ -10,6 +10,7 @@ export * from "./game/promotions";
 export * from "./game/supply";
 export * from "./game/rivals";
 export * from "./game/workshop";
+export * from "./game/tax";
 
 export interface HealthResponse {
   ok: true;

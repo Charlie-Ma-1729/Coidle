@@ -1,6 +1,12 @@
 import {
   CATEGORY_BY_ID,
   CLEANING_COST_PER_DAY,
+  CONSUMPTION_STANDARD,
+  ROYALTY_CATEGORIES,
+  consumptionRate,
+  purchaseRate,
+  supplierCreditRate,
+  taxPortion,
   CLEANING_RESTORE_PER_TICK,
   FRESHNESS_DECAY_PER_DAY,
   FRESHNESS_FLOOR,
@@ -43,6 +49,7 @@ import { regularsDaily, runRegulars } from "./regulars";
 import { rivalsDaily, rivalsTick } from "./rivals";
 import { deliveryTerms, quoteOrder, recordOrder, suppliersTick, warnSupplyTrouble } from "./suppliers";
 import { buildReport } from "./report";
+import { dailyOverhead, dailyWages, taxDaily } from "./tax";
 import { syncWorkshop, workshopDaily, workshopTick } from "./workshop";
 import { rngForTick, type Rng } from "./rng";
 import {
@@ -186,6 +193,8 @@ export function placeOrder(s: MallState, shop: Shop, qty: number): boolean {
   s.today.purchases += cost;
   shop.incoming.push({ arriveTick: s.tick + d.lead, qty: d.qty });
   recordOrder(s, quote.pick);
+  const fam = familyOf(shop.category);
+  s.today.inTax += taxPortion(cost, purchaseRate(fam)) * supplierCreditRate(quote.pick.def, timeInfo(s.tick).date);
   if (d.qty < qty) {
     const fam = familyOf(shop.category);
     if (fam) warnSupplyTrouble(s, fam, "short", `📦 「${quote.pick.def.name}」出貨吃緊，「${shop.name}」只拿到 ${d.qty}／${qty} 份。`);
@@ -312,6 +321,8 @@ export function recordSale(s: MallState, rng: Rng, p: PersonaDef, shop: Shop, ca
   if (hasStock) shop.stock -= qty;
 
   if (shop.mode === "direct") {
+    s.today.outTax += taxPortion(revenue, consumptionRate(shop.category));
+    if (ROYALTY_CATEGORIES.includes(shop.category)) s.tax.monthRoyaltyBase += revenue;
     s.funds += revenue;
     s.today.revenue += revenue;
     s.totalRevenue += revenue;
@@ -320,9 +331,11 @@ export function recordSale(s: MallState, rng: Rng, p: PersonaDef, shop: Shop, ca
       const varCost = Math.round(qty * cat.refPrice * cat.costRatio);
       s.funds -= varCost;
       s.today.purchases += varCost;
+      s.today.inTax += taxPortion(varCost, CONSUMPTION_STANDARD);
     }
   } else {
     const commission = revenue * shop.commission;
+    s.today.outTax += taxPortion(commission, CONSUMPTION_STANDARD);
     s.funds += commission;
     s.today.rentIncome += commission;
     s.totalRevenue += commission;
@@ -375,12 +388,7 @@ function nudgeIndex(s: MallState, which: IndexId, target: number, alpha: number)
 
 // ───────── 維運、固定成本、故障 ─────────
 function dailyFixedCost(s: MallState): number {
-  let c = UTILITIES_PER_DAY + (CLEANING_COST_PER_DAY[s.cleaningLevel] + MAINTENANCE_COST_PER_DAY[s.maintenanceLevel]) * facilityScale(s);
-  for (const shop of s.shops) {
-    if (shop.mode === "lease") continue;
-    const cat = CATEGORY_BY_ID[shop.category];
-    if (cat) c += cat.wage * shop.level;
-  }
+  let c = dailyOverhead(s) + dailyWages(s);
   c += s.regulars.filter((r) => r.reserved).length * RESERVE_UPKEEP_PER_DAY; // 專屬座位的維持費
   return c;
 }
@@ -389,6 +397,7 @@ function upkeep(s: MallState, units: number, rng: Rng): void {
   const fixed = dailyFixedCost(s) / TICKS_PER_DAY;
   s.funds -= fixed;
   s.today.fixed += fixed;
+  s.today.fixedCredit += taxPortion(dailyOverhead(s) / TICKS_PER_DAY, CONSUMPTION_STANDARD); // 水電與清潔維護的進項稅
 
   const scale = facilityScale(s);
   s.cleanliness = clamp(s.cleanliness + CLEANING_RESTORE_PER_TICK[s.cleaningLevel] * scale - units * 0.009, 0, 100);
@@ -413,6 +422,7 @@ function rollover(s: MallState, time: TimeInfo): void {
     if (shop.mode === "lease") {
       s.funds += shop.rent;
       s.today.rentIncome += shop.rent;
+      s.today.outTax += taxPortion(shop.rent, CONSUMPTION_STANDARD);
       s.totalRevenue += shop.rent;
     }
   }
@@ -441,7 +451,9 @@ function rollover(s: MallState, time: TimeInfo): void {
     // 新鮮感慢慢退流行：需要玩家換菜單／做活動才補得回來
     shop.freshness = Math.max(FRESHNESS_FLOOR, shop.freshness - FRESHNESS_DECAY_PER_DAY);
   }
+  const closedDay = s.today;
   s.today = newDayStats(time.day, { localRep: s.localRep, touristHeat: s.touristHeat });
+  taxDaily(s, time, closedDay); // 稅務：累積損益、依日曆開帳單、到期自動扣款
 }
 
 function checkLevelUp(s: MallState): void {

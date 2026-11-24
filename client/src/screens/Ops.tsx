@@ -12,6 +12,7 @@ import {
   hourlyTraffic,
   inspectionScore,
   isPaused,
+  laborCostFactor,
   presetOfSpeed,
   timeInfo,
 } from "@coidle/shared";
@@ -46,7 +47,7 @@ export function Ops() {
   let wages = 0;
   for (const sh of s.shops) if (sh.mode === "direct") wages += (CATEGORY_BY_ID[sh.category]?.wage ?? 0) * sh.level;
   const reservedSeats = s.regulars.filter((r) => r.reserved).length * RESERVE_UPKEEP_PER_DAY;
-  const fixed = UTILITIES_PER_DAY + (CLEANING_COST_PER_DAY[s.cleaningLevel] + MAINTENANCE_COST_PER_DAY[s.maintenanceLevel]) * facilityScale(s) + wages + reservedSeats;
+  const fixed = UTILITIES_PER_DAY + (CLEANING_COST_PER_DAY[s.cleaningLevel] + MAINTENANCE_COST_PER_DAY[s.maintenanceLevel]) * facilityScale(s) + wages * laborCostFactor(s.hours.open, s.hours.close) + reservedSeats;
 
   const clock = s.clock;
   const manualPaused = clock.holds.manual;

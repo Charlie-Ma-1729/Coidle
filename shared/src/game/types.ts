@@ -235,6 +235,11 @@ export interface DayStats {
   regularVisits: number;
   /** 今天的活動與稽查消息 */
   systemNotes: string[];
+  /** 今天的消費稅：銷項、進項（可扣抵的部分） */
+  outTax: number;
+  inTax: number;
+  /** 今天營運支出中可扣抵進項稅的部分（水電、清潔維護） */
+  fixedCredit: number;
 }
 
 export interface DailyReport {
@@ -326,6 +331,8 @@ export interface SupplierDef {
   bio: string;
   /** 一開始沒人認識，要靠事件才會出現 */
   hidden?: boolean;
+  /** false＝沒有登錄成發票制度的適格請求書發行事業者（小型業者），進項稅額只能部分扣抵 */
+  invoice?: boolean;
 }
 
 export interface SupplierState {
@@ -582,7 +589,7 @@ export interface MallClock {
 }
 
 export interface MallState {
-  version: 7;
+  version: 8;
   clock: MallClock;
   seed: number;
   tick: number;
@@ -615,6 +622,7 @@ export interface MallState {
   supply: SupplyState;
   rivals: RivalsState;
   workshop: WorkshopState;
+  tax: TaxState;
   reviewLog: ReviewRecord[];
   guestPrefs: GuestPrefs;
   walk: { nextTick: number; voices: WalkVoice[] };
@@ -741,4 +749,49 @@ export interface WorkshopState {
   skill: Record<string, number>;
   log: ExperimentLog[];
   clues: ClueNote[];
+}
+
+// ───────── 稅務與法規（日本制度的簡化版） ─────────
+
+export type ObligationKind = "consumption" | "corporate" | "corporate_interim" | "property" | "social" | "bonus" | "royalty";
+
+/** 一張要繳的帳單：到期自動從資金扣款；資金不足就先繳一部分，餘額每天加收延滯稅 */
+export interface Obligation {
+  uid: string;
+  kind: ObligationKind;
+  label: string;
+  amount: number;
+  createdTick: number;
+  dueTick: number;
+  paid: number;
+  lateFee: number;
+}
+
+export interface TaxPayment {
+  tick: number;
+  kind: ObligationKind;
+  label: string;
+  amount: number;
+  /** 是逾期才繳清的 */
+  late: boolean;
+}
+
+export interface TaxState {
+  /** 目前這一季累積的消費稅 */
+  quarter: { outputTax: number; inputTax: number };
+  /** 目前會計年度（4–3 月）累積的稅前損益、已預繳的中間申報 */
+  fy: { profit: number; interimPaid: number };
+  /** 可結轉扣抵的虧損 */
+  lossCarry: number;
+  /** 上一個會計年度的法人稅等總額（中間申報的基準） */
+  lastYearCorporate: number;
+  /** 這個月累積的薪資（下個月算社會保險與獎金） */
+  monthPayroll: number;
+  lastMonthPayroll: number;
+  /** 這個月 KTV 等需付著作權使用費的營收 */
+  monthRoyaltyBase: number;
+  bills: Obligation[];
+  history: TaxPayment[];
+  /** 累計已繳 */
+  totalPaid: Record<ObligationKind, number>;
 }

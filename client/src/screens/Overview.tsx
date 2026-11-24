@@ -4,6 +4,7 @@ import {
   FAMILY_ORDER,
   LEVELS,
   SUPPLY_FAMILIES,
+  billsDueWithin,
   chosenSupplier,
   familyShopCount,
   guestTodoCount,
@@ -51,6 +52,9 @@ function PendingEvents({ s }: { s: PublicMallState }) {
 function Warnings({ s }: { s: PublicMallState }) {
   const warns: { tone: "red" | "amber"; text: string }[] = [];
   if (s.funds < 0) warns.push({ tone: "red", text: "帳上資金為負，自動補貨已暫停！" });
+  const due30 = billsDueWithin(s, 30 * 288);
+  if (s.tax.bills.some((b) => b.dueTick < s.tick)) warns.push({ tone: "red", text: "有逾期未繳的稅金或保險費，每天加收延滯稅（到「更多 → 稅務」看明細）" });
+  else if (due30 > 0 && s.funds < due30) warns.push({ tone: "amber", text: `30 天內要繳 ${money(due30)}，但帳上只有 ${money(s.funds)}` });
   const out = s.shops.filter((x) => x.mode === "direct" && CATEGORY_BY_ID[x.category] && ["food", "retail"].includes(CATEGORY_BY_ID[x.category]!.group) && x.stock < 1);
   if (out.length > 0) warns.push({ tone: "red", text: `${out.map((x) => `「${x.name}」`).join("")}缺貨中` });
   const closed = s.shops.filter((x) => x.closedUntilTick > s.tick);

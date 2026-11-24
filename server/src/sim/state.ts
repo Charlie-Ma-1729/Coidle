@@ -28,6 +28,7 @@ import {
 } from "@coidle/shared";
 import { initialRegulars } from "./regulars";
 import { timeInfo } from "./time";
+import { newTaxState } from "./tax";
 import { syncWorkshop } from "./workshop";
 
 export function personaRecord(v = 0): Record<PersonaId, number> {
@@ -60,6 +61,9 @@ export function newDayStats(day: number, idx: { localRep: number; touristHeat: n
     regularNotes: [],
     regularVisits: 0,
     systemNotes: [],
+    outTax: 0,
+    inTax: 0,
+    fixedCredit: 0,
   };
 }
 
@@ -136,7 +140,7 @@ export function createInitialState(seed: number, startTick: number, nowMs = 0): 
     for (let i = 0; i < z.slots; i++) slots.push({ id: slots.length, zone: z.id, shopId: null });
   }
   const s: MallState = {
-    version: 7,
+    version: 8,
     clock: newClock(nowMs, startTick),
     seed: seed >>> 0,
     tick: startTick,
@@ -167,6 +171,7 @@ export function createInitialState(seed: number, startTick: number, nowMs = 0): 
     supply: initialSupply(),
     rivals: newRivalsState(1, startTick),
     workshop: newWorkshopState(),
+    tax: newTaxState(),
     reviewLog: [],
     guestPrefs: { complaintStance: "balanced", autoReplyReviews: true },
     walk: { nextTick: 0, voices: [] },

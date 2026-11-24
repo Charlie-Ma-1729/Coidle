@@ -547,7 +547,7 @@ describe("migration", () => {
     delete v5.supply;
     delete v5.rivals;
     const m = migrateState(v5, 0);
-    expect(m.version).toBe(7);
+    expect(m.version).toBe(8);
     expect(m.supply.suppliers).toHaveLength(SUPPLIERS.length);
     expect(m.rivals.list).toHaveLength(4);
     expect(Object.values(m.rivals.nextAt).every((t) => t > 700)).toBe(true);

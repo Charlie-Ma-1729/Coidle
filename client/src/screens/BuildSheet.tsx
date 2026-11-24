@@ -1,4 +1,4 @@
-import { CATEGORIES, PERSONA_BY_ID, ZONE_BY_ID, type PersonaId } from "@coidle/shared";
+import { CATEGORIES, PERSONA_BY_ID, ZONE_BY_ID, licenseOf, type PersonaId } from "@coidle/shared";
 import { Btn, Chip, Sheet } from "../components/ui";
 import { money, realDuration } from "../format";
 import { categoryIcon, PERSONA_ICONS } from "../icons";
@@ -19,15 +19,21 @@ export function BuildSheet({ slotId, onClose }: { slotId: number; onClose: () =>
         const top = (Object.entries(c.demand) as [PersonaId, number][])
           .sort((a, b) => b[1] - a[1])
           .slice(0, 3);
-        const afford = s.funds >= c.buildCost;
+        const lic = licenseOf(c.id);
+        const afford = s.funds >= c.buildCost + (lic?.fee ?? 0);
         return (
           <div class="build-item" key={c.id}>
             <span class="b-ico">{categoryIcon(c.id)}</span>
             <div>
               <b>{c.name}</b> {have > 0 && <Chip tone="dim">已有 {have} 間</Chip>}
               <div class="small dim">
-                客單價約 {money(c.refPrice)}・施工 {realDuration(c.buildTicks, s.clock.speed)}
+                客單價約 {money(c.refPrice)}・施工 {realDuration(c.buildTicks + (lic?.extraTicks ?? 0), s.clock.speed)}
               </div>
+              {lic && (
+                <div class="small dim">
+                  📜 {lic.name}（{lic.law}）規費 {money(lic.fee)}
+                </div>
+              )}
               <div class="persona-tags">
                 {top.map(([p]) => (
                   <Chip key={p} tone="cyan">
@@ -44,7 +50,7 @@ export function BuildSheet({ slotId, onClose }: { slotId: number; onClose: () =>
                 if (await run({ type: "buildShop", slot: slotId, category: c.id }, `開始興建「${c.name}」`)) onClose();
               }}
             >
-              {money(c.buildCost)}
+              {money(c.buildCost + (lic?.fee ?? 0))}
             </Btn>
           </div>
         );

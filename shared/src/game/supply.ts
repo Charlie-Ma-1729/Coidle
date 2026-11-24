@@ -47,34 +47,34 @@ export const FAMILY_OF: Record<string, SupplyFamily> = {
 export const SUPPLIERS: SupplierDef[] = [
   // ── 肉類
   { id: "meat_maru", name: "丸三精肉", family: "meat", price: 1.0, quality: 0.75, reliability: 0.85, lead: 1, bio: "三代經營的老肉鋪，做事一板一眼，從不出大包。" },
-  { id: "meat_yama", name: "山下食肉", family: "meat", price: 0.9, quality: 0.62, reliability: 0.7, lead: 1.1, bio: "價格最便宜，缺點是偶爾會「記錯」出貨日。" },
+  { id: "meat_yama", invoice: false, name: "山下食肉", family: "meat", price: 0.9, quality: 0.62, reliability: 0.7, lead: 1.1, bio: "價格最便宜，缺點是偶爾會「記錯」出貨日。" },
   { id: "meat_kuro", name: "黑門肉鋪", family: "meat", price: 1.15, quality: 0.92, reliability: 0.9, lead: 0.9, bio: "只做高級和牛生意，老闆脾氣很大，但肉真的好。" },
-  { id: "meat_import", name: "海外直輸肉品", family: "meat", price: 0.85, quality: 0.8, reliability: 0.6, lead: 1.3, bio: "新開的進口商，價格漂亮，但貨運常常延誤。", hidden: true },
+  { id: "meat_import", invoice: false, name: "海外直輸肉品", family: "meat", price: 0.85, quality: 0.8, reliability: 0.6, lead: 1.3, bio: "新開的進口商，價格漂亮，但貨運常常延誤。", hidden: true },
   // ── 海鮮
   { id: "sea_naniwa", name: "浪花水產", family: "seafood", price: 1.0, quality: 0.75, reliability: 0.85, lead: 1, bio: "市場裡最老牌的海鮮批發，大家都叫老闆「阿浪」。" },
-  { id: "sea_minato", name: "港口鮮魚組合", family: "seafood", price: 0.92, quality: 0.65, reliability: 0.7, lead: 1, bio: "漁會組合，便宜實惠，但天氣一差就沒貨。" },
+  { id: "sea_minato", invoice: false, name: "港口鮮魚組合", family: "seafood", price: 0.92, quality: 0.65, reliability: 0.7, lead: 1, bio: "漁會組合，便宜實惠，但天氣一差就沒貨。" },
   { id: "sea_asaichi", name: "朝市直送屋", family: "seafood", price: 1.2, quality: 0.95, reliability: 0.88, lead: 0.85, bio: "凌晨直送、當日鮮度，價格也是當日最高。" },
-  { id: "sea_farm", name: "近海養殖社", family: "seafood", price: 0.88, quality: 0.78, reliability: 0.65, lead: 1.2, bio: "新興的養殖業者，產量穩定但規模還小。", hidden: true },
+  { id: "sea_farm", invoice: false, name: "近海養殖社", family: "seafood", price: 0.88, quality: 0.78, reliability: 0.65, lead: 1.2, bio: "新興的養殖業者，產量穩定但規模還小。", hidden: true },
   // ── 麵與米
   { id: "grain_yoneda", name: "米田製麵所", family: "grain", price: 1.0, quality: 0.78, reliability: 0.88, lead: 1, bio: "自家製麵，湯麵、烏龍麵都靠他們。" },
-  { id: "grain_yamato", name: "大和穀物", family: "grain", price: 0.9, quality: 0.64, reliability: 0.75, lead: 1.1, bio: "大量批發，價格漂亮，品質中規中矩。" },
+  { id: "grain_yamato", invoice: false, name: "大和穀物", family: "grain", price: 0.9, quality: 0.64, reliability: 0.75, lead: 1.1, bio: "大量批發，價格漂亮，品質中規中矩。" },
   { id: "grain_roho", name: "老舖麵粉店", family: "grain", price: 1.1, quality: 0.9, reliability: 0.85, lead: 1, bio: "堅持石臼研磨，餐廳主廚們私下的口袋名單。" },
   { id: "grain_organic", name: "有機契作農場", family: "grain", price: 1.05, quality: 0.86, reliability: 0.6, lead: 1.3, bio: "剛起步的契作農場，數量有限，要碰運氣。", hidden: true },
   // ── 蔬果雜貨
   { id: "prod_yaoshou", name: "八百正青果", family: "produce", price: 1.0, quality: 0.75, reliability: 0.85, lead: 1, bio: "市場口碑很好的青果商，什麼菜都拿得到。" },
-  { id: "prod_farm", name: "契約農家組合", family: "produce", price: 0.9, quality: 0.7, reliability: 0.72, lead: 1.1, bio: "直接向農家收購，新鮮便宜，產量看天吃飯。" },
+  { id: "prod_farm", invoice: false, name: "契約農家組合", family: "produce", price: 0.9, quality: 0.7, reliability: 0.72, lead: 1.1, bio: "直接向農家收購，新鮮便宜，產量看天吃飯。" },
   { id: "prod_market", name: "市場問屋", family: "produce", price: 1.05, quality: 0.8, reliability: 0.9, lead: 0.9, bio: "最可靠的批發商，貴一點但從不跳票。" },
   { id: "prod_green", name: "城市垂直農場", family: "produce", price: 1.1, quality: 0.88, reliability: 0.65, lead: 1.1, bio: "大樓裡種菜的新創，標榜無農藥，價格偏高。", hidden: true },
   // ── 甜點飲品原料
   { id: "sweet_kanmi", name: "甘味原料商", family: "sweets", price: 1.0, quality: 0.78, reliability: 0.85, lead: 1, bio: "和菓子、甜點店的老朋友，原料細緻。" },
-  { id: "sweet_mame", name: "喫茶豆屋", family: "sweets", price: 0.92, quality: 0.7, reliability: 0.78, lead: 1, bio: "咖啡豆與茶葉專賣，老闆很愛聊天。" },
+  { id: "sweet_mame", invoice: false, name: "喫茶豆屋", family: "sweets", price: 0.92, quality: 0.7, reliability: 0.78, lead: 1, bio: "咖啡豆與茶葉專賣，老闆很愛聊天。" },
   { id: "sweet_dairy", name: "乳製品協同", family: "sweets", price: 1.08, quality: 0.85, reliability: 0.8, lead: 0.95, bio: "牧場合作社，牛奶和鮮奶油品質穩定。" },
   { id: "sweet_craft", name: "手作工坊原料行", family: "sweets", price: 1.15, quality: 0.93, reliability: 0.6, lead: 1.2, bio: "新開的精品原料行，限量供應，價格不手軟。", hidden: true },
   // ── 商品批貨
   { id: "goods_tonya", name: "問屋街批發", family: "goods", price: 1.0, quality: 0.72, reliability: 0.85, lead: 1, bio: "老批發街的老店，百貨雜貨樣樣有。" },
-  { id: "goods_trade", name: "直營貿易行", family: "goods", price: 0.9, quality: 0.65, reliability: 0.7, lead: 1.2, bio: "走低價路線的貿易商，品牌參差不齊。" },
+  { id: "goods_trade", invoice: false, name: "直營貿易行", family: "goods", price: 0.9, quality: 0.65, reliability: 0.7, lead: 1.2, bio: "走低價路線的貿易商，品牌參差不齊。" },
   { id: "goods_agent", name: "品牌代理商", family: "goods", price: 1.15, quality: 0.9, reliability: 0.9, lead: 0.9, bio: "專營知名品牌代理，授權完整，價格偏高。" },
-  { id: "goods_indie", name: "獨立設計師聯盟", family: "goods", price: 1.05, quality: 0.85, reliability: 0.6, lead: 1.3, bio: "一群獨立設計師的集合，商品很有個性。", hidden: true },
+  { id: "goods_indie", invoice: false, name: "獨立設計師聯盟", family: "goods", price: 1.05, quality: 0.85, reliability: 0.6, lead: 1.3, bio: "一群獨立設計師的集合，商品很有個性。", hidden: true },
 ];
 
 export const SUPPLIER_BY_ID = Object.fromEntries(SUPPLIERS.map((s) => [s.id, s])) as Record<string, SupplierDef>;

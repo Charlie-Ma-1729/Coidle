@@ -193,6 +193,27 @@ describe("screens render with real simulated state", () => {
     expect(btn!.disabled).toBe(true); // 測試環境沒有 Push API
   });
 
+  it("Tax screen shows bills, the rules summary and the disclaimer", async () => {
+    store.state.value = publicState(34);
+    const { Tax } = await import("./screens/Tax");
+    await mount(<Tax />);
+    expect(container.textContent).toContain("待繳帳單");
+    expect(container.textContent).toContain("消費稅");
+    expect(container.textContent).toContain("發票制度");
+    expect(container.textContent).toContain("法人稅等");
+    expect(container.textContent).toContain("不是稅務建議");
+    expect(container.textContent).toContain("許認可");
+  });
+
+  it("Overview warns when cash cannot cover the bills due within 30 days", async () => {
+    store.state.value = publicState(1, (s) => {
+      s.tax.bills.push({ uid: "tx1", kind: "social", label: "測試社會保險", amount: 99_000_000, createdTick: s.tick, dueTick: s.tick + 1000, paid: 0, lateFee: 0 });
+    });
+    const { Overview } = await import("./screens/Overview");
+    await mount(<Overview />);
+    expect(container.textContent).toContain("30 天內要繳");
+  });
+
   it("Reports shows an empty state before the first report", async () => {
     store.state.value = publicState(0);
     const { Reports } = await import("./screens/Reports");
