@@ -47,6 +47,7 @@ export class WorldService {
       revenue30: r.revenue30,
       shops: r.shops,
       topCategory: r.top_category,
+      stockouts: r.stockouts,
       updatedAt: r.updated_at,
     }));
   }

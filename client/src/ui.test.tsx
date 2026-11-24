@@ -149,7 +149,7 @@ describe("screens render with real simulated state", () => {
     store.mallId.value = 5;
     const { WORLD_EPOCH_MS, npcEntries } = await import("@coidle/shared");
     const now = WORLD_EPOCH_MS + 3 * 86_400_000;
-    const mine = { key: "m:5", kind: "player" as const, name: "我們的商場", tagline: "", level: 2, stars: 3, score: 55, localRep: 60, touristHeat: 58, revenue30: 12_000_000, shops: 9, topCategory: "拉麵", updatedAt: now };
+    const mine = { key: "m:5", kind: "player" as const, name: "我們的商場", tagline: "", level: 2, stars: 3, score: 55, localRep: 60, touristHeat: 58, revenue30: 12_000_000, shops: 9, topCategory: "拉麵", stockouts: 0, updatedAt: now };
     const { api } = await import("./api");
     api.world = async () => ({ now, season: { index: 0, start: WORLD_EPOCH_MS, end: WORLD_EPOCH_MS + 28 * 86_400_000 }, entries: [mine, ...npcEntries(now)], history: [] });
     const { World } = await import("./screens/World");
@@ -189,6 +189,28 @@ describe("screens render with real simulated state", () => {
     expect(text).toContain("婉拒");
     expect(text).toContain("辦聯名活動");
     expect(text).toContain("結束協議");
+  });
+
+  it("World shows trade controls for another player's mall and flags stockouts", async () => {
+    store.state.value = publicState(2);
+    store.mallId.value = 5;
+    const { WORLD_EPOCH_MS } = await import("@coidle/shared");
+    const now = WORLD_EPOCH_MS + 3 * 86_400_000;
+    const other = { key: "m:9", kind: "player" as const, name: "鮑伯商場", tagline: "", level: 2, stars: 3, score: 50, localRep: 55, touristHeat: 52, revenue30: 8_000_000, shops: 7, topCategory: "串炸", stockouts: 2, updatedAt: now };
+    const { api } = await import("./api");
+    api.world = async () => ({ now, season: { index: 0, start: WORLD_EPOCH_MS, end: WORLD_EPOCH_MS + 28 * 86_400_000 }, entries: [other], history: [] });
+    api.alliances = async () => ({ alliances: [] });
+    const { World } = await import("./screens/World");
+    await mount(<World />);
+    await tick();
+    await tick();
+    expect(container.textContent).toContain("2 間缺貨");
+    const row = Array.from(container.querySelectorAll("button.linklike")).find((b) => b.textContent?.includes("鮑伯商場")) as HTMLElement;
+    row.click();
+    await tick();
+    expect(container.textContent).toContain("送資金");
+    expect(container.textContent).toContain("對方有");
+    expect(container.textContent).toContain("邀請聯名");
   });
 
   it("Reports renders after a few days", async () => {

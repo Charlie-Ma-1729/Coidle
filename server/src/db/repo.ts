@@ -240,18 +240,18 @@ export class Repo {
   }
 
   // ── 跨商場世界：公開名錄、賽季、信箱
-  upsertDirectory(row: { mallId: number; name: string; level: number; stars: number; score: number; localRep: number; touristHeat: number; revenue30: number; shops: number; topCategory: string; createdAt: number; updatedAt: number }): void {
+  upsertDirectory(row: { mallId: number; name: string; level: number; stars: number; score: number; localRep: number; touristHeat: number; revenue30: number; shops: number; topCategory: string; stockouts: number; createdAt: number; updatedAt: number }): void {
     this.db
       .prepare(
-        `INSERT INTO mall_directory (mall_id, name, level, stars, score, local_rep, tourist_heat, revenue30, shops, top_category, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO mall_directory (mall_id, name, level, stars, score, local_rep, tourist_heat, revenue30, shops, top_category, stockouts, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(mall_id) DO UPDATE SET name = excluded.name, level = excluded.level, stars = excluded.stars, score = excluded.score,
            local_rep = excluded.local_rep, tourist_heat = excluded.tourist_heat, revenue30 = excluded.revenue30, shops = excluded.shops,
-           top_category = excluded.top_category, created_at = excluded.created_at, updated_at = excluded.updated_at`,
+           top_category = excluded.top_category, stockouts = excluded.stockouts, created_at = excluded.created_at, updated_at = excluded.updated_at`,
       )
-      .run(row.mallId, row.name, row.level, row.stars, row.score, row.localRep, row.touristHeat, row.revenue30, row.shops, row.topCategory, row.createdAt, row.updatedAt);
+      .run(row.mallId, row.name, row.level, row.stars, row.score, row.localRep, row.touristHeat, row.revenue30, row.shops, row.topCategory, row.stockouts, row.createdAt, row.updatedAt);
   }
-  directoryRows(): { mall_id: number; name: string; level: number; stars: number; score: number; local_rep: number; tourist_heat: number; revenue30: number; shops: number; top_category: string; created_at: number; updated_at: number }[] {
+  directoryRows(): { mall_id: number; name: string; level: number; stars: number; score: number; local_rep: number; tourist_heat: number; revenue30: number; shops: number; top_category: string; stockouts: number; created_at: number; updated_at: number }[] {
     return this.db.prepare("SELECT * FROM mall_directory ORDER BY mall_id").all() as never;
   }
   seasonResult(season: number): string | null {
@@ -303,5 +303,22 @@ export class Repo {
   }
   setAllianceJoint(id: number, at: number): void {
     this.db.prepare("UPDATE alliances SET last_joint_at = ? WHERE id = ?").run(at, id);
+  }
+
+  // ── 貿易紀錄
+  addTrade(ts: number, from: number, to: number, kind: string, amount: number, detail = ""): void {
+    this.db.prepare("INSERT INTO trades (ts, from_mall, to_mall, kind, amount, detail) VALUES (?, ?, ?, ?, ?, ?)").run(ts, from, to, kind, amount, detail);
+  }
+  /** 這一對商場（有方向）在某時間之後的轉出總量與筆數 */
+  tradeSince(from: number, to: number, kind: string, since: number): { total: number; n: number } {
+    const r = this.db.prepare("SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS n FROM trades WHERE from_mall = ? AND to_mall = ? AND kind = ? AND ts > ?").get(from, to, kind, since) as { total: number; n: number };
+    return { total: Number(r.total), n: Number(r.n) };
+  }
+  /** 一座商場為轉出方，某時間之後有幾筆（不分對象）：救援加成用 */
+  tradeCountFrom(from: number, kind: string, since: number): number {
+    return Number((this.db.prepare("SELECT COUNT(*) AS n FROM trades WHERE from_mall = ? AND kind = ? AND ts > ?").get(from, kind, since) as { n: number }).n);
+  }
+  recentTrades(limit: number): { id: number; ts: number; from_mall: number; to_mall: number; kind: string; amount: number; detail: string }[] {
+    return this.db.prepare("SELECT * FROM trades ORDER BY id DESC LIMIT ?").all(limit) as never;
   }
 }

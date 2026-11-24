@@ -355,6 +355,20 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     service.logWorld(mallId, user.display_name, "結束了一份聯名協議（或取消邀請）");
     return { alliances: out };
   });
+  app.post("/api/malls/:id/world/trade/funds", async (req) => {
+    const { mallId, user } = memberOf(req, req.params);
+    const b = body(req);
+    const r = service.trade.sendFunds(mallId, str(b.target, "target", 3, 40), Number(b.amount));
+    service.logWorld(mallId, user.display_name, `送出支援資金 ¥${r.sent.toLocaleString("en-US")}`);
+    return r;
+  });
+  app.post("/api/malls/:id/world/trade/goods", async (req) => {
+    const { mallId, user } = memberOf(req, req.params);
+    const b = body(req);
+    const r = service.trade.sendGoods(mallId, str(b.target, "target", 3, 40), str(b.shopId, "shopId", 1, 40), Number(b.qty));
+    service.logWorld(mallId, user.display_name, `調了 ${r.sent} 份貨給友好商場${r.rescue ? "（缺貨救援）" : ""}`);
+    return r;
+  });
   app.post("/api/malls/:id/world/alliance/:aid/joint", async (req) => {
     const { mallId, user } = memberOf(req, req.params);
     const out = service.alliances.joint(mallId, aidOf(req.params));

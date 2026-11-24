@@ -119,7 +119,7 @@ describe("directory API", () => {
     expect(body.season.index).toBe(0);
 
     // 只有公開欄位：沒有資金、成員、庫存、種子…
-    const allowed = new Set(["key", "kind", "name", "tagline", "level", "stars", "score", "localRep", "touristHeat", "revenue30", "shops", "topCategory", "updatedAt"]);
+    const allowed = new Set(["key", "kind", "name", "tagline", "level", "stars", "score", "localRep", "touristHeat", "revenue30", "shops", "topCategory", "stockouts", "updatedAt"]);
     for (const e of body.entries) for (const k of Object.keys(e)) expect(allowed.has(k), k).toBe(true);
     const text = JSON.stringify(body);
     expect(text).not.toMatch(/funds|inviteCode|seed|members/);
@@ -160,6 +160,7 @@ describe("season settlement and the mailbox", () => {
       revenue30: over.revenue30 ?? 5_000_000,
       shops: 12,
       topCategory: "拉麵",
+      stockouts: 0,
       createdAt: WORLD_EPOCH_MS - (over.ageDays ?? 10) * DAY,
       updatedAt: clock.t,
     });

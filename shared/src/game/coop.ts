@@ -36,3 +36,36 @@ export function allianceCount(s: { world?: Pick<WorldState, "alliances">; tick: 
 export function npcAcceptsAlliance(npcScore: number, myScore: number): boolean {
   return myScore >= npcScore - 8;
 }
+
+// ───────── 貿易：互相調貨與支援 ─────────
+/** 手續費（轉出的貨與錢，對方只收到 95%，差額直接消失，所以來回轉只會越轉越少） */
+export const TRADE_FEE = 0.05;
+export const TRADE_MIN_FUNDS = 10_000;
+/** 轉出之後自己至少要留下這麼多錢 */
+export const TRADE_KEEP_FUNDS = 200_000;
+export const TRADE_MIN_GOODS = 20;
+export const TRADE_MAX_GOODS = 400;
+export const TRADE_MAX_PER_DAY = 10;
+export const TRADE_DAY_MS = DAY_MS;
+export const TRADE_NET_WINDOW_MS = 7 * DAY_MS;
+
+export interface TradeLimits {
+  /** 單筆上限 */
+  fundsPerTx: number;
+  /** 同一對商場每個真實日的資金上限 */
+  fundsPerDay: number;
+  /** 同一對商場 7 天內單向淨流量上限 */
+  fundsNet: number;
+  goodsPerDay: number;
+}
+
+/** 上限隨「轉出方」的商場等級成長 */
+export function tradeLimits(level: number): TradeLimits {
+  const lv = Math.max(1, level);
+  return { fundsPerTx: 400_000 * lv, fundsPerDay: 800_000 * lv, fundsNet: 3_000_000 * lv, goodsPerDay: 800 };
+}
+
+/** 對方實際收到的量 */
+export function afterFee(n: number): number {
+  return Math.floor(n * (1 - TRADE_FEE));
+}

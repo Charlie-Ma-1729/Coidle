@@ -140,6 +140,20 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX idx_alliances_status ON alliances(status);
   `,
+  // v6：貿易紀錄（稽核與上限用）、名錄的缺貨店數
+  `
+  CREATE TABLE trades (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts INTEGER NOT NULL,
+    from_mall INTEGER NOT NULL,
+    to_mall INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    amount REAL NOT NULL,
+    detail TEXT NOT NULL DEFAULT ''
+  );
+  CREATE INDEX idx_trades_pair ON trades(from_mall, to_mall, ts);
+  ALTER TABLE mall_directory ADD COLUMN stockouts INTEGER NOT NULL DEFAULT 0;
+  `,
 ];
 
 export function openDb(path: string): Db {

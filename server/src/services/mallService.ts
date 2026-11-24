@@ -11,6 +11,7 @@ import {
   TECH_BY_ID,
   ZONE_BY_ID,
   ROLE_IDS,
+  categoryHasStock,
   mallScore,
   mallStars,
   isPaused,
@@ -29,6 +30,7 @@ import { newInviteCode } from "../auth/password";
 import { applyMail } from "../sim/mail";
 import { WorldService } from "../world/world";
 import { AllianceService } from "../world/alliances";
+import { TradeService } from "../world/trade";
 import { ServiceError } from "./errors";
 import type { Repo } from "../db/repo";
 import { advanceTo, applyCommand, createInitialState, migrateState, type Command, type CommandResult } from "../sim";
@@ -180,6 +182,8 @@ export class MallService {
   readonly world: WorldService;
   /** 聯名協議（跨商場合作） */
   readonly alliances: AllianceService;
+  /** 貿易（調貨與支援） */
+  readonly trade: TradeService;
   private lastDirectory = new Map<number, number>();
 
   constructor(
@@ -198,6 +202,27 @@ export class MallService {
         this.sync(id);
       },
     });
+    this.trade = new TradeService(
+      repo,
+      now,
+      {
+        peek: (id) => this.sync(id),
+        mutate: (id, fn) => this.mutate(id, fn),
+        deliver: (id) => {
+          this.sync(id);
+        },
+      },
+      (id) => this.repo.mallById(id)?.name ?? "友好商場",
+    );
+  }
+
+  /** 對商場做一次同步修改（複製→修改→存檔→廣播）；fn 丟出錯誤就整個取消 */
+  private mutate(mallId: number, fn: (s: MallState) => void): void {
+    const next = structuredClone(this.sync(mallId));
+    fn(next);
+    this.cache.set(mallId, next);
+    this.persist(mallId, next);
+    this.emit(mallId, { type: "state", mallId, state: toPublic(next) });
   }
 
   /** 從商場扣款（同步、原子，給伺服器層的跨商場行動用）；錢不夠回傳 false */
@@ -457,6 +482,7 @@ export class MallService {
       revenue30: Math.round(revenue30),
       shops: s.shops.length,
       topCategory: top ? CATEGORY_BY_ID[top]?.name ?? "" : "",
+      stockouts: s.shops.filter((x) => x.mode === "direct" && x.tenant === null && CATEGORY_BY_ID[x.category] && categoryHasStock(CATEGORY_BY_ID[x.category]!) && x.stock < 1).length,
       createdAt: row.created_at,
       updatedAt: nowMs,
     });

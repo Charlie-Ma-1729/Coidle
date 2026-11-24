@@ -1,5 +1,5 @@
 import { ALLIANCE_MAX_ACTIVE, JOINT_PROMO_MULT, JOINT_PROMO_TICKS, TICKS_PER_DAY, type MallState } from "@coidle/shared";
-import { applyEffects } from "./events";
+import { applyEffects, applyIndexDelta } from "./events";
 import { createRng, hash32 } from "./rng";
 import { addLog } from "./state";
 
@@ -43,6 +43,29 @@ export function applyMail(s: MallState, mail: Mail): void {
     case "notice":
       notice(s, str(p.text));
       break;
+    case "funds_gift": {
+      const amount = Math.round(num(p.amount, 0, 20_000_000));
+      s.funds += amount;
+      s.today.purchases -= 0;
+      notice(s, `收到「${str(p.from, 30) || "友好商場"}」送來的資金 ¥${amount.toLocaleString("en-US")}，雪中送炭。`);
+      break;
+    }
+    case "goods": {
+      const qty = Math.round(num(p.qty, 0, 2000));
+      const category = str(p.category, 30);
+      const from = str(p.from, 30) || "友好商場";
+      const targets = s.shops.filter((x) => x.category === category && x.mode === "direct" && x.tenant === null);
+      const shop = targets.sort((a, b) => a.stock - b.stock)[0];
+      if (!shop || qty <= 0) {
+        notice(s, `「${from}」送來的貨沒有地方放（找不到同業態的直營店），貨被退回了。`);
+        break;
+      }
+      const wasOut = shop.stock < 1;
+      shop.stock += qty;
+      notice(s, `收到「${from}」送來的 ${qty} 份貨，補進了「${shop.name}」${wasOut ? "——正好解了缺貨的燃眉之急" : ""}。`);
+      if (wasOut) applyIndexDelta(s, "localRep", 0.2);
+      break;
+    }
     case "alliance_start": {
       const id = Math.round(num(p.id, 0, 1e9));
       const partner = str(p.partner, 30) || "友好商場";

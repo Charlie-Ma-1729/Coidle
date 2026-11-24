@@ -31,6 +31,8 @@ export interface DirectoryEntry {
   shops: number;
   /** 店最多的業態名稱 */
   topCategory: string;
+  /** 目前缺貨中的店數（用來顯示「需要支援」，不透露庫存數字） */
+  stockouts: number;
   updatedAt: number;
 }
 
@@ -103,6 +105,7 @@ export function npcEntry(def: NpcMallDef, nowMs: number): DirectoryEntry {
     revenue30,
     shops: 8 + level * 6,
     topCategory: def.topCategory,
+    stockouts: 0,
     updatedAt: nowMs,
   };
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import { ALLIANCE_MAX_ACTIVE, BOARDS, NPC_BY_ID, boardValue, jointPromoCost, npcAcceptsAlliance, rankEntries, type BoardId, type DirectoryEntry, type SeasonResult } from "@coidle/shared";
+import { ALLIANCE_MAX_ACTIVE, BOARDS, CATEGORY_BY_ID, TRADE_FEE, TRADE_MAX_GOODS, TRADE_MIN_FUNDS, TRADE_MIN_GOODS, categoryHasStock, tradeLimits, NPC_BY_ID, boardValue, jointPromoCost, npcAcceptsAlliance, rankEntries, type BoardId, type DirectoryEntry, type SeasonResult } from "@coidle/shared";
 import { api, type AllianceView, type WorldView } from "../api";
 import { Btn, Card, Chip, Empty } from "../components/ui";
 import { moneyShort } from "../format";
@@ -11,6 +11,62 @@ const stars = (n: number) => "★".repeat(n) + "☆".repeat(5 - n);
 function valueText(e: DirectoryEntry, board: BoardId): string {
   const v = boardValue(e, board);
   return board === "revenue" ? moneyShort(v) : v.toFixed(1);
+}
+
+/** 對真人商場的支援：送錢、調貨（有手續費與每日上限，伺服器會擋） */
+function TradePanel({ entry, onDone }: { entry: DirectoryEntry; onDone: () => void }) {
+  const s = state.value!;
+  const lim = tradeLimits(s.level);
+  const [amount, setAmount] = useState(String(Math.min(100_000, lim.fundsPerTx)));
+  const stocked = s.shops.filter((x) => x.mode === "direct" && !x.tenant && categoryHasStock(CATEGORY_BY_ID[x.category]!) && x.stock >= TRADE_MIN_GOODS * 2);
+  const [shopId, setShopId] = useState(stocked[0]?.id ?? "");
+  const [qty, setQty] = useState("50");
+  const [busy, setBusy] = useState(false);
+  const go = async (fn: (id: number) => Promise<unknown>, ok: string) => {
+    const id = mallId.value;
+    if (id === null || busy) return;
+    setBusy(true);
+    try {
+      await fn(id);
+      toast(ok, "ok");
+      onDone();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "失敗了", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div class="stack" style={{ marginTop: "6px" }}>
+      {entry.stockouts > 0 && <p class="small">⚠️ 對方有 <b>{entry.stockouts}</b> 間店缺貨中，調貨給他們能解燃眉之急。</p>}
+      <p class="small dim">
+        轉出的量對方只會收到 {Math.round((1 - TRADE_FEE) * 100)}%。單筆最多 {moneyShort(lim.fundsPerTx)}、每天最多 {moneyShort(lim.fundsPerDay)}；調貨最多轉出庫存的一半（{TRADE_MIN_GOODS}–{TRADE_MAX_GOODS} 份）。
+      </p>
+      <div class="row">
+        <input type="number" min={TRADE_MIN_FUNDS} step={10_000} value={amount} onInput={(e) => setAmount((e.target as HTMLInputElement).value)} style={{ width: "110px" }} />
+        <Btn small disabled={busy} onClick={() => void go((id) => api.tradeFunds(id, entry.key, Number(amount)), "資金已送出")}>
+          💴 送資金
+        </Btn>
+      </div>
+      {stocked.length > 0 ? (
+        <div class="row">
+          <select value={shopId} onChange={(e) => setShopId((e.target as HTMLSelectElement).value)}>
+            {stocked.map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.name}（庫存 {Math.floor(x.stock)}）
+              </option>
+            ))}
+          </select>
+          <input type="number" min={TRADE_MIN_GOODS} max={TRADE_MAX_GOODS} value={qty} onInput={(e) => setQty((e.target as HTMLInputElement).value)} style={{ width: "70px" }} />
+          <Btn small disabled={busy || !shopId} onClick={() => void go((id) => api.tradeGoods(id, entry.key, shopId, Number(qty)), "貨已送出")}>
+            📦 調貨
+          </Btn>
+        </div>
+      ) : (
+        <p class="small dim">你的店庫存不夠多，暫時沒有可以調出去的貨。</p>
+      )}
+    </div>
+  );
 }
 
 /** 全服公開的商場名錄：真人商場與 NPC 商場同台，排行榜、賽季與歷屆成績 */
@@ -169,7 +225,7 @@ export function World() {
                         {i + 1}. {e.kind === "npc" ? "🏢" : "🏬"} {e.name}
                       </b>
                       <span>
-                        {isMine && <Chip tone="pink">你</Chip>} <Chip tone={e.kind === "npc" ? "dim" : "cyan"}>{e.kind === "npc" ? "NPC" : "真人"}</Chip>
+                        {isMine && <Chip tone="pink">你</Chip>} {e.stockouts > 0 && <Chip tone="amber">⚠️ {e.stockouts} 間缺貨</Chip>} <Chip tone={e.kind === "npc" ? "dim" : "cyan"}>{e.kind === "npc" ? "NPC" : "真人"}</Chip>
                       </span>
                     </div>
                     <div class="row between small dim">
@@ -189,6 +245,7 @@ export function World() {
                           <p class="dim">{npc.bio}</p>
                         </>
                       )}
+                      {!isMine && e.kind === "player" && <TradePanel entry={e} onDone={() => void load()} />}
                       {!isMine && (
                         <Btn
                           small
