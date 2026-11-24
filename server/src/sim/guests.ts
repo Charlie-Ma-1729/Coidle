@@ -31,6 +31,7 @@ import {
   type WalkVoice,
 } from "@coidle/shared";
 import { applyPersonaIndex } from "./events";
+import { flavor } from "./flavor";
 import { createRng, hash32, type Rng } from "./rng";
 import { addLog, nextId, shopCapacity } from "./state";
 
@@ -173,7 +174,9 @@ export function generateDailyReviews(s: MallState): void {
     const bucket = stars >= 4 ? "high" : stars === 3 ? "mid" : "low";
     const shopW = s.shops.map((sh) => (bucket === "low" ? sh.day.stockouts + sh.day.lost + 1 : sh.day.revenue + 1));
     const shop = s.shops[rng.weighted(shopW)];
-    const texts = REVIEW_TEXTS[bucket];
+    // 一半的評價用 AI 內容池裡的句子（有的話），其餘用手寫的，風格才不會一成不變
+    const pooled = flavor().reviews(bucket);
+    const texts = pooled.length > 0 && rng.chance(0.5) ? pooled : REVIEW_TEXTS[bucket];
     const text = `${(texts[rng.int(0, texts.length - 1)] ?? "").replaceAll("{shop}", shop?.name ?? "這裡")}（${PERSONA_TAG[persona]}）`;
     // 收件匣太滿時，最舊的先依偏好自動處理掉
     while (s.inbox.filter((x) => x.kind === "review").length >= MAX_OPEN_REVIEWS) {

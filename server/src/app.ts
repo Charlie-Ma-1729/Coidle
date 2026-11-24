@@ -7,6 +7,8 @@ import { registerWs } from "./api/ws";
 import { loadConfig, type Config } from "./config";
 import { openDb } from "./db/db";
 import { Repo } from "./db/repo";
+import { ContentService } from "./ai/service";
+import { setFlavorSource } from "./sim/flavor";
 import { registerSecurityHeaders, registerStatic } from "./static";
 import { MallService, ServiceError } from "./services/mallService";
 import { PushService, type PushSender } from "./services/push";
@@ -26,6 +28,8 @@ export function buildApp(opts: BuildOptions = {}) {
   const repo = new Repo(db);
   const push = new PushService(repo, config, now, opts.pushSender ?? null);
   const service = new MallService(repo, now, push);
+  const content = new ContentService(repo, config.ai, now);
+  setFlavorSource(content.flavorSource());
   const app = Fastify({ logger: false, bodyLimit: 16 * 1024, trustProxy: config.production });
 
   app.register(cookie);
@@ -45,7 +49,7 @@ export function buildApp(opts: BuildOptions = {}) {
     time: new Date().toISOString(),
   }));
 
-  const deps = { config, repo, service, push, now };
+  const deps = { config, repo, service, push, now, content };
   registerRoutes(app, deps);
   registerWs(app, deps);
   registerSecurityHeaders(app);
@@ -55,5 +59,5 @@ export function buildApp(opts: BuildOptions = {}) {
     db.close();
   });
 
-  return { app, service, repo, config, push };
+  return { app, service, repo, config, push, content };
 }

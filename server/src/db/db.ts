@@ -64,6 +64,35 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX idx_push_user ON push_subscriptions(user_id);
   `,
+  // v3：AI 內容池、LLM 用量帳本、雜項設定（預算視窗起點等）
+  `
+  CREATE TABLE meta (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+  CREATE TABLE llm_ledger (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts INTEGER NOT NULL,
+    purpose TEXT NOT NULL,
+    model TEXT NOT NULL,
+    prompt_tokens INTEGER NOT NULL DEFAULT 0,
+    completion_tokens INTEGER NOT NULL DEFAULT 0,
+    cost_usd REAL NOT NULL DEFAULT 0,
+    ok INTEGER NOT NULL,
+    note TEXT
+  );
+  CREATE INDEX idx_ledger_ts ON llm_ledger(ts);
+  CREATE TABLE content_pool (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL,
+    status TEXT NOT NULL,
+    hash TEXT NOT NULL UNIQUE,
+    payload TEXT NOT NULL,
+    model TEXT,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX idx_pool_kind ON content_pool(kind, status);
+  `,
 ];
 
 export function openDb(path: string): Db {

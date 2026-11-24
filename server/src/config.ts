@@ -15,6 +15,8 @@ export interface Config {
   vapidSubject: string;
   /** 打包後的前端位置；有的話由伺服器直接提供 */
   staticDir: string;
+  /** AI 內容生成（OpenRouter）。沒有金鑰就完全不啟用 */
+  ai: { apiKey: string | null; model: string; budgetUsd: number; autoApproveEvents: boolean; dailyCallCap: number; budgetStart: number | null; spentElsewhereUsd: number };
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -30,5 +32,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     vapidPrivateKey: env.VAPID_PRIVATE_KEY || null,
     vapidSubject: env.VAPID_SUBJECT || "mailto:admin@localhost",
     staticDir: env.STATIC_DIR || "client/dist",
+    ai: {
+      apiKey: env.OPENROUTER_API_KEY || null,
+      model: env.OPENROUTER_MODEL || "anthropic/claude-haiku-5.5",
+      budgetUsd: Number(env.AI_BUDGET_USD ?? 1),
+      autoApproveEvents: env.AI_AUTO_APPROVE_EVENTS === "true",
+      dailyCallCap: Number(env.AI_DAILY_CALL_CAP ?? 12),
+      budgetStart: env.AI_BUDGET_START ? Date.parse(env.AI_BUDGET_START) || null : null,
+      spentElsewhereUsd: Number(env.AI_SPENT_ELSEWHERE_USD ?? 0) || 0,
+    },
   };
 }

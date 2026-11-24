@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { ROLE_IDS, speedPreset, type MeResponse, type RoleId } from "@coidle/shared";
+import type { ContentService, ContentKind } from "../ai/service";
 import { hashPassword, hashToken, newInviteCode, newSessionToken, verifyPassword } from "../auth/password";
 import type { Config } from "../config";
 import type { Repo } from "../db/repo";
@@ -14,6 +15,7 @@ export interface Deps {
   service: MallService;
   push: PushService;
   now: () => number;
+  content: ContentService;
 }
 
 const USERNAME_RE = /^[A-Za-z0-9_぀-ヿ一-鿿]{2,20}$/;
@@ -37,7 +39,7 @@ function mallIdOf(params: unknown): number {
 }
 
 export function registerRoutes(app: FastifyInstance, deps: Deps): void {
-  const { config, repo, service, push, now } = deps;
+  const { config, repo, service, push, now, content } = deps;
   const failures = new Map<string, { n: number; resetAt: number }>();
 
   const requireMember = (req: Parameters<typeof requireUser>[0], mallId: number) => {
@@ -228,5 +230,57 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const flag = str(b.flag, "flag", 3, 60);
     if (!/^(zone|feature):[a-z0-9_]+$/.test(flag) || typeof b.value !== "boolean") throw new ServiceError(400, "旗標格式不正確");
     return service.setFlag(mallId, flag, b.value);
+  });
+
+  // ── 玩家端：AI 事件的定義（顯示待決事件卡片要用）
+  app.get("/api/content/events", async (req) => {
+    requireUser(req, repo, now());
+    return { events: content.publicEvents() };
+  });
+
+  // ── AI 內容管理（需要 ADMIN_TOKEN）
+  const admin = (req: { headers: Record<string, unknown> }) => {
+    if (!config.adminToken || req.headers["x-admin-token"] !== config.adminToken) throw new ServiceError(403, "沒有權限");
+  };
+  app.get("/api/admin/ai/status", async (req) => {
+    admin(req);
+    const b = content.budget();
+    return {
+      enabled: content.enabled,
+      model: config.ai.model,
+      budget: { ...b, windowStart: new Date(b.windowStart).toISOString(), windowEnd: new Date(b.windowEnd).toISOString() },
+      pool: {
+        news: repo.contentCount("news", "active"),
+        review: repo.contentCount("review", "active"),
+        eventActive: repo.contentCount("event", "active"),
+        eventPending: repo.contentCount("event", "pending"),
+      },
+      recent: repo.ledgerRecent(10),
+    };
+  });
+  app.get("/api/admin/ai/items", async (req) => {
+    admin(req);
+    const q = req.query as { kind?: string; status?: string };
+    return { items: repo.contentList(q.kind ?? null, q.status ?? null, 100) };
+  });
+  app.post("/api/admin/ai/generate", async (req) => {
+    admin(req);
+    const b = body(req);
+    if (!["news", "review", "event"].includes(b.kind as string)) throw new ServiceError(400, "kind 無效");
+    const count = typeof b.count === "number" ? Math.min(20, Math.max(1, Math.floor(b.count))) : undefined;
+    return content.generate(b.kind as ContentKind, count);
+  });
+  app.post("/api/admin/ai/events/:id/:action", async (req) => {
+    admin(req);
+    const p = req.params as { id: string; action: string };
+    const id = Number(p.id);
+    const ok = p.action === "approve" ? content.approveEvent(id) : p.action === "reject" ? content.rejectEvent(id) : false;
+    if (!ok) throw new ServiceError(400, "找不到這個事件，或狀態不允許這個操作");
+    return { ok: true };
+  });
+  app.post("/api/admin/ai/items/:id/remove", async (req) => {
+    admin(req);
+    if (!content.removeText(Number((req.params as { id: string }).id))) throw new ServiceError(400, "找不到這則內容");
+    return { ok: true };
   });
 }

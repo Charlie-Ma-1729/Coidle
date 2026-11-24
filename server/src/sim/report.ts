@@ -1,6 +1,16 @@
 import { CURRENCY, PERSONA_IDS, type DailyReport, type MallState, type PersonaId } from "@coidle/shared";
+import { flavor, type FlavorMood } from "./flavor";
+import { hash32 } from "./rng";
 
 const fmt = (n: number) => `${CURRENCY}${Math.round(n).toLocaleString("en-US")}`;
+
+/** 從風味內容池挑一則符合今天氣氛的小快訊（沒有內容池就不加） */
+function pickBlurb(s: MallState, profit: number, complaints: number, events: number): string | null {
+  const h = hash32(s.seed ^ 0x51ab, s.tick);
+  const mood: FlavorMood = profit < 0 || complaints >= 3 ? "bad" : profit > 0 && h % 3 === 0 ? "good" : h % 2 === 0 ? "season" : "neutral";
+  const pool = flavor().news(events > 0 && mood === "neutral" ? "season" : mood);
+  return pool.length > 0 ? (pool[(h >>> 4) % pool.length] ?? null) : null;
+}
 
 /** 把「剛結束的這一天」結算成日報。呼叫時 s.today 仍是該日資料。 */
 export function buildReport(s: MallState): DailyReport {
@@ -38,6 +48,8 @@ export function buildReport(s: MallState): DailyReport {
   if (s.equipment < 40) notes.push("設備老舊，再不維護恐怕會出狀況。");
   if (s.funds < 0) notes.push("帳上資金為負，自動補貨已暫停，快想辦法周轉！");
   for (const n of d.systemNotes.slice(0, 4)) notes.push(n);
+  const blurb = pickBlurb(s, profit, d.complaints, d.events.length);
+  if (blurb) notes.push(`📰 ${blurb}`);
   if (d.regularVisits > 0) notes.push(`常客造訪 ${d.regularVisits} 次。`);
   for (const n of d.regularNotes.slice(0, 3)) notes.push(n);
   if (d.complaints > 0) notes.push(`收到 ${d.complaints} 則客訴。`);

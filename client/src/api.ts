@@ -1,5 +1,6 @@
 import type {
   ActivityEntry,
+  EventDef,
   Command,
   MeResponse,
   MemberInfo,
@@ -57,6 +58,7 @@ export const api = {
   logout: () => request<{ ok: true }>("POST", "/api/auth/logout", {}),
   createMall: (name: string) => request<{ id: number; inviteCode: string }>("POST", "/api/malls", { name }),
   joinMall: (code: string, role?: RoleId) => request<{ id: number }>("POST", "/api/malls/join", { code, role }),
+  contentEvents: () => request<{ events: EventDef[] }>("GET", "/api/content/events"),
   mall: (id: number) => request<MallInfo>("GET", `/api/malls/${id}`),
   state: (id: number) => request<PublicMallState>("GET", `/api/malls/${id}/state`),
   activity: (id: number) => request<ActivityEntry[]>("GET", `/api/malls/${id}/activity?limit=40`),

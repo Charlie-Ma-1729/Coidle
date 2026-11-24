@@ -153,4 +153,53 @@ export class Repo {
       .prepare("SELECT id, ts, actor, text FROM activity WHERE mall_id = ? ORDER BY id DESC LIMIT ?")
       .all(mallId, limit) as unknown as ActivityEntry[];
   }
+
+  // ── meta
+  getMeta(key: string): string | null {
+    const r = this.db.prepare("SELECT value FROM meta WHERE key = ?").get(key) as { value: string } | undefined;
+    return r?.value ?? null;
+  }
+  setMeta(key: string, value: string): void {
+    this.db.prepare("INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, value);
+  }
+
+  // ── LLM 用量帳本
+  addLedger(e: { ts: number; purpose: string; model: string; promptTokens: number; completionTokens: number; costUsd: number; ok: boolean; note?: string }): void {
+    this.db
+      .prepare("INSERT INTO llm_ledger (ts, purpose, model, prompt_tokens, completion_tokens, cost_usd, ok, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(e.ts, e.purpose, e.model, e.promptTokens, e.completionTokens, e.costUsd, e.ok ? 1 : 0, e.note ?? null);
+  }
+  ledgerSpent(fromMs: number, toMs: number): number {
+    const r = this.db.prepare("SELECT COALESCE(SUM(cost_usd), 0) AS s FROM llm_ledger WHERE ts >= ? AND ts < ?").get(fromMs, toMs) as { s: number };
+    return r.s;
+  }
+  ledgerCalls(fromMs: number, toMs: number): number {
+    const r = this.db.prepare("SELECT COUNT(*) AS n FROM llm_ledger WHERE ts >= ? AND ts < ?").get(fromMs, toMs) as { n: number };
+    return r.n;
+  }
+  ledgerRecent(limit: number): { ts: number; purpose: string; model: string; cost_usd: number; ok: number; note: string | null }[] {
+    return this.db.prepare("SELECT ts, purpose, model, cost_usd, ok, note FROM llm_ledger ORDER BY id DESC LIMIT ?").all(limit) as never;
+  }
+
+  // ── 內容池
+  /** 回傳 false 代表內容已存在（以雜湊去重） */
+  addContent(kind: string, status: string, hash: string, payload: unknown, model: string | null, now: number): boolean {
+    const r = this.db
+      .prepare("INSERT OR IGNORE INTO content_pool (kind, status, hash, payload, model, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(kind, status, hash, JSON.stringify(payload), model, now);
+    return Number(r.changes) > 0;
+  }
+  contentList(kind: string | null, status: string | null, limit = 200): { id: number; kind: string; status: string; payload: unknown; model: string | null; created_at: number }[] {
+    const rows = this.db
+      .prepare("SELECT id, kind, status, payload, model, created_at FROM content_pool WHERE (? IS NULL OR kind = ?) AND (? IS NULL OR status = ?) ORDER BY id DESC LIMIT ?")
+      .all(kind, kind, status, status, limit) as { id: number; kind: string; status: string; payload: string; model: string | null; created_at: number }[];
+    return rows.map((r) => ({ ...r, payload: JSON.parse(r.payload) as unknown }));
+  }
+  contentCount(kind: string, status: string): number {
+    const r = this.db.prepare("SELECT COUNT(*) AS n FROM content_pool WHERE kind = ? AND status = ?").get(kind, status) as { n: number };
+    return r.n;
+  }
+  setContentStatus(id: number, status: string): boolean {
+    return Number(this.db.prepare("UPDATE content_pool SET status = ? WHERE id = ?").run(status, id).changes) > 0;
+  }
 }

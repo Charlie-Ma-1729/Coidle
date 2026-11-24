@@ -816,3 +816,16 @@ export const EVENTS: EventDef[] = [
   },
 ];
 export const EVENT_BY_ID = Object.fromEntries(EVENTS.map((e) => [e.id, e])) as Record<string, EventDef>;
+
+/**
+ * 執行期新增事件（例如經過審核的 AI 事件）。同 id 會取代舊的。
+ * 伺服器啟動時載入；前端登入後向伺服器取得同一份，才能顯示事件卡片。
+ */
+export function registerEvents(defs: EventDef[]): void {
+  for (const d of defs) {
+    const i = EVENTS.findIndex((e) => e.id === d.id);
+    if (i >= 0) EVENTS[i] = d;
+    else EVENTS.push(d);
+    EVENT_BY_ID[d.id] = d;
+  }
+}

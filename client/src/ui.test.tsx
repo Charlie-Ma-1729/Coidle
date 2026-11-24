@@ -52,6 +52,30 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).toContain("商場快訊");
   });
 
+  it("an AI-generated event registered at runtime renders as a normal pending event card", async () => {
+    const { registerEvents } = await import("@coidle/shared");
+    registerEvents([
+      {
+        id: "ai_testevent1",
+        category: "crowd",
+        title: "老街聯名小攤",
+        text: "對面老街的老店老闆說，今天想請商場一起辦個小攤位活動。",
+        weight: 0.8,
+        cooldownTicks: 2000,
+        attention: "auto",
+        effects: [],
+        choice: { deadlineTicks: 288, defaultOption: "o1", options: [{ id: "o1", label: "出資佈置攤位", effects: [{ t: "funds", amount: -20000 }] }, { id: "o2", label: "婉拒", effects: [] }] },
+      },
+    ]);
+    store.state.value = publicState(0, (s) => {
+      s.pending.push({ uid: "ev77", defId: "ai_testevent1", deadlineTick: s.tick + 500 });
+    });
+    const { Overview } = await import("./screens/Overview");
+    await mount(<Overview />);
+    expect(container.textContent).toContain("老街聯名小攤");
+    expect(container.textContent).toContain("出資佈置攤位");
+  });
+
   it("Overview shows pending event choices with a countdown", async () => {
     const { EVENT_BY_ID } = await import("@coidle/shared");
     store.state.value = publicState(0, (s) => {
