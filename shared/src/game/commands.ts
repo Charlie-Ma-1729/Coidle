@@ -24,6 +24,16 @@ export type Command =
   | { type: "cancelPromo"; uid: string }
   /** 稽查預告後備戰（none＝照常、basic＝例行整理、full＝全力備戰） */
   | { type: "prepareInspection"; uid: string; level: "none" | "basic" | "full" }
+  /** 供應商：換主力、簽／解長約、離線時的自動備援 */
+  | { type: "chooseSupplier"; family: string; supplierId: string }
+  | { type: "signContract"; supplierId: string; days: number }
+  | { type: "cancelContract"; supplierId: string }
+  | { type: "setSupplyPrefs"; autoFallback?: boolean }
+  /** 商戰：刺探情報、簽合作協議、反制活動、商戰姿態 */
+  | { type: "rivalIntel"; rivalId: string }
+  | { type: "rivalPact"; rivalId: string }
+  | { type: "rivalCounter"; rivalId: string }
+  | { type: "setRivalStance"; stance: "defend" | "neutral" | "aggressive" }
   /** 和常客互動：招呼、記住喜好、送小禮、保留／取消專屬座位 */
   | { type: "regularAction"; regularId: string; action: "greet" | "remember" | "gift" | "reserve" | "unreserve" }
   | { type: "setGuestPrefs"; complaintStance?: "soft" | "balanced" | "firm"; autoReplyReviews?: boolean }

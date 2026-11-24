@@ -7,6 +7,8 @@ export * from "./game/helpers";
 export * from "./game/guests";
 export * from "./game/regulars";
 export * from "./game/promotions";
+export * from "./game/supply";
+export * from "./game/rivals";
 
 export interface HealthResponse {
   ok: true;

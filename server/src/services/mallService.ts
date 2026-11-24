@@ -6,6 +6,8 @@ import {
   PRESENCE_WINDOW_MS,
   PROMO_BY_ID,
   REGULAR_BY_ID,
+  RIVAL_BY_ID,
+  SUPPLIER_BY_ID,
   ROLE_IDS,
   isPaused,
   reanchor,
@@ -84,6 +86,22 @@ export function describeCommand(s: MallState, cmd: Command, actor: string): stri
       return null; // 巡場中的小動作不洗版團隊動態
     case "setGuestPrefs":
       return `${actor} 調整了客人互動的處理偏好`;
+    case "chooseSupplier":
+      return `${actor} 把${SUPPLIER_BY_ID[cmd.supplierId] ? `「${SUPPLIER_BY_ID[cmd.supplierId]!.name}」` : "供應商"}設為主力供應商`;
+    case "signContract":
+      return `${actor} 和「${SUPPLIER_BY_ID[cmd.supplierId]?.name ?? "供應商"}」簽了 ${cmd.days} 天長約`;
+    case "cancelContract":
+      return `${actor} 提前解除了與「${SUPPLIER_BY_ID[cmd.supplierId]?.name ?? "供應商"}」的長約`;
+    case "setSupplyPrefs":
+      return `${actor} 調整了供應商的自動備援設定`;
+    case "rivalIntel":
+      return `${actor} 派人打探了「${RIVAL_BY_ID[cmd.rivalId]?.name ?? "對手"}」`;
+    case "rivalPact":
+      return `${actor} 和「${RIVAL_BY_ID[cmd.rivalId]?.name ?? "對手"}」簽了合作協議`;
+    case "rivalCounter":
+      return `${actor} 針對「${RIVAL_BY_ID[cmd.rivalId]?.name ?? "對手"}」的活動發動了反制`;
+    case "setRivalStance":
+      return `${actor} 把商戰姿態改為「${{ defend: "防守", neutral: "對等", aggressive: "進攻" }[cmd.stance]}」`;
     case "schedulePromo": {
       const name = PROMO_BY_ID[cmd.defId]?.name ?? "活動";
       return cmd.startTick === undefined || cmd.startTick <= s.tick ? `${actor} 開辦了「${name}」` : `${actor} 排程了「${name}」`;

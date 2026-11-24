@@ -213,20 +213,17 @@ describe("promotions", () => {
     expect(s.promos.fatigue).toBeGreaterThanOrEqual(f0 - 4 * PROMO_FATIGUE_DECAY_PER_DAY - 1e-9);
   });
 
-  it("the loyalty promo makes regular affinity grow faster", () => {
-    let slow = 0;
-    let fast = 0;
-    for (let seed = 1; seed <= 3; seed++) {
-      const a = noInspections(createInitialState(seed, START));
-      a.shops.forEach((x) => (x.stock = 5000));
-      const r = a.regulars.find((x) => x.id === "afu")!;
-      r.met = true;
-      r.affinity = 15;
-      const b = apply(structuredClone(a), { type: "schedulePromo", defId: "loyalty" });
-      slow += advanceTo(a, START + 3 * DAY).regulars.find((x) => x.id === "afu")!.affinity;
-      fast += advanceTo(b, START + 3 * DAY).regulars.find((x) => x.id === "afu")!.affinity;
-    }
-    expect(fast).toBeGreaterThan(slow);
+  it("the loyalty promo makes positive regular affinity gains larger", () => {
+    const a = noInspections(createInitialState(1, START));
+    const r = a.regulars.find((x) => x.id === "afu")!;
+    r.met = true;
+    r.affinity = 15;
+    const normal = apply(a, { type: "regularAction", regularId: "afu", action: "greet" }).regulars.find((x) => x.id === "afu")!.affinity - 15;
+    const promo = apply(structuredClone(a), { type: "schedulePromo", defId: "loyalty" });
+    const boosted = apply(promo, { type: "regularAction", regularId: "afu", action: "greet" }).regulars.find((x) => x.id === "afu")!.affinity - 15;
+    expect(normal).toBeCloseTo(1, 5);
+    expect(boosted).toBeCloseTo(1.6, 5);
+    expect(boosted).toBeGreaterThan(normal);
   });
 
   it("promos count the day's activity in the daily report", () => {
@@ -445,7 +442,7 @@ describe("determinism and migration", () => {
     delete v4.promos;
     delete v4.inspections;
     const m = migrateState(v4, 0);
-    expect(m.version).toBe(5);
+    expect(m.version).toBe(6);
     expect(m.promos.active).toEqual([]);
     expect(m.inspections.nextAt.hygiene).toBeGreaterThan(500);
     expect(m.today.systemNotes).toEqual([]);

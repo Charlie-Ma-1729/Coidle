@@ -1,6 +1,16 @@
-import { EVENTS, EVENT_BY_ID, PERSONA_BY_ID, type EffectSpec, type EventDef, type MallState, type PersonaId } from "@coidle/shared";
+import { EVENTS, EVENT_BY_ID, FAMILY_ORDER, PERSONA_BY_ID, familyShopCount, type EffectSpec, type EventDef, type MallState, type PersonaId } from "@coidle/shared";
 import type { Rng } from "./rng";
 import { addLog, isZoneUnlocked, nextId } from "./state";
+import {
+  applyFamilyFreshness,
+  applySupplierDiscover,
+  applySupplierNegotiate,
+  applySupplierPrice,
+  applySupplierRel,
+  applySupplierStatus,
+  applySupplierSwitch,
+  bestMain,
+} from "./suppliers";
 import type { TimeInfo } from "./time";
 
 /** 每個 tick 觸發新事件的基礎機率（約每遊戲日 1.3 件） */
@@ -57,6 +67,27 @@ export function applyEffects(s: MallState, effects: EffectSpec[], rng: Rng): voi
       case "cleanliness":
         s.cleanliness = clamp(s.cleanliness + clamp(e.amount, -30, 30), 0, 100);
         break;
+      case "supplierStatus":
+        applySupplierStatus(s, e.family, e.status, e.ticks, e.which);
+        break;
+      case "supplierPrice":
+        applySupplierPrice(s, e.family, e.mult, e.ticks);
+        break;
+      case "supplierRel":
+        applySupplierRel(s, e.family, e.amount);
+        break;
+      case "supplierSwitch":
+        applySupplierSwitch(s, e.family);
+        break;
+      case "supplierNegotiate":
+        applySupplierNegotiate(s, e.family);
+        break;
+      case "supplierDiscover":
+        applySupplierDiscover(s, rng);
+        break;
+      case "familyFreshness":
+        applyFamilyFreshness(s, e.family, e.amount);
+        break;
     }
   }
 }
@@ -97,6 +128,12 @@ function eligible(s: MallState, def: EventDef, time: TimeInfo): boolean {
     const hasShop = s.shops.some((shop) => s.slots[shop.slot]?.zone === def.needsZone);
     if (!hasShop) return false;
   }
+  if (def.needsFamily) {
+    const used = def.needsFamily === "any" ? FAMILY_ORDER.some((f) => familyShopCount(s, f) > 0) : familyShopCount(s, def.needsFamily) > 0;
+    if (!used) return false;
+  }
+  if (def.needsRel !== undefined && !(bestMain(s)?.st.relationship !== undefined && bestMain(s)!.st.relationship >= def.needsRel)) return false;
+  if (def.needsUndiscovered && !s.supply.suppliers.some((x) => !x.discovered)) return false;
   if (s.pending.some((p) => p.defId === def.id)) return false;
   return true;
 }

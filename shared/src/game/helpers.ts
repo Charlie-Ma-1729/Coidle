@@ -1,4 +1,5 @@
 import { CATEGORY_BY_ID, EVENT_BY_ID, ZONE_BY_ID } from "./data";
+import { supplierCostMult } from "./supply";
 import type { MallState, Shop } from "./types";
 
 /** 區域是否已開放：旗標優先（開發／營運用），否則看商場等級 */
@@ -27,6 +28,11 @@ export function unitCostOf(category: string, supplyMultiplier = 1): number {
 export function guestTodoCount(s: Pick<MallState, "inbox" | "pending">): number {
   const guestEvents = s.pending.filter((p) => EVENT_BY_ID[p.defId]?.category === "guest").length;
   return s.inbox.length + guestEvents;
+}
+
+/** 這個業態現在每份的實際進貨成本（全域行情 × 主力供應商價格） */
+export function currentUnitCost(s: Pick<MallState, "modifiers" | "tick" | "supply">, category: string): number {
+  return unitCostOf(category, currentSupplyMult(s) * supplierCostMult(s, category));
 }
 
 export function shopIsClosed(s: Pick<MallState, "tick">, shop: Pick<Shop, "closedUntilTick">): boolean {

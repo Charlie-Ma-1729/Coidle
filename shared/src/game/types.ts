@@ -137,7 +137,15 @@ export type EffectSpec =
   | { t: "stockLoss"; pct: number }
   | { t: "close"; ticks: number; count?: number }
   | { t: "equipment"; amount: number }
-  | { t: "cleanliness"; amount: number };
+  | { t: "cleanliness"; amount: number }
+  // ── 供應商戲劇（對象是該貨品目前的主力供應商；family "best"＝關係最好的那家）
+  | { t: "supplierStatus"; family: SupplyFamily; status: Exclude<SupplierStatus, "ok">; ticks: number; which?: "main" | "other" }
+  | { t: "supplierPrice"; family: SupplyFamily | "best"; mult: number; ticks: number }
+  | { t: "supplierRel"; family: SupplyFamily | "best"; amount: number }
+  | { t: "supplierSwitch"; family: SupplyFamily }
+  | { t: "supplierNegotiate"; family: SupplyFamily }
+  | { t: "supplierDiscover" }
+  | { t: "familyFreshness"; family: SupplyFamily; amount: number };
 
 export type EventCategory =
   | "weather"
@@ -164,6 +172,12 @@ export interface EventDef {
   cooldownTicks: number;
   /** 需要已解鎖的區域（未列出＝隨時可能發生） */
   needsZone?: ZoneId;
+  /** 需要商場有用到這種貨品（有直營的進貨店面）；"any"＝任何一種 */
+  needsFamily?: SupplyFamily | "any";
+  /** 需要某家主力供應商關係值達到多少（長期合作的回饋） */
+  needsRel?: number;
+  /** 需要還有沒發現的供應商 */
+  needsUndiscovered?: boolean;
   when?: { months?: number[]; hours?: [number, number] };
   /**
    * 沒人在場時發生這個事件要不要讓時鐘暫停等人處理。
@@ -288,6 +302,101 @@ export interface WalkVoice {
   situation: string;
   text: string;
   expireTick: number;
+}
+
+// ───────── 供應商 ─────────
+
+export type SupplyFamily = "meat" | "seafood" | "grain" | "produce" | "sweets" | "goods";
+export type SupplierStatus = "ok" | "shortage" | "strike" | "closed" | "cold";
+
+export interface SupplierDef {
+  id: string;
+  name: string;
+  family: SupplyFamily;
+  /** 相對於基準進貨價的倍率 */
+  price: number;
+  /** 品質 0–1：影響店家的口味表現 */
+  quality: number;
+  /** 可靠度 0–1：越低越容易延遲 */
+  reliability: number;
+  /** 出貨時間倍率（越小越快） */
+  lead: number;
+  bio: string;
+  /** 一開始沒人認識，要靠事件才會出現 */
+  hidden?: boolean;
+}
+
+export interface SupplierState {
+  id: string;
+  discovered: boolean;
+  /** 關係值 0–100：訂越多越好；高了有折扣、缺貨時優先供貨 */
+  relationship: number;
+  status: SupplierStatus;
+  statusUntil: number;
+  /** 暫時的漲跌價（事件造成） */
+  priceMult: number;
+  priceUntil: number;
+  /** 長約：鎖定價格、缺貨時優先供貨 */
+  contract: { lockedMult: number; untilTick: number } | null;
+  orders: number;
+}
+
+export interface SupplyState {
+  suppliers: SupplierState[];
+  /** 每種貨品目前的主力供應商 */
+  choice: Record<string, string>;
+  /** 主力無法出貨時，自動向備用供應商（現貨，貴一成）補貨 */
+  autoFallback: boolean;
+}
+
+// ───────── NPC 對手商場（商戰） ─────────
+
+export type RivalStance = "defend" | "neutral" | "aggressive";
+export type RivalCampaignKind = "price_war" | "grand_opening" | "tourist_blitz" | "luxury_event" | "food_fest" | "scandal";
+
+export interface RivalCampaign {
+  kind: RivalCampaignKind;
+  startTick: number;
+  endTick: number;
+  /** 對各類客人吸引力的加減（scandal 是負的） */
+  boost: Partial<Record<PersonaId, number>>;
+  /** 玩家反制後的效果倍率（1＝沒反制，0.5＝被削弱一半） */
+  factor: number;
+}
+
+export interface RivalDef {
+  id: string;
+  name: string;
+  tagline: string;
+  bio: string;
+  /** 實力偏移：正的比一般強 */
+  bias: number;
+  /** 各類客人的強項倍率（大於 1 是強項） */
+  profile: Record<PersonaId, number>;
+  campaigns: RivalCampaignKind[];
+}
+
+export interface RivalState {
+  id: string;
+  appeal: Record<PersonaId, number>;
+  campaign: RivalCampaign | null;
+  /** 情報：到這個 tick 之前看得到他們的細節 */
+  intelUntil: number;
+  /** 合作協議：到這個 tick 之前他們不會對你出招 */
+  pactUntil: number;
+}
+
+export interface NewsItem {
+  tick: number;
+  text: string;
+}
+
+export interface RivalsState {
+  list: RivalState[];
+  stance: RivalStance;
+  news: NewsItem[];
+  /** 下一次有對手動作的 tick（每座對手各自排程在 nextAt 裡） */
+  nextAt: Record<string, number>;
 }
 
 // ───────── 優惠活動（行銷） ─────────
@@ -471,7 +580,7 @@ export interface MallClock {
 }
 
 export interface MallState {
-  version: 5;
+  version: 6;
   clock: MallClock;
   seed: number;
   tick: number;
@@ -501,6 +610,8 @@ export interface MallState {
   regulars: RegularState[];
   promos: PromoState;
   inspections: InspectionState;
+  supply: SupplyState;
+  rivals: RivalsState;
   reviewLog: ReviewRecord[];
   guestPrefs: GuestPrefs;
   walk: { nextTick: number; voices: WalkVoice[] };

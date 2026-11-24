@@ -8,8 +8,9 @@ import {
   UPGRADE_BASE_COST,
   UPGRADE_TICKS,
   categoryHasStock,
-  currentSupplyMult,
-  unitCostOf,
+  chosenSupplier,
+  currentUnitCost,
+  familyOf,
 } from "@coidle/shared";
 import { Btn, Card, Chip, Field, Meter, Sheet } from "../components/ui";
 import { money, num, realDuration } from "../format";
@@ -54,7 +55,9 @@ export function ShopSheet({ shopId, onClose }: { shopId: string; onClose: () => 
   const cat = CATEGORY_BY_ID[shop.category]!;
   const stocked = categoryHasStock(cat);
   const direct = shop.mode === "direct";
-  const uc = unitCostOf(shop.category, currentSupplyMult(s));
+  const uc = currentUnitCost(s, shop.category);
+  const fam = familyOf(shop.category);
+  const main = fam ? chosenSupplier(s, fam) : null;
   const margin = stocked ? (price - uc) / Math.max(1, price) : 1 - cat.costRatio;
   const step = Math.max(10, Math.round((cat.refPrice * 0.05) / 10) * 10);
   const incoming = shop.incoming.reduce((a, b) => a + b.qty, 0);
@@ -133,6 +136,13 @@ export function ShopSheet({ shopId, onClose }: { shopId: string; onClose: () => 
           {stocked && (
             <Card title="📦 庫存與自動補貨" right={<Chip tone={shop.stock < 1 ? "red" : "dim"}>庫存 {num(shop.stock)}</Chip>}>
               <div class="stack">
+                {main && (
+                  <p class="small dim">
+                    進貨：{main.def.name}
+                    {main.st.status !== "ok" && main.st.statusUntil > s.tick ? `（${{ shortage: "出貨吃緊", strike: "罷工中", closed: "已倒閉", cold: "鬧翻了" }[main.st.status]}）` : ""}
+                    ・每份 {money(uc)}
+                  </p>
+                )}
                 {incoming > 0 && <p class="small dim">在途 {num(incoming)} 份（約 {realDuration(SUPPLY_LEAD_TICKS, s.clock.speed)}內送到）</p>}
                 <label class="row">
                   <input type="checkbox" checked={rule.enabled} onChange={(e) => setRule({ ...rule, enabled: (e.target as HTMLInputElement).checked })} />

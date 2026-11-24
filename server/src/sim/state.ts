@@ -8,6 +8,8 @@ import {
   PERSONA_IDS,
   SHOP_QUALITY,
   ZONES,
+  initialRivals,
+  initialSupply,
   newClock,
   ZONE_BY_ID,
   type CategoryDef,
@@ -17,6 +19,7 @@ import {
   type MallState,
   type PersonaId,
   type PromoState,
+  type RivalsState,
   type Shop,
   type ShopDayStats,
   type Slot,
@@ -104,6 +107,14 @@ export function newPromoState(): PromoState {
   return { active: [], scheduled: [], fatigue: 0, lastEnd: {}, history: [] };
 }
 
+/** 對手們各自的第一次動作，大約在開幕後 3～6 個遊戲日 */
+export function newRivalsState(level: number, startTick: number): RivalsState {
+  const list = initialRivals(level);
+  const nextAt: Record<string, number> = {};
+  list.forEach((r, i) => (nextAt[r.id] = startTick + (3 + i) * 288 + i * 40));
+  return { list, stance: "neutral", news: [], nextAt };
+}
+
 /** 第一次稽查大約在開幕後 4～6 個遊戲日 */
 export function newInspectionState(startTick: number): InspectionState {
   return { pending: [], compliance: 70, log: [], nextAt: { hygiene: startTick + 4 * 288, fire: startTick + 6 * 288 } };
@@ -117,7 +128,7 @@ export function createInitialState(seed: number, startTick: number, nowMs = 0): 
     for (let i = 0; i < z.slots; i++) slots.push({ id: slots.length, zone: z.id, shopId: null });
   }
   const s: MallState = {
-    version: 5,
+    version: 6,
     clock: newClock(nowMs, startTick),
     seed: seed >>> 0,
     tick: startTick,
@@ -145,6 +156,8 @@ export function createInitialState(seed: number, startTick: number, nowMs = 0): 
     regulars: initialRegulars(),
     promos: newPromoState(),
     inspections: newInspectionState(startTick),
+    supply: initialSupply(),
+    rivals: newRivalsState(1, startTick),
     reviewLog: [],
     guestPrefs: { complaintStance: "balanced", autoReplyReviews: true },
     walk: { nextTick: 0, voices: [] },

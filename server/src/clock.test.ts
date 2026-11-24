@@ -121,7 +121,7 @@ describe("event pause in the sim", () => {
     const v1 = { ...createInitialState(1, 1000, 0), version: 1, protection: true, lastActionTick: 5 } as Record<string, unknown>;
     delete v1.clock;
     const m = migrateState(v1, 123_456);
-    expect(m.version).toBe(5);
+    expect(m.version).toBe(6);
     expect(m.clock.anchorTick).toBe(1000);
     expect(m.clock.anchorRealMs).toBe(123_456);
     expect("protection" in m).toBe(false);
@@ -293,7 +293,7 @@ describe("pause on important events (service level)", () => {
     expect(frozen.clock.holds.events.length).toBe(1);
     expect(isPaused(frozen.clock)).toBe(true);
     expect(sent.length).toBeGreaterThanOrEqual(1);
-    expect(sent[0]).toContain("颱風");
+    expect(sent[0]).toContain("商場已暫停"); // 可能是颱風，也可能是供應商缺貨／稽查預告
 
     // 時間一直過去，狀態不動（事件期限也不會流失）
     a.clock.t += 50 * HOUR;

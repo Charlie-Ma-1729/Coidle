@@ -200,6 +200,104 @@ describe("screens render with real simulated state", () => {
     expect(container.querySelectorAll(".stars").length).toBeGreaterThanOrEqual(2);
   });
 
+  it("Suppliers shows families in use with the main supplier, alternatives and a locked newcomer", async () => {
+    store.state.value = publicState(0, (s) => {
+      const meat = s.supply.suppliers.find((x) => x.id === "meat_maru")!;
+      meat.relationship = 55;
+      meat.orders = 12;
+      meat.status = "strike";
+      meat.statusUntil = s.tick + 200;
+    });
+    const { Suppliers } = await import("./screens/Suppliers");
+    await mount(<Suppliers />);
+    expect(container.textContent).toContain("供應商與進貨");
+    expect(container.textContent).toContain("丸三精肉");
+    expect(container.textContent).toContain("主力");
+    expect(container.textContent).toContain("罷工中");
+    expect(container.textContent).toContain("山下食肉"); // 備用供應商
+    expect(container.textContent).toContain("關係值");
+    expect(container.textContent).toContain("（折 5%）");
+    expect(container.textContent).toContain("還有 1 家你不認識的供應商");
+    expect(container.textContent).not.toContain("海外直輸肉品"); // 還沒發現的不洩漏名字
+    expect(container.textContent).toContain("簽 7 天");
+    expect(container.textContent).toContain("免費"); // 主力出不了貨，換人免費
+    expect(container.textContent).toContain("自動向備用供應商買現貨");
+  });
+
+  it("Suppliers shows contracts and disables switching while one is active", async () => {
+    store.state.value = publicState(0, (s) => {
+      const m = s.supply.suppliers.find((x) => x.id === "meat_maru")!;
+      m.contract = { lockedMult: 1, untilTick: s.tick + 500 };
+    });
+    const { Suppliers } = await import("./screens/Suppliers");
+    await mount(<Suppliers />);
+    expect(container.textContent).toContain("長約中");
+    expect(container.textContent).toContain("提前解約");
+    const switchBtns = Array.from(container.querySelectorAll("button")).filter((b) => b.textContent?.includes("改用")) as HTMLButtonElement[];
+    expect(switchBtns.length).toBeGreaterThan(0);
+  });
+
+  it("Overview warns when a main supplier is in trouble", async () => {
+    store.state.value = publicState(0, (s) => {
+      const m = s.supply.suppliers.find((x) => x.id === "sea_naniwa")!;
+      m.status = "shortage";
+      m.statusUntil = s.tick + 100;
+    });
+    const { Overview } = await import("./screens/Overview");
+    await mount(<Overview />);
+    expect(container.textContent).toContain("浪花水產");
+    expect(container.textContent).toContain("出貨吃緊");
+  });
+
+  it("Rivals shows the ranking with you in it, the market table, stance, rivals and news", async () => {
+    store.mallInfo.value = { id: 1, name: "新街商場", members: [] };
+    store.state.value = publicState(0, (s) => {
+      s.rivals.news.push({ tick: s.tick, text: "「港灣大賣場」打出價格戰。" });
+      const h = s.rivals.list.find((r) => r.id === "harbor")!;
+      h.campaign = { kind: "price_war", startTick: s.tick, endTick: s.tick + 100, boost: { local: 14, student: 12 }, factor: 1 };
+    });
+    const { Rivals } = await import("./screens/Rivals");
+    await mount(<Rivals />);
+    expect(container.textContent).toContain("商場評鑑榜");
+    expect(container.textContent).toContain("新街商場（你）");
+    for (const name of ["港灣大賣場", "機場前旅客廣場", "雲端天際城", "美食橫丁"]) expect(container.textContent).toContain(name);
+    expect(container.textContent).toContain("各客群的競爭力");
+    expect(container.textContent).toContain("客流 ×");
+    expect(container.textContent).toContain("商戰姿態");
+    expect(container.textContent).toContain("價格戰");
+    expect(container.textContent).toContain("刺探情報可以知道衝擊有多大"); // 沒情報看不到細節
+    expect(container.textContent).toContain("商戰快訊");
+    expect(container.querySelectorAll(".rank").length).toBe(5);
+    expect(container.querySelectorAll(".rank.mine").length).toBe(1);
+  });
+
+  it("Rivals reveals appeal numbers only with intel, and offers counter during a campaign", async () => {
+    store.state.value = publicState(0, (s) => {
+      const h = s.rivals.list.find((r) => r.id === "harbor")!;
+      h.intelUntil = s.tick + 300;
+      h.campaign = { kind: "price_war", startTick: s.tick, endTick: s.tick + 100, boost: { local: 14 }, factor: 0.5 };
+    });
+    const { Rivals } = await import("./screens/Rivals");
+    await mount(<Rivals />);
+    expect(container.textContent).toContain("情報有效至");
+    expect(container.textContent).toContain("已被反制削弱");
+    const counter = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("反制")) as HTMLButtonElement;
+    expect(counter.disabled).toBe(true); // 已經反制過
+  });
+
+  it("More now offers five sections", async () => {
+    store.state.value = publicState(0);
+    const { More } = await import("./screens/More");
+    const nav = await import("./nav");
+    nav.moreSub.value = "rivals";
+    await mount(<More />);
+    for (const label of ["營運", "行銷", "供應商", "商戰", "團隊"]) expect(container.textContent).toContain(label);
+    expect(container.textContent).toContain("商場評鑑榜");
+    nav.moreSub.value = "suppliers";
+    await tick();
+    expect(container.textContent).toContain("供應商與進貨");
+  });
+
   it("Marketing lists the catalog, active and scheduled promos, fatigue and history", async () => {
     store.state.value = publicState(0, (s) => {
       s.promos.fatigue = 0.5;

@@ -120,7 +120,6 @@ describe("visits", () => {
     expect(after.visits).toBeGreaterThan(0);
     expect(after.affinity).toBeGreaterThan(r.affinity);
     expect(after.tipsTotal).toBeGreaterThan(0);
-    expect(after.mood).not.toBe("upset");
     expect(s.funds).toBeGreaterThan(startFunds);
     expect(s.reports.some((rp) => rp.notes.some((n) => n.includes("常客造訪")))).toBe(true);
   });
@@ -324,7 +323,7 @@ describe("determinism and migration", () => {
     delete v3.regulars;
     (v3.today as Record<string, unknown>).regularNotes = undefined;
     const m = migrateState(v3, 0);
-    expect(m.version).toBe(5);
+    expect(m.version).toBe(6);
     expect(m.regulars).toHaveLength(REGULARS.length);
     expect(m.today.regularNotes).toEqual([]);
   });

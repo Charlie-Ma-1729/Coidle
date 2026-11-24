@@ -16,6 +16,8 @@ import { resolveInbox, walkAct, walkFloor } from "./guests";
 import { autoPrepareInspections, prepareInspection } from "./inspections";
 import { cancelPromo, schedulePromo } from "./promos";
 import { regularAction } from "./regulars";
+import { rivalCounter, rivalIntel, rivalPact } from "./rivals";
+import { cancelContract, chooseSupplier, signContract } from "./suppliers";
 import { rngForTick } from "./rng";
 import { addLog, isFeatureEnabled, isZoneUnlocked, nextId } from "./state";
 import { isOpen, placeOrder } from "./step";
@@ -202,6 +204,56 @@ export function applyCommand(state: MallState, cmd: Command): CommandResult {
     case "walkAct": {
       const r = walkAct(s, cmd.voiceId, cmd.optionId);
       if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "chooseSupplier": {
+      const r = chooseSupplier(s, cmd.family, cmd.supplierId);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "signContract": {
+      const r = signContract(s, cmd.supplierId, cmd.days);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "cancelContract": {
+      const r = cancelContract(s, cmd.supplierId);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "setSupplyPrefs": {
+      if (cmd.autoFallback !== undefined) {
+        if (typeof cmd.autoFallback !== "boolean") return err("設定無效");
+        s.supply.autoFallback = cmd.autoFallback;
+      }
+      break;
+    }
+
+    case "rivalIntel": {
+      const r = rivalIntel(s, cmd.rivalId);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "rivalPact": {
+      const r = rivalPact(s, cmd.rivalId);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "rivalCounter": {
+      const r = rivalCounter(s, cmd.rivalId);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "setRivalStance": {
+      if (!["defend", "neutral", "aggressive"].includes(cmd.stance)) return err("姿態無效");
+      s.rivals.stance = cmd.stance;
       break;
     }
 

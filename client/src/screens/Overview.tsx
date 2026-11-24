@@ -1,4 +1,16 @@
-import { CATEGORY_BY_ID, EVENT_BY_ID, LEVELS, guestTodoCount, timeInfo, periodOf, type PublicMallState } from "@coidle/shared";
+import {
+  CATEGORY_BY_ID,
+  EVENT_BY_ID,
+  FAMILY_ORDER,
+  LEVELS,
+  SUPPLY_FAMILIES,
+  chosenSupplier,
+  familyShopCount,
+  guestTodoCount,
+  timeInfo,
+  periodOf,
+  type PublicMallState,
+} from "@coidle/shared";
 import { EventChoiceCard } from "../components/EventCards";
 import { InspectionCard } from "../components/InspectionCard";
 import { Btn, Card, Chip, Empty, Meter } from "../components/ui";
@@ -12,9 +24,12 @@ function PendingEvents({ s }: { s: PublicMallState }) {
   const guestTodo = guestTodoCount(s);
   return (
     <>
-      {s.inspections.pending.map((n) => (
-        <InspectionCard key={n.uid} s={s} n={n} />
-      ))}
+      {/* 因為這個而暫停的稽查預告，已經顯示在頂部的暫停橫幅裡，不重複 */}
+      {s.inspections.pending
+        .filter((n) => !s.clock.holds.events.includes(n.uid))
+        .map((n) => (
+          <InspectionCard key={n.uid} s={s} n={n} />
+        ))}
       {others.map((p) => (
         <EventChoiceCard key={p.uid} s={s} p={p} />
       ))}
@@ -40,6 +55,14 @@ function Warnings({ s }: { s: PublicMallState }) {
   if (out.length > 0) warns.push({ tone: "red", text: `${out.map((x) => `「${x.name}」`).join("")}缺貨中` });
   const closed = s.shops.filter((x) => x.closedUntilTick > s.tick);
   if (closed.length > 0) warns.push({ tone: "red", text: `${closed.map((x) => `「${x.name}」`).join("")}暫停營業中` });
+  for (const fam of FAMILY_ORDER) {
+    if (familyShopCount(s, fam) === 0) continue;
+    const c = chosenSupplier(s, fam);
+    if (c && c.st.status !== "ok" && c.st.statusUntil > s.tick) {
+      const label = { shortage: "出貨吃緊", strike: "罷工中", closed: "已倒閉", cold: "和你鬧翻了" }[c.st.status];
+      warns.push({ tone: c.st.status === "shortage" ? "amber" : "red", text: `${SUPPLY_FAMILIES[fam].icon}「${c.def.name}」${label}（${SUPPLY_FAMILIES[fam].name}的主力供應商）` });
+    }
+  }
   if (s.cleanliness < 40) warns.push({ tone: "amber", text: "館內太髒了，提高清潔等級吧" });
   if (s.equipment < 40) warns.push({ tone: "amber", text: "設備老舊，小心故障，提高維護等級" });
   const stale = s.shops.filter((x) => x.mode === "direct" && x.freshness < 40);
