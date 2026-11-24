@@ -61,55 +61,71 @@ export function eventPrompt(n: number, existingTitles: string[]): ChatMessage[] 
 
 const GROUP_NAMES = { food: "餐飲", retail: "零售", entertainment: "娛樂", service: "服務" } as const;
 
-export function brandPrompt(n: number): ChatMessage[] {
-  const per = Math.max(1, Math.round(n / 4));
+export function brandPrompt(targets: { id: string; name: string; group: keyof typeof GROUP_NAMES }[], perCategory: number): ChatMessage[] {
+  const list = targets.map((c) => `${c.id}（${c.name}・${GROUP_NAMES[c.group]}）`).join(NL);
   return [
     { role: "system", content: WORLD },
     {
       role: "user",
-      content: `請替商場招商時會出現的「租戶品牌」取名字，四種類型各 ${per} 個：food（餐飲）、retail（零售）、entertainment（娛樂）、service（服務）。
-- name：2–7 個字，像日本商店街風格的虛構店名（例如帶有季節、地名感但不是真實地名、職人感的字），要好念、好記，彼此不能太像
-- blurb：一句簡介，12–35 字，說這間店賣什麼、有什麼個性，語氣親切
-不可以用任何真實存在的品牌或連鎖店名字。
-輸出格式：{"items":[{"group":"food","name":"...","blurb":"..."}]}`,
+      content: `商場招商時會出現「租戶品牌」。請替下面每一種店各取 ${perCategory} 個虛構的品牌名稱與簡介：
+  ${list}
+規則：
+- name：2–7 個字，像日本商店街風格的店名（可以有季節、職人、物件、地形的意象，但不是真實地名），好念好記；同一種店的名字彼此不要太像
+- blurb：一句簡介，12–35 字，**必須確實是在描述那一種店**（賣的是什麼、有什麼個性），語氣親切
+- 不可以用任何真實存在的品牌或連鎖店名字
+輸出格式：{"items":[{"category":"上面列的 id","name":"...","blurb":"..."}]}`,
     },
   ];
 }
 
-export function dishPrompt(n: number): ChatMessage[] {
-  const per = Math.max(1, Math.round(n / 4));
+const NL = "\n  ";
+
+export function dishPrompt(targets: { id: string; name: string; group: keyof typeof GROUP_NAMES }[], perCategory: number): ChatMessage[] {
+  const list = targets.map((c) => `${c.id}（${c.name}・${GROUP_NAMES[c.group]}）`).join(NL);
   return [
     { role: "system", content: WORLD },
     {
       role: "user",
-      content: `玩家在店裡的研發工坊「試做出原創的新品」時，需要一個好聽的名字。請四種類型各想 ${per} 個：
-- food：新菜色或點心名（例如「柚香炸物串」那種風格）
-- retail：原創商品名（雜貨、服飾、文具、小物）
-- entertainment：原創活動或體驗企劃名
-- service：原創的服務或療程名
-每個名字 3–10 個字，不要太像，不可以用真實品牌。
-輸出格式：{"items":[{"group":"food","name":"..."}]}`,
+      content: `玩家在店裡的研發工坊「試做出原創的新品」時，需要一個好聽、而且確實符合那種店的名字。請替下面每一種店各想 ${perCategory} 個：
+  ${list}
+規則：
+- 名字要讓人一看就知道是那種店會賣／辦的東西（拉麵店的名字就是一碗麵，不要寫成甜點；密室逃脫的名字就是一個關卡主題），3–10 個字
+- 同一種店的名字彼此要不一樣，用料、季節、手法、意象多變化；不要只換一個字
+- 不可以用真實品牌、連鎖店或商品名
+輸出格式：{"items":[{"category":"上面列的 id","name":"..."}]}`,
     },
   ];
 }
 
-export function regularPrompt(n: number, existingNames: string[]): ChatMessage[] {
+export interface RegularBrief {
+  name: string;
+  persona: string;
+  fav: string;
+}
+
+export function regularPrompt(n: number, existing: RegularBrief[], wanted: { id: string; name: string }[]): ChatMessage[] {
   const cats = CATEGORIES.map((c) => `${c.id}（${c.name}・${GROUP_NAMES[c.group]}）`).join("、");
+  const have = existing.map((r) => `${r.name}（${r.persona}・愛 ${r.fav}）`).slice(-40).join("、");
+  const gaps = wanted.map((c) => `${c.id}（${c.name}）`).join("、");
   return [
     { role: "system", content: WORLD },
     {
       role: "user",
       content: `請創造 ${n} 位「常客」——會固定來光顧的有名有姓的虛構人物，各有個性與兩段小故事。欄位：
-- name：2–4 個字的名字（日式、台式或外國人名皆可，虛構）
+- name：2–4 個字的名字。約七成用日式名字（例如「橋本大叔」「結衣」），其餘可以是外國旅人或移居此地的人；外國人名用中點分隔（例如「瑪雅·歐拉」）
 - persona：tourist（國外觀光客）、local（在地常客）、commuter（通勤上班族）、family（家庭）、student（學生）、couple（情侶）之一，要和人物相符
 - fav：他最愛的店種，必須是下列 id 之一；alt（選填）：第二選擇，也必須是下列 id 之一，且不同於 fav
   ${cats}
 - budget：願意付參考價的幾倍，1.0–1.6
 - hint：還沒認識他時看到的線索，15–40 字，描述外表或習慣
 - bio：人物簡介，25–70 字
-- traits：2–3 個小癖好（每個 4–12 字）
+- traits：2–3 個小癖好（每個 6–16 字，簡短的一句話）
 - stories：剛好兩段，每段有 title（4–10 字）與 text（30–80 字）；第一段是和店家建立感情的小事，第二段是他為店家帶來幫助的暖心情節
-人物要多樣（年紀、職業、背景不同），彼此不要太像，也不要和這些重複：${existingNames.slice(-30).join("、")}。人物與老街區居民互動時保持溫暖尊重。
+多樣性要求（很重要）：
+- 這 ${n} 位的 persona 必須各不相同，年紀、職業、生活背景也要明顯不同（不要全是「推嬰兒車的媽媽」「背相機的攝影師」這類雷同的人設）
+- fav 優先從這些「還沒有常客」的店種挑：${gaps || "（不限）"}，而且這 ${n} 位的 fav 要分屬不同類型的店
+- 不要和已經有的常客重複或太像：${have || "（無）"}
+人物與老街區居民互動時保持溫暖尊重；全部使用繁體中文，不要出現簡體字。
 輸出格式：{"items":[{"name":"...","persona":"local","fav":"ramen","alt":"udon","budget":1.2,"hint":"...","bio":"...","traits":["..."],"stories":[{"title":"...","text":"..."},{"title":"...","text":"..."}]}]}`,
     },
   ];

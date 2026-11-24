@@ -8,6 +8,11 @@ const REAL_BRANDS = ["麥當勞", "肯德基", "星巴克", "7-11", "7-ELEVEN", 
 /** 不得出現的字眼：粗話、歧視性或貶抑街區居民的用語、政治與敏感議題 */
 const BAD_WORDS = ["幹你", "靠北", "操你", "他媽的", "賤人", "婊", "智障", "白痴", "死全家", "貧民窟", "貧民", "流浪漢", "遊民", "乞丐", "無業", "治安差", "危險地帶", "骯髒", "垃圾區", "黑道", "毒品", "賣淫", "自殺", "殺人", "強姦", "恐怖攻擊", "習近平", "川普", "選舉", "政黨", "統獨"];
 
+/** 簡體字（只列「繁體字寫法不同」的常見字；日文漢字與兩岸共用字不列，避免誤殺）。模型偶爾會混進一兩個 */
+const SIMPLIFIED = "篮这们时对说过还么发开见买卖热汤鱼饭鸡烧样种听吗为让门问间网电车长马鸟书东风头关气经现应总题无业乐华货费";
+/** 這些詞本身是料理名稱，不是在指地點（遊戲裡的業態名稱本來就叫「章魚燒／大阪燒」） */
+const FOOD_TERMS = ["大阪燒", "大坂燒"];
+
 export interface TextRule {
   min?: number;
   max: number;
@@ -23,7 +28,9 @@ export function checkText(text: unknown, rule: TextRule): string | null {
   if (t.length > rule.max) return "太長";
   for (const m of rule.must ?? []) if (!t.includes(m)) return `缺少 ${m}`;
   if (/https?:\/\/|www\.|@\w+\.\w+|\b\d{2,4}-\d{3,4}-\d{3,4}\b/i.test(t)) return "含有網址或聯絡方式";
-  const lower = t.toLowerCase();
+  for (const ch of t) if (SIMPLIFIED.includes(ch)) return `含簡體字「${ch}」`;
+  let lower = t.toLowerCase();
+  for (const w of FOOD_TERMS) lower = lower.replaceAll(w.toLowerCase(), "");
   for (const w of REAL_PLACES) if (lower.includes(w.toLowerCase())) return `含真實地名「${w}」`;
   for (const w of REAL_BRANDS) if (lower.includes(w.toLowerCase())) return `含真實品牌「${w}」`;
   for (const w of BAD_WORDS) if (lower.includes(w.toLowerCase())) return `含不當字眼「${w}」`;

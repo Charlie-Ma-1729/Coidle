@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
-import { EVENTS, REGULARS, registerEvents, registerRegulars, type EventDef, type RegularDef } from "@coidle/shared";
+import { CATEGORIES, EVENTS, REGULARS, registerEvents, registerRegulars, type EventDef, type RegularDef } from "@coidle/shared";
 import type { Repo } from "../db/repo";
 import type { BrandFlavor, FlavorGroup, FlavorMood, FlavorSource, FlavorTier } from "../sim/flavor";
-import { BRAND_GROUPS, checkBrand, checkDish, checkEvent, checkNews, checkRegular, checkReview, NEWS_MOODS, REVIEW_TIERS, type Checked } from "./content";
+import { checkBrand, checkDish, checkEvent, checkNews, checkRegular, checkReview, NEWS_MOODS, REVIEW_TIERS, type Checked } from "./content";
 import { chat, extractJson, LlmError, type ChatMessage, type ChatResult } from "./openrouter";
 import { brandPrompt, dishPrompt, eventPrompt, newsPrompt, regularPrompt, reviewPrompt } from "./prompts";
 
@@ -31,7 +31,7 @@ const SAFETY = 0.85;
 /** 單日花費上限：每月預算的 8%（避免一天燒掉大半） */
 const DAILY_SHARE = 0.08;
 /** 內容池目標數量 */
-export const TARGETS = { newsPerMood: 12, reviewsPerTier: 12, eventsOpen: 4, eventsMax: 40, brandsPerGroup: 12, dishesPerGroup: 12, regularsOpen: 2, regularsMax: 12 } as const;
+export const TARGETS = { newsPerMood: 12, reviewsPerTier: 12, eventsOpen: 4, eventsMax: 40, brandsTotal: 168, dishesTotal: 120, regularsOpen: 2, regularsMax: 12 } as const;
 
 export type ChatFn = (o: Parameters<typeof chat>[0]) => Promise<ChatResult>;
 export type ContentKind = "news" | "review" | "event" | "brand" | "dish" | "regular";
@@ -61,8 +61,10 @@ const hashOf = (kind: string, text: string) => createHash("sha1").update(kind + 
 export class ContentService {
   private news: Record<FlavorMood, string[]> = { good: [], bad: [], neutral: [], season: [] };
   private reviews: Record<FlavorTier, string[]> = { high: [], mid: [], low: [] };
-  private brands: Record<FlavorGroup, BrandFlavor[]> = { food: [], retail: [], entertainment: [], service: [] };
-  private dishes: Record<FlavorGroup, string[]> = { food: [], retail: [], entertainment: [], service: [] };
+  /** 招商品牌名：依業態 id 分類，簡介描述的就是那種店 */
+  private brands: Record<string, BrandFlavor[]> = {};
+  /** 原創商品名：依業態 id 分類，只有同業態的店會用到 */
+  private dishes: Record<string, string[]> = {};
   private busy = false;
 
   constructor(
@@ -135,17 +137,15 @@ export class ContentService {
       const p = row.payload as { tier: FlavorTier; text: string };
       this.reviews[p.tier]?.push(p.text);
     }
-    for (const g of BRAND_GROUPS) {
-      this.brands[g] = [];
-      this.dishes[g] = [];
-    }
+    this.brands = {};
+    this.dishes = {};
     for (const row of this.repo.contentList("brand", "active", 1000)) {
-      const p = row.payload as { group: FlavorGroup; name: string; blurb: string };
-      this.brands[p.group]?.push({ name: p.name, blurb: p.blurb });
+      const p = row.payload as { category?: string; name: string; blurb: string };
+      if (p.category) (this.brands[p.category] ??= []).push({ name: p.name, blurb: p.blurb }); // 舊格式（只有大類）的不再使用
     }
     for (const row of this.repo.contentList("dish", "active", 1000)) {
-      const p = row.payload as { group: FlavorGroup; name: string };
-      this.dishes[p.group]?.push(p.name);
+      const p = row.payload as { category?: string; name: string };
+      if (p.category) (this.dishes[p.category] ??= []).push(p.name); // 舊格式（沒有業態）的名字不再使用
     }
     registerRegulars(this.repo.contentList("regular", "active", 100).map((r) => r.payload as RegularDef));
     const events = this.repo.contentList("event", "active", 200).map((r) => r.payload as EventDef);
@@ -154,7 +154,7 @@ export class ContentService {
   }
 
   flavorSource(): FlavorSource {
-    return { news: (m) => this.news[m], reviews: (t) => this.reviews[t], brands: (g) => this.brands[g], dishes: (g) => this.dishes[g] };
+    return { news: (m) => this.news[m], reviews: (t) => this.reviews[t], brands: (c) => this.brands[c] ?? [], dishes: (c) => this.dishes[c] ?? [] };
   }
 
   /** 玩家端需要知道的事件定義（含已下架的，因為還可能有進行中的待決事件） */
@@ -178,11 +178,11 @@ export class ContentService {
         : kind === "review"
           ? reviewPrompt(n)
           : kind === "brand"
-            ? brandPrompt(n)
+            ? brandPrompt(this.thinnest(this.brands), 2)
             : kind === "dish"
-              ? dishPrompt(n)
+              ? dishPrompt(this.dishTargets(), 2)
               : kind === "regular"
-                ? regularPrompt(n, REGULARS.map((r) => r.name))
+                ? regularPrompt(n, this.knownRegulars(), this.uncoveredFavs())
                 : eventPrompt(n, this.titles());
     const maxTokens = kind === "event" || kind === "regular" ? 2400 : 1400;
     const why = this.allowed(this.estimate(messages, maxTokens));
@@ -267,6 +267,40 @@ export class ContentService {
     return this.repo.addContent(kind, status, hashOf(kind, text), value, this.cfg.model, this.now());
   }
 
+  /** 還沒有任何常客以它為最愛的店種（最多 10 種；起點隨時間輪替，讓各區都有機會被補到） */
+  private uncoveredFavs(): { id: string; name: string }[] {
+    const covered = new Set(REGULARS.map((r) => r.fav));
+    const open = CATEGORIES.filter((c) => !covered.has(c.id));
+    const start = open.length > 10 ? Math.floor(this.now() / 3_600_000) % (open.length - 9) : 0;
+    return open.slice(start, start + 10).map((c) => ({ id: c.id, name: c.name }));
+  }
+
+  /** 已經有的常客（含還在等審核的），讓模型避開雷同 */
+  private knownRegulars(): { name: string; persona: string; fav: string }[] {
+    const pending = this.repo.contentList("regular", "pending", 50).map((r) => r.payload as RegularDef);
+    return [...REGULARS, ...pending].map((r) => ({ name: r.name, persona: r.persona, fav: r.fav }));
+  }
+
+  private dishTotal(): number {
+    return Object.values(this.dishes).reduce((a, l) => a + l.length, 0);
+  }
+
+  private brandTotal(): number {
+    return Object.values(this.brands).reduce((a, l) => a + l.length, 0);
+  }
+
+  /** 這一輪替哪些業態想名字：目前名字最少的 6 種（同樣多時照資料順序），所以長期下來每種店都會有 */
+  private thinnest(pool: Record<string, unknown[]>): { id: string; name: string; group: FlavorGroup }[] {
+    return CATEGORIES.map((c, i) => ({ id: c.id, name: c.name, group: c.group as FlavorGroup, n: pool[c.id]?.length ?? 0, i }))
+      .sort((a, b) => a.n - b.n || a.i - b.i)
+      .slice(0, 6)
+      .map(({ id, name, group }) => ({ id, name, group }));
+  }
+
+  private dishTargets(): { id: string; name: string; group: FlavorGroup }[] {
+    return this.thinnest(this.dishes);
+  }
+
   private titles(): string[] {
     return EVENTS.map((e) => e.title).slice(-40);
   }
@@ -276,8 +310,8 @@ export class ContentService {
     if (!this.enabled) return null;
     if (NEWS_MOODS.some((m) => this.news[m].length < TARGETS.newsPerMood)) return this.generate("news", 12);
     if (REVIEW_TIERS.some((t) => this.reviews[t].length < TARGETS.reviewsPerTier)) return this.generate("review", 12);
-    if (BRAND_GROUPS.some((g) => this.brands[g].length < TARGETS.brandsPerGroup)) return this.generate("brand", 12);
-    if (BRAND_GROUPS.some((g) => this.dishes[g].length < TARGETS.dishesPerGroup)) return this.generate("dish", 12);
+    if (this.brandTotal() < TARGETS.brandsTotal) return this.generate("brand");
+    if (this.dishTotal() < TARGETS.dishesTotal) return this.generate("dish");
     const pending = this.repo.contentCount("event", "pending");
     const total = this.repo.contentCount("event", "active") + pending;
     if (pending < TARGETS.eventsOpen && total < TARGETS.eventsMax) return this.generate("event", 4);

@@ -67,7 +67,7 @@ function makeCandidate(s: MallState, rng: Rng): TenantCandidate | null {
   let brand = "";
   let blurb: string | undefined;
   // 內容池裡有 AI 想的品牌名時，一半的機率用它（池子是空的就完全不動亂數，結果和以前一樣）
-  const pool = (flavor().brands?.(cat.group) ?? []).filter((b) => !taken.has(b.name));
+  const pool = (flavor().brands?.(cat.id) ?? []).filter((b) => !taken.has(b.name));
   if (pool.length > 0 && rng.chance(0.5)) {
     const pick = pool[rng.int(0, pool.length - 1)]!;
     brand = pick.name;

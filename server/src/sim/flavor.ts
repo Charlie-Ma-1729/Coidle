@@ -15,9 +15,9 @@ export interface FlavorSource {
   news(mood: FlavorMood): readonly string[];
   reviews(tier: FlavorTier): readonly string[];
   /** 招商用的虛構品牌名（可省略） */
-  brands?(group: FlavorGroup): readonly BrandFlavor[];
+  brands?(category: string): readonly BrandFlavor[];
   /** 研發出原創商品時用的名字（可省略） */
-  dishes?(group: FlavorGroup): readonly string[];
+  dishes?(category: string): readonly string[];
 }
 
 const EMPTY: FlavorSource = { news: () => [], reviews: () => [] };

@@ -40,14 +40,19 @@ afterEach(() => setFlavorSource(null));
 
 describe("brand, dish and regular validation", () => {
   it("accepts good names and rejects bad ones", () => {
-    expect(checkBrand({ group: "food", name: "月影食堂", blurb: "只賣三種定食的小小食堂，老闆每天親自買菜。" }).ok).toBe(true);
-    expect(checkBrand({ group: "pets", name: "月影食堂", blurb: "只賣三種定食的小小食堂，老闆每天親自買菜。" }).ok).toBe(false);
-    expect(checkBrand({ group: "food", name: "星巴克", blurb: "只賣三種定食的小小食堂，老闆每天親自買菜。" }).ok).toBe(false); // 真實品牌
-    expect(checkBrand({ group: "food", name: "😀😀食堂", blurb: "只賣三種定食的小小食堂，老闆每天親自買菜。" }).ok).toBe(false);
-    expect(checkBrand({ group: "food", name: "大阪屋", blurb: "只賣三種定食的小小食堂，老闆每天親自買菜。" }).ok).toBe(false); // 真實地名
-    expect(checkDish({ group: "food", name: "柚香炸物串" }).ok).toBe(true);
-    expect(checkDish({ group: "food", name: "麥當勞套餐" }).ok).toBe(false);
-    expect(checkDish({ group: "food", name: "a" }).ok).toBe(false);
+    expect(checkBrand({ category: "ramen", name: "月影食堂", blurb: "只賣三種定食的小小食堂，老闆每天親自買菜。" }).ok).toBe(true);
+    expect(checkBrand({ category: "pets", name: "月影食堂", blurb: "只賣三種定食的小小食堂，老闆每天親自買菜。" }).ok).toBe(false);
+    expect(checkBrand({ category: "ramen", name: "星巴克", blurb: "只賣三種定食的小小食堂，老闆每天親自買菜。" }).ok).toBe(false); // 真實品牌
+    expect(checkBrand({ category: "ramen", name: "😀😀食堂", blurb: "只賣三種定食的小小食堂，老闆每天親自買菜。" }).ok).toBe(false);
+    expect(checkBrand({ category: "ramen", name: "大阪屋", blurb: "只賣三種定食的小小食堂，老闆每天親自買菜。" }).ok).toBe(false); // 真實地名
+    expect(checkDish({ category: "kushikatsu", name: "柚香炸物串" }).ok).toBe(true);
+    expect(checkDish({ category: "kushikatsu", name: "麥當勞套餐" }).ok).toBe(false);
+    expect(checkDish({ category: "nope", name: "柚香炸物串" }).ok).toBe(false);
+    expect(checkDish({ group: "food", name: "柚香炸物串" }).ok).toBe(false); // 沒指定業態
+    expect(checkDish({ category: "ramen", name: "a" }).ok).toBe(false);
+    // 業態決定 group，模型亂填的 group 不算數
+    const d = checkDish({ group: "retail", category: "ramen", name: "濃厚豚骨拉麵" });
+    expect(d.ok && d.value.group).toBe("food");
   });
 
   it("a regular needs valid persona/fav, fixed rewards, and a unique name", () => {
@@ -63,9 +68,18 @@ describe("brand, dish and regular validation", () => {
     if (greedy.ok) expect(greedy.value.stories[1]!.reward).toEqual({ funds: 55_000, idx: 1 });
     expect(checkRegular(goodRegular("遠藤老師", { fav: "no_such_shop" })).ok).toBe(false);
     expect(checkRegular(goodRegular("遠藤老師", { persona: "alien" })).ok).toBe(false);
-    expect(checkRegular(goodRegular("遠藤老師", { alt: "nope" })).ok).toBe(false);
-    expect(checkRegular(goodRegular("遠藤老師", { stories: [{ title: "一個", text: "一".repeat(30) }] })).ok).toBe(false);
+    const noAlt = checkRegular(goodRegular("遠藤老師", { alt: "nope" })); // 第二選擇編錯 id：丟掉它，人物照收
+    expect(noAlt.ok).toBe(true);
+    if (noAlt.ok) expect(noAlt.value.alt).toBeUndefined();
+    expect(checkRegular(goodRegular("遠藤老師", { stories: [{ title: "一個", text: "一".repeat(30) }] })).ok).toBe(false); // 少於 2 段
+    const three = checkRegular(goodRegular("遠藤老師", { stories: [...goodRegular().stories, { title: "第三段", text: "多出來的第三段故事".repeat(4) }] }));
+    expect(three.ok && three.value.stories).toHaveLength(2); // 多寫的第三段直接丟掉
     expect(checkRegular(goodRegular("阿富叔")).ok).toBe(false); // 和手寫常客同名
+    expect(checkRegular(goodRegular("瑪雅·歐拉")).ok).toBe(true); // 外國人名的中點
+    expect(checkRegular(goodRegular("奇怪人😀")).ok).toBe(false);
+    const spaced = checkRegular(goodRegular("大和 結衣"));
+    expect(spaced.ok && spaced.value.name).toBe("大和結衣"); // 名字中間的空白會去掉
+    expect(checkRegular(goodRegular("簡體人", { bio: "退休的书法老师，说写字之前一定要先吃一碗热呼呼的荞麦面让心静下来。" })).ok).toBe(false);
     expect(checkRegular(goodRegular("遠藤老師", { bio: "訪問 https://example.com 了解更多更多更多更多" })).ok).toBe(false);
     expect(checkRegular(goodRegular("遠藤老師", { budget: 99 })).ok).toBe(true); // 夾限而不是拒收
     const clamped = checkRegular(goodRegular("遠藤老師", { budget: 99 }));
@@ -75,18 +89,21 @@ describe("brand, dish and regular validation", () => {
 
 describe("content service: brand, dish and regular pools", () => {
   it("brand and dish names go straight into the pool and feed the flavor source", async () => {
-    const brands = JSON.stringify({ items: ["food", "retail", "entertainment", "service"].map((g, i) => ({ group: g, name: `星屑${i}堂`, blurb: "一間很有個性的小店，老闆總是笑咪咪的。" })) });
+    const brands = JSON.stringify({ items: ["ramen", "fashion", "cinema", "spa"].map((c, i) => ({ category: c, name: `星屑${i}堂`, blurb: "一間很有個性的小店，老闆總是笑咪咪的。" })) });
     const { svc, repo } = setup(() => brands);
     const r = await svc.generate("brand");
     expect(r.accepted).toBe(4);
     expect(repo.contentCount("brand", "active")).toBe(4);
-    expect(svc.flavorSource().brands?.("retail")[0]?.name).toBe("星屑1堂");
+    expect(svc.flavorSource().brands?.("fashion")[0]?.name).toBe("星屑1堂");
+    expect(svc.flavorSource().brands?.("ramen")).toHaveLength(1);
+    expect(svc.flavorSource().brands?.("kushikatsu")).toEqual([]); // 別種店不會拿到拉麵店的簡介
 
-    const dishes = JSON.stringify({ items: [{ group: "food", name: "柚香炸物串" }, { group: "service", name: "晨光舒活療程" }] });
+    const dishes = JSON.stringify({ items: [{ category: "kushikatsu", name: "柚香炸物串" }, { category: "spa", name: "晨光舒活療程" }] });
     const d = setup(() => dishes);
     expect((await d.svc.generate("dish")).accepted).toBe(2);
-    expect(d.svc.flavorSource().dishes?.("food")).toEqual(["柚香炸物串"]);
-    expect(d.svc.flavorSource().dishes?.("retail")).toEqual([]);
+    expect(d.svc.flavorSource().dishes?.("kushikatsu")).toEqual(["柚香炸物串"]);
+    expect(d.svc.flavorSource().dishes?.("spa")).toEqual(["晨光舒活療程"]);
+    expect(d.svc.flavorSource().dishes?.("ramen")).toEqual([]); // 別種店不會拿到串炸的名字
   });
 
   it("regulars wait for approval, then register and show up for existing malls", async () => {
@@ -160,7 +177,7 @@ describe("simulation uses pooled names but stays unchanged when pools are empty"
     setFlavorSource({
       news: () => [],
       reviews: () => [],
-      brands: (g) => [1, 2, 3, 4, 5, 6].map((i) => ({ name: `${g}星屑${i}`, blurb: "很有個性的小店，老闆總是笑咪咪。" })),
+      brands: (c) => [1, 2, 3, 4, 5, 6].map((i) => ({ name: `${c}星屑${i}`, blurb: "很有個性的小店，老闆總是笑咪咪。" })),
       dishes: () => [],
     });
     const s = advanceTo(mk(), START + 40 * TICKS_PER_DAY);
@@ -179,7 +196,7 @@ describe("simulation uses pooled names but stays unchanged when pools are empty"
   });
 
   it("original creations take a pooled dish name when one is available", () => {
-    setFlavorSource({ news: () => [], reviews: () => [], dishes: (g) => (g === "food" ? ["晨光柚子串"] : []) });
+    setFlavorSource({ news: () => [], reviews: () => [], dishes: (c) => (c === "kushikatsu" ? ["晨光柚子串"] : []) });
     let s = mk();
     // 隨便做一次研發，讓它在池子有名字的時候完成
     const shop = s.shops.find((x) => x.category === "kushikatsu")!;

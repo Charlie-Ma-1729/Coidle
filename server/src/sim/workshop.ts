@@ -194,9 +194,9 @@ function matchScore(r: RecipeData, picks: Picks, totals: Record<string, number>)
 }
 
 /** 內容池裡有 AI 想的名字就挑一個沒用過的；池子空了回傳 null（而且完全不動亂數） */
-function pooledDishName(s: MallState, group: CategoryGroup, rng: Rng): string | null {
+function pooledDishName(s: MallState, category: string, rng: Rng): string | null {
   const used = new Set(s.workshop.dishes.map((d) => d.name));
-  const pool = (flavor().dishes?.(group) ?? []).filter((n) => !used.has(n));
+  const pool = (flavor().dishes?.(category) ?? []).filter((n) => !used.has(n));
   if (pool.length === 0) return null;
   return pool[rng.int(0, pool.length - 1)]!;
 }
@@ -359,7 +359,7 @@ function resolveJob(s: MallState, job: RndJob, rng: Rng): void {
     const icon = (sigDish && r ? r.icon : (job.picks.special && INGREDIENT_BY_ID[job.picks.special]?.icon) || INGREDIENT_BY_ID[job.picks.method ?? ""]?.icon) || "🍽️";
     const dish: Dish = {
       id: nextId(s, "dish"),
-      name: sigDish && r ? r.name : pooledDishName(s, cat.group, rng) ?? autoName(cat.group, job.picks),
+      name: sigDish && r ? r.name : pooledDishName(s, cat.id, rng) ?? autoName(cat.group, job.picks),
       icon,
       group: cat.group,
       categories: sigDish && r ? r.categories : undefined,

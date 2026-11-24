@@ -47,6 +47,10 @@ describe("text validation", () => {
     expect(checkText("旁邊的星巴克今天也大排長龍喔喔喔", { max: 60 })).toContain("品牌");
     expect(checkText("詳情請見 https://example.com 喔喔喔喔", { max: 60 })).toContain("網址");
     expect(checkText("這裡真是貧民窟一樣的地方啊啊啊啊啊", { max: 60 })).toContain("不當");
+    expect(checkText("這道醬汁蔥花大阪燒是今天的主打招牌", { max: 60 })).toBeNull(); // 料理名稱不算地名
+    expect(checkText("今天大阪的客人特別多特別多喔喔喔", { max: 60 })).toContain("地名");
+    expect(checkText("當季鮮蔬早市篮裡面有很多好東西喔", { max: 60 })).toContain("簡體");
+    expect(checkText("當季鮮蔬早市籃裡面有很多好東西喔", { max: 60 })).toBeNull();
     expect(checkText("太短", { max: 60 })).toBe("太短");
     expect(checkText("字".repeat(80), { max: 60 })).toBe("太長");
   });
@@ -198,8 +202,10 @@ describe("generation pipeline and budget", () => {
   it("top-up fills news, reviews, brand and dish names, then proposes events, and stops when pools are full", async () => {
     const reviews = JSON.stringify({ items: Array.from({ length: 45 }, (_, i) => ({ tier: (["high", "mid", "low"] as const)[i % 3], text: `{shop}的東西真好吃，老闆又親切，下次還要帶朋友來（${i}）` })) });
     const groups = ["food", "retail", "entertainment", "service"] as const;
-    const brands = JSON.stringify({ items: Array.from({ length: 52 }, (_, i) => ({ group: groups[i % 4], name: `星屑${i}堂`, blurb: "一間很有個性的小店，老闆總是笑咪咪的。" })) });
-    const dishes = JSON.stringify({ items: Array.from({ length: 52 }, (_, i) => ({ group: groups[i % 4], name: `晨光新品${i}號` })) });
+    const bcats = ["ramen", "fashion", "cinema", "spa"];
+    const brands = JSON.stringify({ items: Array.from({ length: 180 }, (_, i) => ({ category: bcats[i % 4], name: `星屑${i}堂`, blurb: "一間很有個性的小店，老闆總是笑咪咪的。" })) });
+    const cats = ["ramen", "fashion", "cinema", "spa"];
+    const dishes = JSON.stringify({ items: Array.from({ length: 130 }, (_, i) => ({ category: cats[i % 4], name: `晨光新品${i}號` })) });
     const seq = [news(60), reviews, brands, dishes, JSON.stringify({ items: [goodEvent("老街聯名小攤")] })];
     const { svc, repo } = setup({ dailyCallCap: 50, budgetUsd: 10 }, (n) => seq[n - 1] ?? "{}");
     expect((await svc.topUp())?.kind).toBe("news");

@@ -146,20 +146,25 @@ export function checkEvent(raw: unknown): Checked<EventDef> {
 export const BRAND_GROUPS: CategoryGroup[] = ["food", "retail", "entertainment", "service"];
 export interface BrandItem {
   group: CategoryGroup;
+  /** 這個店名是替哪一種店取的（業態 id）：簡介會描述那種店，所以只能給同業態的候選品牌用 */
+  category: string;
   name: string;
   blurb: string;
 }
 export interface DishItem {
   group: CategoryGroup;
+  /** 這個名字是替哪一種店取的（業態 id） */
+  category: string;
   name: string;
 }
 
 /** 名稱只收中日英數與少數符號，擋掉表情符號、標點洗版等 */
-const NAME_RE = /^[\u3040-\u30ff\u3400-\u9fffA-Za-z0-9・ー\- ]+$/;
+const NAME_RE = /^[\u3040-\u30ff\u3400-\u9fffA-Za-z0-9・·ー\- ]+$/;
 
 export function checkBrand(raw: unknown): Checked<BrandItem> {
   if (!isObj(raw)) return { ok: false, reason: "格式錯誤" };
-  if (!BRAND_GROUPS.includes(raw.group as CategoryGroup)) return { ok: false, reason: "group 無效" };
+  const cat = typeof raw.category === "string" ? CATEGORY_BY_ID[raw.category] : undefined;
+  if (!cat) return { ok: false, reason: "category 不是有效的業態" };
   const name = typeof raw.name === "string" ? tidy(raw.name) : "";
   const blurb = typeof raw.blurb === "string" ? tidy(raw.blurb) : "";
   const bn = checkText(name, { min: 2, max: 9 });
@@ -167,23 +172,24 @@ export function checkBrand(raw: unknown): Checked<BrandItem> {
   if (!NAME_RE.test(name)) return { ok: false, reason: "品牌名含不允許的符號" };
   const bb = checkText(blurb, { min: 8, max: 45 });
   if (bb) return { ok: false, reason: `簡介：${bb}` };
-  return { ok: true, value: { group: raw.group as CategoryGroup, name, blurb } };
+  return { ok: true, value: { group: cat.group, category: cat.id, name, blurb } };
 }
 
 export function checkDish(raw: unknown): Checked<DishItem> {
   if (!isObj(raw)) return { ok: false, reason: "格式錯誤" };
-  if (!BRAND_GROUPS.includes(raw.group as CategoryGroup)) return { ok: false, reason: "group 無效" };
+  const cat = typeof raw.category === "string" ? CATEGORY_BY_ID[raw.category] : undefined;
+  if (!cat) return { ok: false, reason: "category 不是有效的業態" };
   const name = typeof raw.name === "string" ? tidy(raw.name) : "";
   const bad = checkText(name, { min: 3, max: 14 });
   if (bad) return { ok: false, reason: `名稱：${bad}` };
   if (!NAME_RE.test(name)) return { ok: false, reason: "名稱含不允許的符號" };
-  return { ok: true, value: { group: raw.group as CategoryGroup, name } };
+  return { ok: true, value: { group: cat.group, category: cat.id, name } };
 }
 
 /** 新常客：人設與故事由模型寫，獎勵數值一律由伺服器固定（模型沒有決定權） */
 export function checkRegular(raw: unknown): Checked<RegularDef> {
   if (!isObj(raw)) return { ok: false, reason: "格式錯誤" };
-  const name = typeof raw.name === "string" ? tidy(raw.name) : "";
+  const name = typeof raw.name === "string" ? tidy(raw.name).replace(/\s+/g, "") : ""; // 「大和 結衣」→「大和結衣」，和手寫常客的寫法一致
   const bn = checkText(name, { min: 2, max: 8 });
   if (bn) return { ok: false, reason: `名字：${bn}` };
   if (!NAME_RE.test(name)) return { ok: false, reason: "名字含不允許的符號" };
@@ -191,8 +197,8 @@ export function checkRegular(raw: unknown): Checked<RegularDef> {
   if (!PERSONAS.includes(raw.persona as PersonaId)) return { ok: false, reason: "persona 無效" };
   const fav = typeof raw.fav === "string" ? raw.fav : "";
   if (!CATEGORY_BY_ID[fav]) return { ok: false, reason: "fav 不是有效的業態" };
-  const altRaw = typeof raw.alt === "string" && raw.alt !== fav ? raw.alt : undefined;
-  if (altRaw !== undefined && !CATEGORY_BY_ID[altRaw]) return { ok: false, reason: "alt 不是有效的業態" };
+  // 第二選擇是選填的：模型編了不存在的 id 就直接丟掉，不必為此整個人物作廢
+  const altRaw = typeof raw.alt === "string" && raw.alt !== fav && CATEGORY_BY_ID[raw.alt] ? raw.alt : undefined;
   const budget = typeof raw.budget === "number" && Number.isFinite(raw.budget) ? Math.round(clamp(raw.budget, 1, 1.6) * 100) / 100 : 1.25;
   const hint = typeof raw.hint === "string" ? tidy(raw.hint) : "";
   const bio = typeof raw.bio === "string" ? tidy(raw.bio) : "";
@@ -204,21 +210,21 @@ export function checkRegular(raw: unknown): Checked<RegularDef> {
   const traits: string[] = [];
   for (const x of raw.traits as unknown[]) {
     const tt = typeof x === "string" ? tidy(x) : "";
-    const bad = checkText(tt, { min: 2, max: 16 });
+    const bad = checkText(tt, { min: 2, max: 26 });
     if (bad) return { ok: false, reason: `特質：${bad}` };
     traits.push(tt);
   }
-  if (!Array.isArray(raw.stories) || raw.stories.length !== 2) return { ok: false, reason: "故事要剛好 2 段" };
+  if (!Array.isArray(raw.stories) || raw.stories.length < 2) return { ok: false, reason: "故事至少要 2 段" };
   const rewards = [
     { at: 30, reward: { funds: 20_000, idx: 0.5 } },
     { at: 65, reward: { funds: 55_000, idx: 1 } },
   ];
   const stories: RegularDef["stories"] = [];
-  for (const [i, x] of (raw.stories as unknown[]).entries()) {
+  for (const [i, x] of (raw.stories as unknown[]).slice(0, 2).entries()) { // 模型多寫了第三段就只取前兩段
     if (!isObj(x)) return { ok: false, reason: "故事格式錯誤" };
     const title = typeof x.title === "string" ? tidy(x.title) : "";
     const text = typeof x.text === "string" ? tidy(x.text) : "";
-    const bt = checkText(title, { min: 2, max: 12 });
+    const bt = checkText(title, { min: 2, max: 16 });
     if (bt) return { ok: false, reason: `故事標題：${bt}` };
     const bx = checkText(text, { min: 25, max: 110 });
     if (bx) return { ok: false, reason: `故事內文：${bx}` };
