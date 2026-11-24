@@ -35,6 +35,11 @@ export function currentUnitCost(s: Pick<MallState, "modifiers" | "tick" | "suppl
   return unitCostOf(category, currentSupplyMult(s) * supplierCostMult(s, category));
 }
 
+/** 商場越大，清潔與維護團隊越大：能力與費用都隨店數放大（5 間店時為 1 倍） */
+export function facilityScale(s: Pick<MallState, "shops">): number {
+  return Math.max(1, 0.4 + 0.12 * s.shops.length);
+}
+
 export function shopIsClosed(s: Pick<MallState, "tick">, shop: Pick<Shop, "closedUntilTick">): boolean {
   return shop.closedUntilTick > s.tick;
 }

@@ -1,0 +1,16 @@
+[Unit]
+Description=Coidle daily SQLite backup
+
+[Service]
+Type=oneshot
+User=coidle
+Group=coidle
+WorkingDirectory=/opt/coidle
+EnvironmentFile=/opt/coidle/.env
+Environment=BACKUP_DIR=/opt/coidle/backups
+ExecStart=/usr/bin/node deploy/backup.mjs
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/coidle/data /opt/coidle/backups
+PrivateTmp=true
+NoNewPrivileges=true

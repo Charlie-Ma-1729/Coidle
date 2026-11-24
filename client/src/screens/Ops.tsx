@@ -8,12 +8,14 @@ import {
   RESERVE_UPKEEP_PER_DAY,
   SPEED_PRESETS,
   UTILITIES_PER_DAY,
+  facilityScale,
   hourlyTraffic,
   inspectionScore,
   isPaused,
   presetOfSpeed,
   timeInfo,
 } from "@coidle/shared";
+import { DeviceCard } from "../components/DeviceCard";
 import { InspectionCard } from "../components/InspectionCard";
 import { Btn, Card, Chip, Field, Meter } from "../components/ui";
 import { money } from "../format";
@@ -44,7 +46,7 @@ export function Ops() {
   let wages = 0;
   for (const sh of s.shops) if (sh.mode === "direct") wages += (CATEGORY_BY_ID[sh.category]?.wage ?? 0) * sh.level;
   const reservedSeats = s.regulars.filter((r) => r.reserved).length * RESERVE_UPKEEP_PER_DAY;
-  const fixed = UTILITIES_PER_DAY + CLEANING_COST_PER_DAY[s.cleaningLevel] + MAINTENANCE_COST_PER_DAY[s.maintenanceLevel] + wages + reservedSeats;
+  const fixed = UTILITIES_PER_DAY + (CLEANING_COST_PER_DAY[s.cleaningLevel] + MAINTENANCE_COST_PER_DAY[s.maintenanceLevel]) * facilityScale(s) + wages + reservedSeats;
 
   const clock = s.clock;
   const manualPaused = clock.holds.manual;
@@ -52,6 +54,7 @@ export function Ops() {
 
   return (
     <>
+      <DeviceCard />
       <Card title="⏱ 時間流速" right={<Chip tone={isPaused(clock) ? "amber" : "green"}>{isPaused(clock) ? "⏸ 已暫停" : `${activePreset.name}・${activePreset.realHoursPerDay} 小時＝1 日`}</Chip>}>
         <div class="stack">
           <div class="seg five">

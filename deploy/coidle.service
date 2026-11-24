@@ -1,0 +1,34 @@
+# systemd：讓 Coidle 開機自動啟動、掛掉自動重啟。
+# 安裝：sudo cp deploy/coidle.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now coidle
+[Unit]
+Description=Coidle game server
+After=network.target
+
+[Service]
+Type=simple
+User=coidle
+Group=coidle
+WorkingDirectory=/opt/coidle
+EnvironmentFile=/opt/coidle/.env
+Environment=NODE_ENV=production
+ExecStart=/opt/coidle/node_modules/.bin/tsx --tsconfig tsconfig.json server/src/index.ts
+Restart=always
+RestartSec=3
+# 優雅關閉：等 SQLite 寫完
+TimeoutStopSec=20
+KillSignal=SIGTERM
+
+# 基本的系統加固
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/coidle/data /opt/coidle/backups
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryMax=1G
+
+[Install]
+WantedBy=multi-user.target

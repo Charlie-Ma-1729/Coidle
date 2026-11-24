@@ -158,6 +158,17 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).toContain("素材圖鑑");
   });
 
+  it("DeviceCard explains install and notifications, and degrades when push is unsupported", async () => {
+    store.state.value = publicState(0);
+    const { DeviceCard } = await import("./components/DeviceCard");
+    await mount(<DeviceCard />);
+    expect(container.textContent).toContain("這台裝置");
+    expect(container.textContent).toContain("遇事暫停通知");
+    const btn = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("開啟通知")) as HTMLButtonElement | undefined;
+    expect(btn).toBeDefined();
+    expect(btn!.disabled).toBe(true); // 測試環境沒有 Push API
+  });
+
   it("Reports shows an empty state before the first report", async () => {
     store.state.value = publicState(0);
     const { Reports } = await import("./screens/Reports");

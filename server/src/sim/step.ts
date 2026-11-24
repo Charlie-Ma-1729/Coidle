@@ -17,6 +17,7 @@ import {
   RESERVE_UPKEEP_PER_DAY,
   SHOP_QUALITY,
   SUPPLY_FAMILIES,
+  facilityScale,
   familyOf,
   menuAppeal,
   rivalMult,
@@ -373,11 +374,6 @@ function nudgeIndex(s: MallState, which: IndexId, target: number, alpha: number)
 }
 
 // ───────── 維運、固定成本、故障 ─────────
-/** 商場越大，清潔與維護團隊越大：能力與費用都隨店數放大（5 間店時為 1 倍） */
-export function facilityScale(s: MallState): number {
-  return Math.max(1, 0.4 + 0.12 * s.shops.length);
-}
-
 function dailyFixedCost(s: MallState): number {
   let c = UTILITIES_PER_DAY + (CLEANING_COST_PER_DAY[s.cleaningLevel] + MAINTENANCE_COST_PER_DAY[s.maintenanceLevel]) * facilityScale(s);
   for (const shop of s.shops) {

@@ -7,6 +7,7 @@ import { registerWs } from "./api/ws";
 import { loadConfig, type Config } from "./config";
 import { openDb } from "./db/db";
 import { Repo } from "./db/repo";
+import { registerSecurityHeaders, registerStatic } from "./static";
 import { MallService, ServiceError } from "./services/mallService";
 import { PushService, type PushSender } from "./services/push";
 
@@ -47,6 +48,8 @@ export function buildApp(opts: BuildOptions = {}) {
   const deps = { config, repo, service, push, now };
   registerRoutes(app, deps);
   registerWs(app, deps);
+  registerSecurityHeaders(app);
+  registerStatic(app, config.staticDir);
 
   app.addHook("onClose", async () => {
     db.close();

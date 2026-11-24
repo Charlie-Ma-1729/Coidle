@@ -18,6 +18,6 @@ const shutdown = async () => {
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
-app.listen({ port: config.port, host: "0.0.0.0" }).then(() => {
-  console.log(`Coidle server listening on :${config.port}`);
+app.listen({ port: config.port, host: config.host }).then(() => {
+  console.log(`Coidle server listening on ${config.host}:${config.port}`);
 });
