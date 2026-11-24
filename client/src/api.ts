@@ -5,7 +5,15 @@ import type {
   MemberInfo,
   PublicMallState,
   RoleId,
+  SpeedId,
 } from "@coidle/shared";
+
+export interface ClockPatch {
+  speed?: SpeedId;
+  paused?: boolean;
+  pauseOnEvents?: boolean;
+  idlePauseDays?: number | null;
+}
 
 export class ApiError extends Error {
   constructor(
@@ -53,6 +61,7 @@ export const api = {
   state: (id: number) => request<PublicMallState>("GET", `/api/malls/${id}/state`),
   activity: (id: number) => request<ActivityEntry[]>("GET", `/api/malls/${id}/activity?limit=40`),
   command: (id: number, command: Command) => request<PublicMallState>("POST", `/api/malls/${id}/commands`, { command }),
+  clock: (id: number, patch: ClockPatch) => request<PublicMallState>("POST", `/api/malls/${id}/clock`, patch),
   setRole: (id: number, role: RoleId) => request<{ members: MemberInfo[] }>("POST", `/api/malls/${id}/role`, { role }),
   regenInvite: (id: number) => request<{ inviteCode: string }>("POST", `/api/malls/${id}/invite/regenerate`, {}),
 };

@@ -10,7 +10,7 @@ function PendingEvents({ s }: { s: PublicMallState }) {
       {s.pending.map((p) => {
         const def = EVENT_BY_ID[p.defId];
         if (!def?.choice) return null;
-        const mins = Math.max(0, Math.round(ticksToRealMinutes(p.deadlineTick - s.tick)));
+        const mins = Math.max(0, Math.round(ticksToRealMinutes(p.deadlineTick - s.tick, s.clock.speed)));
         const defaultLabel = def.choice.options.find((o) => o.id === def.choice!.defaultOption)?.label;
         return (
           <div class="alert" key={p.uid}>
@@ -35,7 +35,6 @@ function PendingEvents({ s }: { s: PublicMallState }) {
 
 function Warnings({ s }: { s: PublicMallState }) {
   const warns: { tone: "red" | "amber"; text: string }[] = [];
-  if (s.protection) warns.push({ tone: "amber", text: "好一陣子沒人照顧，商場進入保全模式（半營運，人氣不再下滑）。任何人操作一下就會恢復。" });
   if (s.funds < 0) warns.push({ tone: "red", text: "帳上資金為負，自動補貨已暫停！" });
   const out = s.shops.filter((x) => x.mode === "direct" && CATEGORY_BY_ID[x.category] && ["food", "retail"].includes(CATEGORY_BY_ID[x.category]!.group) && x.stock < 1);
   for (const sh of out) warns.push({ tone: "red", text: `「${sh.name}」缺貨中` });

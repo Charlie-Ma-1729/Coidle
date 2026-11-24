@@ -13,4 +13,5 @@ export type Command =
   | { type: "upgradeShop"; shopId: string }
   | { type: "refreshShop"; shopId: string }
   | { type: "resolveEvent"; uid: string; optionId: string }
+  | { type: "resolveAllDefault" }
   | { type: "setLease"; shopId: string; enabled: boolean; rent?: number; commission?: number };

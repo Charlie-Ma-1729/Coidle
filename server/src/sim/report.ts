@@ -36,7 +36,6 @@ export function buildReport(s: MallState): DailyReport {
   if (Math.abs(dt) >= 1) notes.push(`觀光熱度 ${dt > 0 ? "上升" : "下滑"} ${Math.abs(dt).toFixed(1)}。`);
   if (s.cleanliness < 40) notes.push("館內越來越髒了，客人開始皺眉頭。");
   if (s.equipment < 40) notes.push("設備老舊，再不維護恐怕會出狀況。");
-  if (s.protection) notes.push("好一陣子沒人上線，商場進入保全模式（半營運）。");
   if (s.funds < 0) notes.push("帳上資金為負，自動補貨已暫停，快想辦法周轉！");
   if (d.events.length > 0) notes.push(`今日事件：${d.events.join("、")}。`);
 

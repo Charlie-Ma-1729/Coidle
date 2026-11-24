@@ -111,7 +111,7 @@ export function Team() {
 
       <Card title="⏱ 遊戲時間">
         <p class="small dim">
-          真實 {REAL_HOURS_PER_GAME_DAY} 小時 ＝ 遊戲 1 天（1 遊戲小時 ≈ 15 真實分鐘）。你不在線時商場照常營業，回來看營運日報就好。
+          標準流速：真實 {REAL_HOURS_PER_GAME_DAY} 小時 ＝ 遊戲 1 天（1 遊戲小時 ≈ 15 真實分鐘）。你不在線時商場照常營業，回來看營運日報就好；沒空顧的時候，到「營運」分頁把時間調慢或暫停。
         </p>
       </Card>
 

@@ -52,6 +52,18 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX idx_activity_mall ON activity(mall_id, id DESC);
   `,
+  // v2：Web Push 訂閱（遇事暫停時跳通知用）
+  `
+  CREATE TABLE push_subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    endpoint TEXT NOT NULL UNIQUE,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX idx_push_user ON push_subscriptions(user_id);
+  `,
 ];
 
 export function openDb(path: string): Db {

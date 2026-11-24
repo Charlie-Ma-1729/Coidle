@@ -8,6 +8,7 @@ import {
   PERSONA_IDS,
   SHOP_QUALITY,
   ZONES,
+  newClock,
   ZONE_BY_ID,
   type CategoryDef,
   type DayStats,
@@ -90,14 +91,16 @@ export function makeShop(s: MallState, category: string, name: string, slot: num
   };
 }
 
-export function createInitialState(seed: number, startTick: number): MallState {
+/** nowMs 是建立當下的真實時間，用來設定時鐘錨點（測試可省略） */
+export function createInitialState(seed: number, startTick: number, nowMs = 0): MallState {
   const t = timeInfo(startTick);
   const slots: Slot[] = [];
   for (const z of ZONES) {
     for (let i = 0; i < z.slots; i++) slots.push({ id: slots.length, zone: z.id, shopId: null });
   }
   const s: MallState = {
-    version: 1,
+    version: 2,
+    clock: newClock(nowMs, startTick),
     seed: seed >>> 0,
     tick: startTick,
     funds: INITIAL_FUNDS,
@@ -119,8 +122,6 @@ export function createInitialState(seed: number, startTick: number): MallState {
     modifiers: [],
     pending: [],
     cooldowns: {},
-    lastActionTick: startTick,
-    protection: false,
     today: newDayStats(t.day, { localRep: INDEX_START, touristHeat: INDEX_START }),
     reports: [],
     log: [],

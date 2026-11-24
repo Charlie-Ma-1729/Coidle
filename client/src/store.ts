@@ -1,6 +1,6 @@
 import { signal } from "@preact/signals";
 import type { ActivityEntry, Command, MallSummary, MeResponse, PublicMallState } from "@coidle/shared";
-import { api, ApiError, type MallInfo } from "./api";
+import { api, ApiError, type ClockPatch, type MallInfo } from "./api";
 import { connectMall, disconnectMall } from "./ws";
 
 export const user = signal<MeResponse["user"] | null>(null);
@@ -78,6 +78,23 @@ export async function logout(): Promise<void> {
     leaveMall();
     user.value = null;
     myMalls.value = [];
+  }
+}
+
+/** 調整時間流速／暫停（任何成員都可以） */
+export async function setClock(patch: ClockPatch, okText?: string): Promise<boolean> {
+  const id = mallId.value;
+  if (id === null) return false;
+  busy.value = true;
+  try {
+    state.value = await api.clock(id, patch);
+    if (okText) toast(okText, "ok");
+    return true;
+  } catch (e) {
+    toast(errMsg(e), "error");
+    return false;
+  } finally {
+    busy.value = false;
   }
 }
 

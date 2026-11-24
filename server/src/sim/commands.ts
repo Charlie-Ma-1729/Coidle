@@ -154,6 +154,14 @@ export function applyCommand(state: MallState, cmd: Command): CommandResult {
       break;
     }
 
+    case "resolveAllDefault": {
+      // 把所有待決事件都採預設處理（遇事暫停時「採預設處理並恢復」用）
+      if (s.pending.length === 0) return err("沒有待處理的事件");
+      const rng = rngForTick(s.seed, s.tick ^ 0x5bd1e995);
+      for (const p of s.pending.slice()) resolveChoice(s, p.uid, null, rng);
+      break;
+    }
+
     case "setLease": {
       if (!isFeatureEnabled(s, "lease")) return err("出租功能尚未開放");
       const shop = findShop(cmd.shopId);
@@ -168,6 +176,5 @@ export function applyCommand(state: MallState, cmd: Command): CommandResult {
       return err("未知的指令");
   }
 
-  s.lastActionTick = s.tick;
   return { ok: true, state: s };
 }

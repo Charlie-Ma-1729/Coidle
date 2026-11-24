@@ -164,6 +164,11 @@ export interface EventDef {
   /** 需要已解鎖的區域（未列出＝隨時可能發生） */
   needsZone?: ZoneId;
   when?: { months?: number[]; hours?: [number, number] };
+  /**
+   * 沒人在場時發生這個事件要不要讓時鐘暫停等人處理。
+   * "pause"＝預設處理很貴／來不及就損失大（必須有選項）；預設 "auto"＝照常用預設處理繼續營運。
+   */
+  attention?: "auto" | "pause";
   /** 事件發生當下立即套用 */
   effects: EffectSpec[];
   /** 有選項的事件：逾時未回應就採預設選項 */
@@ -230,8 +235,39 @@ export interface DailyReport {
 /** 傳給玩家的狀態：不含亂數種子與內部冷卻表 */
 export type PublicMallState = Omit<MallState, "seed" | "cooldowns">;
 
+/** 時間流速檔位（倍率相對於基準 TIME_SCALE） */
+export type SpeedId = "standard" | "relaxed" | "slow" | "glacial";
+
+/**
+ * 每座商場自己的時鐘。真實時間 → tick 的換算只看這個，
+ * 模擬引擎本身只認 tick，所以暫停／調速都不需要改引擎。
+ */
+export interface MallClock {
+  /** 玩家選擇的流速倍率（1＝標準：真實 6 小時為 1 遊戲日） */
+  speed: number;
+  /** 換算錨點：真實時間 anchorRealMs 對應 tick anchorTick */
+  anchorRealMs: number;
+  anchorTick: number;
+  /** 任何一個暫停原因成立，有效流速就是 0（時間靜止） */
+  holds: {
+    /** 玩家手動暫停 */
+    manual: boolean;
+    /** 久未上線自動暫停 */
+    idle: boolean;
+    /** 因待處理重要事件而暫停（事件 uid） */
+    events: string[];
+  };
+  /** 沒人在場時遇到重要事件是否自動暫停 */
+  pauseOnEvents: boolean;
+  /** 全員超過幾個真實日沒上線就自動暫停；null＝關閉 */
+  idlePauseDays: number | null;
+  /** 最後一次有成員造訪的真實時間 */
+  lastVisitRealMs: number;
+}
+
 export interface MallState {
-  version: 1;
+  version: 2;
+  clock: MallClock;
   seed: number;
   tick: number;
   funds: number;
@@ -254,8 +290,6 @@ export interface MallState {
   modifiers: Modifier[];
   pending: PendingChoice[];
   cooldowns: Record<string, number>;
-  lastActionTick: number;
-  protection: boolean;
   today: DayStats;
   reports: DailyReport[];
   log: LogEntry[];

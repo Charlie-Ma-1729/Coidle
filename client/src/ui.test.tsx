@@ -1,6 +1,7 @@
-// @vitest-environment happy-dom
+// DOM 環境在 beforeAll 才載入（而不是用 @vitest-environment）：
+// 在網路磁碟上載入 happy-dom 要將近 1 分鐘，會撞到 vitest 寫死的 60 秒 worker 啟動逾時。
 import { render } from "preact";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { TICKS_PER_DAY, TICK_MINUTES, type PublicMallState } from "@coidle/shared";
 import { advanceTo, createInitialState } from "../../server/src/sim";
 
@@ -19,7 +20,14 @@ let store: typeof import("./store");
 let container: HTMLElement;
 
 beforeAll(async () => {
-  store = await import("./store");
+  const { GlobalRegistrator } = await import("@happy-dom/global-registrator");
+  GlobalRegistrator.register({ url: "http://localhost:5173" });
+  store = await import("./store"); // 它會用到 document，所以要在 DOM 就緒之後才載入
+}, 240_000);
+
+afterAll(async () => {
+  const { GlobalRegistrator } = await import("@happy-dom/global-registrator");
+  await GlobalRegistrator.unregister();
 });
 
 beforeEach(() => {
@@ -126,6 +134,44 @@ describe("screens render with real simulated state", () => {
     expect(container.querySelectorAll(".hours-chart .h").length).toBe(24);
     expect(container.textContent).toContain("清潔等級");
     expect(container.textContent).toContain("每日固定成本");
+  });
+
+  it("Ops shows the time-speed card with all presets and a pause button", async () => {
+    store.state.value = publicState(1);
+    const { Ops } = await import("./screens/Ops");
+    await mount(<Ops />);
+    expect(container.textContent).toContain("時間流速");
+    for (const name of ["標準", "悠閒", "慢活", "極慢", "暫停"]) expect(container.textContent).toContain(name);
+    expect(container.textContent).toContain("6 小時/日");
+    expect(container.textContent).toContain("遇到重要事件自動暫停");
+    expect(container.querySelectorAll(".seg.five button").length).toBe(5);
+  });
+
+  it("ClockBanner is hidden while the clock runs, and shows resume when manually paused", async () => {
+    const { ClockBanner } = await import("./components/ClockBanner");
+    store.state.value = publicState(1);
+    await mount(<ClockBanner />);
+    expect(container.textContent).toBe("");
+
+    store.state.value = publicState(1, (s) => {
+      s.clock.holds.manual = true;
+    });
+    await mount(<ClockBanner />);
+    expect(container.textContent).toContain("時間已暫停");
+    expect(container.textContent).toContain("恢復");
+  });
+
+  it("ClockBanner lists the event that paused the clock with its options", async () => {
+    const { ClockBanner } = await import("./components/ClockBanner");
+    store.state.value = publicState(0, (s) => {
+      s.pending.push({ uid: "ev7", defId: "typhoon_warning", deadlineTick: s.tick + 500 });
+      s.clock.holds.events.push("ev7");
+    });
+    await mount(<ClockBanner />);
+    expect(container.textContent).toContain("有重要事件等你決定");
+    expect(container.textContent).toContain("颱風接近");
+    expect(container.textContent).toContain("提早閉館");
+    expect(container.textContent).toContain("全部採預設處理並恢復");
   });
 
   it("Team shows members and the invite code for owners", async () => {

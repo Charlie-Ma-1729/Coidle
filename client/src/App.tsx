@@ -1,5 +1,7 @@
 import { signal } from "@preact/signals";
 import { useEffect } from "preact/hooks";
+import { isPaused, presetOfSpeed } from "@coidle/shared";
+import { ClockBanner } from "./components/ClockBanner";
 import { Toasts } from "./components/ui";
 import { clockText, dateText } from "./format";
 import { Auth } from "./screens/Auth";
@@ -32,6 +34,11 @@ function MallShell() {
         <span class="mall-name">{mallInfo.value?.name}</span>
         <span class="spacer" />
         {s && (
+          <button class={`speed-chip ${isPaused(s.clock) ? "paused" : ""}`} onClick={() => (tab.value = "ops")} title="時間流速（點一下調整）">
+            {isPaused(s.clock) ? "⏸ 已暫停" : s.clock.speed === 1 ? "⏩ 標準" : `🐢 ${presetOfSpeed(s.clock.speed).name}`}
+          </button>
+        )}
+        {s && (
           <span class="clock" title="遊戲內時間">
             {dateText(s.tick)} {clockText(s.tick)}
           </span>
@@ -39,6 +46,7 @@ function MallShell() {
         <span class={`dot ${online.value ? "on" : ""}`} title={online.value ? "即時連線中" : "連線中斷，重新連線中…"} />
       </header>
       {!online.value && <div class="banner">連線中斷，正在重新連線…（畫面可能不是最新）</div>}
+      <ClockBanner />
       <div class="layout">
         <nav class="nav" aria-label="主選單">
           {TABS.map((t) => (

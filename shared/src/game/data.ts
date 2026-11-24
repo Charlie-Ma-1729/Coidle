@@ -28,10 +28,10 @@ export const INDEX_START = 50;
 export const INDEX_FLOOR_ABS = 15;
 export const INDEX_FLOOR_RATIO = 0.3;
 export const INDEX_MAX_DAILY_DROP = 6;
-/** 超過這麼多 tick 沒有任何玩家操作就進入保全模式（真實 72 小時） */
-export const PROTECTION_AFTER_TICKS = 72 * TICKS_PER_HOUR * TIME_SCALE;
-/** 補算上限：最多補算真實 14 天 */
+/** 補算上限：最多補算 14 個「標準流速」的真實日 */
 export const MAX_CATCHUP_TICKS = 14 * TICKS_PER_DAY * TIME_SCALE;
+/** 「有人在場」的判定：有 WebSocket 連線，或最近這麼久有成員操作過 */
+export const PRESENCE_WINDOW_MS = 15 * 60_000;
 
 export const UTILITIES_PER_DAY = 45_000;
 export const CLEANING_COST_PER_DAY = [0, 25_000, 60_000] as const;
@@ -279,6 +279,8 @@ export const EVENTS: EventDef[] = [
     weight: 2,
     cooldownTicks: 288 * 6,
     when: { months: [8, 9, 10] },
+    // 預設（提早閉館）或賭一把都影響很大，沒人在場時暫停等人決定
+    attention: "pause",
     effects: [],
     choice: {
       deadlineTicks: 24,

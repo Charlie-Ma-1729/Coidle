@@ -35,6 +35,7 @@ export function registerWs(app: FastifyInstance, deps: Deps): void {
     let room = rooms.get(mallId);
     if (!room) rooms.set(mallId, (room = new Set()));
     room.add(socket);
+    service.addConnection(mallId, 1); // 有人在場：重要事件不必暫停時鐘
 
     // 連上線先給一份最新狀態（同時算「有在照顧」）；用戶端之後也可送 {"type":"sync"} 重新取得
     const sendSnapshot = () => {
@@ -61,6 +62,7 @@ export function registerWs(app: FastifyInstance, deps: Deps): void {
 
     socket.on("close", () => {
       clearInterval(heartbeat);
+      service.addConnection(mallId, -1);
       room.delete(socket);
       if (room.size === 0) rooms.delete(mallId);
     });

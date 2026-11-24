@@ -121,6 +121,26 @@ export class Repo {
     return r?.state_json;
   }
 
+  // ── push subscriptions
+  addPushSub(userId: number, endpoint: string, p256dh: string, auth: string, now: number): void {
+    this.db
+      .prepare(
+        "INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth",
+      )
+      .run(userId, endpoint, p256dh, auth, now);
+  }
+  removePushSub(endpoint: string, userId?: number): void {
+    if (userId === undefined) this.db.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?").run(endpoint);
+    else this.db.prepare("DELETE FROM push_subscriptions WHERE endpoint = ? AND user_id = ?").run(endpoint, userId);
+  }
+  pushSubsForMall(mallId: number): { endpoint: string; p256dh: string; auth: string }[] {
+    return this.db
+      .prepare(
+        "SELECT p.endpoint, p.p256dh, p.auth FROM push_subscriptions p JOIN memberships m ON m.user_id = p.user_id WHERE m.mall_id = ?",
+      )
+      .all(mallId) as { endpoint: string; p256dh: string; auth: string }[];
+  }
+
   // ── activity feed
   addActivity(mallId: number, ts: number, actor: string, text: string): ActivityEntry {
     const r = this.db.prepare("INSERT INTO activity (mall_id, ts, actor, text) VALUES (?, ?, ?, ?)").run(mallId, ts, actor, text);

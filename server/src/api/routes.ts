@@ -1,9 +1,10 @@
 import type { FastifyInstance } from "fastify";
-import { ROLE_IDS, type MeResponse, type RoleId } from "@coidle/shared";
+import { ROLE_IDS, speedPreset, type MeResponse, type RoleId } from "@coidle/shared";
 import { hashPassword, hashToken, newInviteCode, newSessionToken, verifyPassword } from "../auth/password";
 import type { Config } from "../config";
 import type { Repo } from "../db/repo";
-import { MallService, ServiceError } from "../services/mallService";
+import { MallService, ServiceError, type ClockPatch } from "../services/mallService";
+import type { PushService } from "../services/push";
 import type { Command } from "../sim";
 import { COOKIE_NAME, SESSION_TTL_MS, requireUser, sessionToken, setSessionCookie } from "./auth";
 
@@ -11,6 +12,7 @@ export interface Deps {
   config: Config;
   repo: Repo;
   service: MallService;
+  push: PushService;
   now: () => number;
 }
 
@@ -35,7 +37,7 @@ function mallIdOf(params: unknown): number {
 }
 
 export function registerRoutes(app: FastifyInstance, deps: Deps): void {
-  const { config, repo, service, now } = deps;
+  const { config, repo, service, push, now } = deps;
   const failures = new Map<string, { n: number; resetAt: number }>();
 
   const requireMember = (req: Parameters<typeof requireUser>[0], mallId: number) => {
@@ -171,6 +173,51 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const code = newInviteCode();
     repo.setInviteCode(mallId, code);
     return { inviteCode: code };
+  });
+
+  // ── 時間流速／暫停（任何成員都可以；最快就是預設，調速只會往慢走）
+  app.post("/api/malls/:id/clock", async (req) => {
+    const mallId = mallIdOf(req.params);
+    const { user } = requireMember(req, mallId);
+    const b = body(req);
+    const patch: ClockPatch = {};
+    if (b.speed !== undefined) {
+      if (typeof b.speed !== "string" || !speedPreset(b.speed)) throw new ServiceError(400, "流速檔位無效");
+      patch.speed = b.speed as ClockPatch["speed"];
+    }
+    for (const key of ["paused", "pauseOnEvents"] as const) {
+      if (b[key] !== undefined) {
+        if (typeof b[key] !== "boolean") throw new ServiceError(400, `${key} 格式不正確`);
+        patch[key] = b[key] as boolean;
+      }
+    }
+    if (b.idlePauseDays !== undefined) {
+      if (b.idlePauseDays !== null && typeof b.idlePauseDays !== "number") throw new ServiceError(400, "天數格式不正確");
+      patch.idlePauseDays = b.idlePauseDays as number | null;
+    }
+    return service.setClock(mallId, { id: user.id, displayName: user.display_name }, patch);
+  });
+
+  // ── 推播訂閱（瀏覽器端要等 M4 的 Service Worker 才能真的收到）
+  app.get("/api/push/key", async (req) => {
+    requireUser(req, repo, now());
+    return { publicKey: push.publicKey };
+  });
+
+  app.post("/api/push/subscribe", async (req) => {
+    const user = requireUser(req, repo, now());
+    const b = body(req);
+    const keys = (b.keys ?? {}) as Record<string, unknown>;
+    const endpoint = str(b.endpoint, "endpoint", 10, 600);
+    if (!/^https:\/\//.test(endpoint)) throw new ServiceError(400, "endpoint 必須是 https");
+    repo.addPushSub(user.id, endpoint, str(keys.p256dh, "p256dh", 10, 200), str(keys.auth, "auth", 10, 100), now());
+    return { ok: true };
+  });
+
+  app.post("/api/push/unsubscribe", async (req) => {
+    const user = requireUser(req, repo, now());
+    repo.removePushSub(str(body(req).endpoint, "endpoint", 10, 600), user.id);
+    return { ok: true };
   });
 
   // ── 開發／營運：開放內容的旗標（需要 ADMIN_TOKEN）

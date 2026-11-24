@@ -34,8 +34,8 @@ export function dateText(tick: number): string {
 }
 
 /** 遊戲 tick 數 → 「約 X 分鐘／X 小時」的真實時間說明 */
-export function realDuration(ticks: number): string {
-  const m = Math.round(ticksToRealMinutes(ticks));
+export function realDuration(ticks: number, speed = 1): string {
+  const m = Math.round(ticksToRealMinutes(ticks, speed));
   if (m < 60) return `約 ${m} 分鐘`;
   const h = m / 60;
   return h < 24 ? `約 ${h.toFixed(h < 10 ? 1 : 0).replace(/\.0$/, "")} 小時` : `約 ${(h / 24).toFixed(1).replace(/\.0$/, "")} 天`;

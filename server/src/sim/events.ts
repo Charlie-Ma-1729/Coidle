@@ -66,9 +66,8 @@ function pushModifier(s: MallState, m: MallState["modifiers"][number]): void {
   if (s.modifiers.length > MAX_MODIFIERS) s.modifiers.splice(0, s.modifiers.length - MAX_MODIFIERS);
 }
 
-/** 事件帶來的人氣變動（正向不受保全模式限制；負向在保全模式中忽略） */
+/** 事件帶來的人氣變動 */
 function applyIndexDelta(s: MallState, which: "localRep" | "touristHeat", amount: number): void {
-  if (amount < 0 && s.protection) return;
   const v = clamp(s[which] + amount, 0, 100);
   s[which] = v;
   if (which === "localRep") s.peakLocal = Math.max(s.peakLocal, v);
@@ -91,23 +90,30 @@ function eligible(s: MallState, def: EventDef, time: TimeInfo): boolean {
   return true;
 }
 
-export function maybeSpawnEvent(s: MallState, time: TimeInfo, rng: Rng): void {
-  if (!rng.chance(EVENT_RATE_PER_TICK)) return;
-  const pool = EVENTS.filter((e) => eligible(s, e, time));
-  if (pool.length === 0) return;
-  const idx = rng.weighted(pool.map((e) => e.weight));
-  const def = pool[idx];
-  if (def) spawnEvent(s, def, rng);
+export interface Spawned {
+  def: EventDef;
+  /** 有選項的事件會產生待決項目，這是它的 uid */
+  uid: string | null;
 }
 
-export function spawnEvent(s: MallState, def: EventDef, rng: Rng): void {
+export function maybeSpawnEvent(s: MallState, time: TimeInfo, rng: Rng): Spawned | null {
+  if (!rng.chance(EVENT_RATE_PER_TICK)) return null;
+  const pool = EVENTS.filter((e) => eligible(s, e, time));
+  if (pool.length === 0) return null;
+  const idx = rng.weighted(pool.map((e) => e.weight));
+  const def = pool[idx];
+  return def ? { def, uid: spawnEvent(s, def, rng) } : null;
+}
+
+export function spawnEvent(s: MallState, def: EventDef, rng: Rng): string | null {
   s.cooldowns[def.id] = s.tick + def.cooldownTicks;
   addLog(s, "event", `【${def.title}】${def.text}`);
   s.today.events.push(def.title);
   applyEffects(s, def.effects, rng);
-  if (def.choice) {
-    s.pending.push({ uid: nextId(s, "ev"), defId: def.id, deadlineTick: s.tick + def.choice.deadlineTicks });
-  }
+  if (!def.choice) return null;
+  const uid = nextId(s, "ev");
+  s.pending.push({ uid, defId: def.id, deadlineTick: s.tick + def.choice.deadlineTicks });
+  return uid;
 }
 
 /** 玩家或逾時預設選擇。回傳是否成功。 */
@@ -121,6 +127,8 @@ export function resolveChoice(s: MallState, uid: string, optionId: string | null
   const option = def.choice.options.find((o) => o.id === (optionId ?? def.choice!.defaultOption));
   if (!option) return false;
   s.pending.splice(idx, 1);
+  // 處理完這個事件，就解除它造成的暫停
+  s.clock.holds.events = s.clock.holds.events.filter((u) => u !== uid);
   applyEffects(s, option.effects, rng);
   addLog(s, "event", byDefault ? `【${def.title}】沒人回應，採預設處理：${option.label}` : `【${def.title}】已處理：${option.label}`);
   return true;

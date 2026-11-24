@@ -63,7 +63,7 @@ function SlotTile({ s, slot, onShop, onBuild }: { s: PublicMallState; slot: Slot
   }
   if (building) {
     const cat = CATEGORY_BY_ID[building.category ?? ""];
-    const mins = Math.round(ticksToRealMinutes(building.completeTick - s.tick));
+    const mins = Math.round(ticksToRealMinutes(building.completeTick - s.tick, s.clock.speed));
     return (
       <div class="slot building" style={{ cursor: "default" }}>
         <span class="s-ico">🚧</span>

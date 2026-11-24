@@ -233,4 +233,14 @@ input[type="range"] { width: 100%; accent-color: var(--pink); }
 .report-row { display: grid; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .report-row:last-child { border-bottom: 0; }
 
+.speed-chip { border: 1px solid rgba(79, 227, 255, 0.45); background: rgba(79, 227, 255, 0.08); color: var(--cyan); border-radius: 999px; padding: 3px 12px; font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
+.speed-chip.paused { border-color: rgba(255, 200, 87, 0.7); background: rgba(255, 200, 87, 0.12); color: var(--amber); animation: pulse 2s infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 12px rgba(255, 200, 87, 0.45); } }
+.seg.five { grid-template-columns: repeat(5, 1fr); }
+.seg.five button { padding: 8px 2px; }
+.seg button.pause.active { border-color: var(--amber); box-shadow: 0 0 12px rgba(255, 200, 87, 0.35); }
+.clock-banner { display: grid; gap: 10px; padding: 12px 16px; background: rgba(255, 200, 87, 0.1); border-bottom: 1px solid rgba(255, 200, 87, 0.4); }
+.clock-banner.event { background: rgba(255, 107, 107, 0.1); border-bottom-color: rgba(255, 107, 107, 0.5); }
+.cb-head { display: grid; gap: 2px; }
+.cb-event { display: grid; gap: 6px; padding: 8px 0; border-top: 1px solid var(--line); }
 .banner { padding: 8px 14px; font-size: 0.85rem; text-align: center; background: rgba(255, 107, 107, 0.15); color: var(--red); }

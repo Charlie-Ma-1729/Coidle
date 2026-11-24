@@ -8,11 +8,14 @@ import { loadConfig, type Config } from "./config";
 import { openDb } from "./db/db";
 import { Repo } from "./db/repo";
 import { MallService, ServiceError } from "./services/mallService";
+import { PushService, type PushSender } from "./services/push";
 
 export interface BuildOptions {
   config?: Partial<Config>;
   /** 測試用：可注入假時鐘 */
   now?: () => number;
+  /** 測試用：可注入假的推播送出函式 */
+  pushSender?: PushSender;
 }
 
 export function buildApp(opts: BuildOptions = {}) {
@@ -20,7 +23,8 @@ export function buildApp(opts: BuildOptions = {}) {
   const now = opts.now ?? Date.now;
   const db = openDb(config.dbPath);
   const repo = new Repo(db);
-  const service = new MallService(repo, now);
+  const push = new PushService(repo, config, now, opts.pushSender ?? null);
+  const service = new MallService(repo, now, push);
   const app = Fastify({ logger: false, bodyLimit: 16 * 1024, trustProxy: config.production });
 
   app.register(cookie);
@@ -40,7 +44,7 @@ export function buildApp(opts: BuildOptions = {}) {
     time: new Date().toISOString(),
   }));
 
-  const deps = { config, repo, service, now };
+  const deps = { config, repo, service, push, now };
   registerRoutes(app, deps);
   registerWs(app, deps);
 
@@ -48,5 +52,5 @@ export function buildApp(opts: BuildOptions = {}) {
     db.close();
   });
 
-  return { app, service, repo, config };
+  return { app, service, repo, config, push };
 }

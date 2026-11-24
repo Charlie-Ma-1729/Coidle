@@ -113,11 +113,10 @@ describe("economy: bad settings and absence", () => {
     expect(bad.localRep).toBeGreaterThanOrEqual(Math.max(15, 0.3 * bad.peakLocal));
   });
 
-  it("long absence with auto-restock still earns; protection mode stops index decay", () => {
+  it("long absence with auto-restock still earns and indices never fall below their floor", () => {
     let s = createInitialState(5, START);
     s = run(s, 20); // 20 個遊戲日完全沒人操作
-    console.log("absent 20d:", summary(s), "protection:", s.protection);
-    expect(s.protection).toBe(true);
+    expect(s.funds).toBeGreaterThan(2_000_000);
     expect(s.localRep).toBeGreaterThanOrEqual(Math.max(15, 0.3 * s.peakLocal));
     expect(s.touristHeat).toBeGreaterThanOrEqual(Math.max(15, 0.3 * s.peakTourist));
   });

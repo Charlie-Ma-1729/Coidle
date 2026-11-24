@@ -3,13 +3,16 @@ import {
   CATEGORY_BY_ID,
   CLEANING_COST_PER_DAY,
   MAINTENANCE_COST_PER_DAY,
+  SPEED_PRESETS,
   UTILITIES_PER_DAY,
   hourlyTraffic,
+  isPaused,
+  presetOfSpeed,
   timeInfo,
 } from "@coidle/shared";
 import { Btn, Card, Chip, Field } from "../components/ui";
 import { money } from "../format";
-import { run, state } from "../store";
+import { run, setClock, state } from "../store";
 
 const LEVEL_NAMES = ["不做", "標準", "加強"] as const;
 
@@ -37,8 +40,47 @@ export function Ops() {
   for (const sh of s.shops) if (sh.mode === "direct") wages += (CATEGORY_BY_ID[sh.category]?.wage ?? 0) * sh.level;
   const fixed = UTILITIES_PER_DAY + CLEANING_COST_PER_DAY[s.cleaningLevel] + MAINTENANCE_COST_PER_DAY[s.maintenanceLevel] + wages;
 
+  const clock = s.clock;
+  const manualPaused = clock.holds.manual;
+  const activePreset = presetOfSpeed(clock.speed);
+
   return (
     <>
+      <Card title="⏱ 時間流速" right={<Chip tone={isPaused(clock) ? "amber" : "green"}>{isPaused(clock) ? "⏸ 已暫停" : `${activePreset.name}・${activePreset.realHoursPerDay} 小時＝1 日`}</Chip>}>
+        <div class="stack">
+          <div class="seg five">
+            {SPEED_PRESETS.map((p) => (
+              <button key={p.id} class={!manualPaused && activePreset.id === p.id ? "active" : ""} onClick={() => setClock({ speed: p.id }, `時間流速：${p.name}`)}>
+                <b>{p.name}</b>
+                <small>{p.realHoursPerDay} 小時/日</small>
+              </button>
+            ))}
+            <button class={manualPaused ? "active pause" : "pause"} onClick={() => setClock({ paused: !manualPaused }, manualPaused ? "時間繼續" : "時間已暫停")}>
+              <b>{manualPaused ? "▶ 恢復" : "⏸ 暫停"}</b>
+              <small>{manualPaused ? "繼續走" : "時間靜止"}</small>
+            </button>
+          </div>
+          <p class="small dim">
+            最快就是「標準」。調慢會讓營收、升級、事件、建造<b>一起變慢</b>；暫停時間完全靜止——不營業、不扣成本、不發生事件，什麼都不會流失。任何隊員都可以調整，不用等別人同意。
+          </p>
+          <label class="row">
+            <input type="checkbox" checked={clock.pauseOnEvents} onChange={(e) => setClock({ pauseOnEvents: (e.target as HTMLInputElement).checked })} />
+            <span>沒人在場時，遇到重要事件自動暫停並通知</span>
+          </label>
+          <p class="small dim">例如颱風要不要閉館。只有「放著會吃大虧」的事件才會暫停，一般事件照常營運；有人在線時不會暫停。</p>
+          <Field label="全員連續幾天沒上線就自動暫停（保底）">
+            <select value={clock.idlePauseDays ?? ""} onChange={(e) => setClock({ idlePauseDays: (e.target as HTMLSelectElement).value === "" ? null : Number((e.target as HTMLSelectElement).value) })}>
+              <option value="">關閉（離線期間照常營運）</option>
+              {[1, 2, 3, 5, 7, 14].map((d) => (
+                <option key={d} value={d}>
+                  {d} 天
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+      </Card>
+
       <Card title="🕒 營業時間" right={<Chip tone="green">涵蓋約 {Math.round((captured / total) * 100)}% 的客流</Chip>}>
         <div class="stack">
           <div class="row">

@@ -3,6 +3,7 @@ import {
   CATEGORY_BY_ID,
   MAX_SHOP_LEVEL,
   REFRESH_COST,
+  SUPPLY_LEAD_TICKS,
   SUPPLY_LOT,
   UPGRADE_BASE_COST,
   UPGRADE_TICKS,
@@ -132,7 +133,7 @@ export function ShopSheet({ shopId, onClose }: { shopId: string; onClose: () => 
           {stocked && (
             <Card title="📦 庫存與自動補貨" right={<Chip tone={shop.stock < 1 ? "red" : "dim"}>庫存 {num(shop.stock)}</Chip>}>
               <div class="stack">
-                {incoming > 0 && <p class="small dim">在途 {num(incoming)} 份（約 3 遊戲小時 ≈ 45 分鐘送到）</p>}
+                {incoming > 0 && <p class="small dim">在途 {num(incoming)} 份（約 {realDuration(SUPPLY_LEAD_TICKS, s.clock.speed)}內送到）</p>}
                 <label class="row">
                   <input type="checkbox" checked={rule.enabled} onChange={(e) => setRule({ ...rule, enabled: (e.target as HTMLInputElement).checked })} />
                   <span>啟用自動補貨</span>
@@ -177,7 +178,7 @@ export function ShopSheet({ shopId, onClose }: { shopId: string; onClose: () => 
       <Card title="🔨 翻新升級">
         <div class="stack">
           <p class="small dim">
-            升級提升品質、容量與滿意度（Lv.{shop.level} → Lv.{Math.min(MAX_SHOP_LEVEL, shop.level + 1)}），施工 {realDuration(UPGRADE_TICKS)}；店內人事成本同步增加。
+            升級提升品質、容量與滿意度（Lv.{shop.level} → Lv.{Math.min(MAX_SHOP_LEVEL, shop.level + 1)}），施工 {realDuration(UPGRADE_TICKS, s.clock.speed)}；店內人事成本同步增加。
           </p>
           <Btn kind="primary" disabled={shop.level >= MAX_SHOP_LEVEL || upgrading} onClick={() => run({ type: "upgradeShop", shopId: shop.id }, "開始翻新")}>
             {shop.level >= MAX_SHOP_LEVEL ? "已達最高等級" : upgrading ? "翻新中…" : `升級（${money(upgradeCost)}）`}

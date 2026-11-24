@@ -1,4 +1,5 @@
 import { GAME_UTC_OFFSET_HOURS, PERSONAS, TICKS_PER_DAY, TICK_MINUTES, TIME_SCALE } from "./data";
+import type { MallClock, SpeedId } from "./types";
 
 const TICK_MS = TICK_MINUTES * 60_000;
 const DAY_MS = 86_400_000;
@@ -56,9 +57,79 @@ export function realMsFromTick(tick: number): number {
   return CLOCK_ANCHOR_REAL_MS + (tick * TICK_MS - CLOCK_ANCHOR_GAME_MS) / TIME_SCALE;
 }
 
-/** 遊戲 tick 數換算成真實分鐘數 */
-export function ticksToRealMinutes(ticks: number): number {
-  return (ticks * TICK_MINUTES) / TIME_SCALE;
+/** 遊戲 tick 數換算成真實分鐘數（speed 是時鐘的流速倍率，預設標準 1） */
+export function ticksToRealMinutes(ticks: number, speed = 1): number {
+  return (ticks * TICK_MINUTES) / (TIME_SCALE * Math.max(speed, 1e-9));
+}
+
+// ───────── 每座商場的時鐘：調速、暫停 ─────────
+
+export interface SpeedPreset {
+  id: SpeedId;
+  name: string;
+  /** 相對於標準的倍率 */
+  mult: number;
+  /** 真實幾小時為 1 遊戲日 */
+  realHoursPerDay: number;
+}
+
+/** 最快的「標準」就是預設；調速只會往慢走。暫停另外用 holds.manual 表示。 */
+export const SPEED_PRESETS: SpeedPreset[] = [
+  { id: "standard", name: "標準", mult: 1, realHoursPerDay: 6 },
+  { id: "relaxed", name: "悠閒", mult: 1 / 2, realHoursPerDay: 12 },
+  { id: "slow", name: "慢活", mult: 1 / 4, realHoursPerDay: 24 },
+  { id: "glacial", name: "極慢", mult: 1 / 12, realHoursPerDay: 72 },
+];
+
+export function speedPreset(id: string): SpeedPreset | undefined {
+  return SPEED_PRESETS.find((p) => p.id === id);
+}
+
+/** 目前流速最接近哪個檔位 */
+export function presetOfSpeed(speed: number): SpeedPreset {
+  return SPEED_PRESETS.reduce((best, p) => (Math.abs(p.mult - speed) < Math.abs(best.mult - speed) ? p : best), SPEED_PRESETS[0]!);
+}
+
+export function newClock(nowMs: number, tick: number): MallClock {
+  return {
+    speed: 1,
+    anchorRealMs: nowMs,
+    anchorTick: tick,
+    holds: { manual: false, idle: false, events: [] },
+    pauseOnEvents: true,
+    idlePauseDays: null,
+    lastVisitRealMs: nowMs,
+  };
+}
+
+export function isPaused(clock: MallClock): boolean {
+  return clock.holds.manual || clock.holds.idle || clock.holds.events.length > 0;
+}
+
+/** 有效流速：只要任何暫停原因成立就是 0 */
+export function effectiveSpeed(clock: MallClock): number {
+  return isPaused(clock) ? 0 : clock.speed;
+}
+
+/** 真實時間 → 這座商場此刻應該走到的 tick */
+export function tickAt(clock: MallClock, nowMs: number): number {
+  const v = effectiveSpeed(clock);
+  if (v === 0) return clock.anchorTick;
+  const elapsed = Math.max(0, nowMs - clock.anchorRealMs);
+  return clock.anchorTick + Math.floor((elapsed * TIME_SCALE * v) / TICK_MS);
+}
+
+/** 這座商場走到 tick 時，對應的真實時間（時鐘正在運轉時才有意義） */
+export function realMsAtTick(clock: MallClock, tick: number): number {
+  const v = effectiveSpeed(clock);
+  if (v === 0) return clock.anchorRealMs;
+  return clock.anchorRealMs + ((tick - clock.anchorTick) * TICK_MS) / (TIME_SCALE * v);
+}
+
+/** 把錨點移到「現在這個 tick＋現在的真實時間」。改速／恢復時用，確保時間不會跳動。 */
+export function reanchor(clock: MallClock, tick: number, nowMs: number): void {
+  clock.anchorRealMs = nowMs;
+  clock.anchorTick = tick;
 }
 
 export const WEEKDAY_NAMES = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"] as const;

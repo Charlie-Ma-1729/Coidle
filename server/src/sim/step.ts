@@ -13,7 +13,6 @@ import {
   MAX_REPORTS,
   PERSONAS,
   PERSONA_BY_ID,
-  PROTECTION_AFTER_TICKS,
   SHOP_QUALITY,
   SUPPLY_LEAD_TICKS,
   SUPPLY_LOT,
@@ -51,20 +50,28 @@ const INDEX_ALPHA = 0.0012;
 const OUTSIDE_WEIGHT = 0.12;
 
 // ───────── 主迴圈：推進一個 tick（就地修改 s） ─────────
-export function stepTick(s: MallState): void {
+export interface StepContext {
+  /** 目前沒有任何成員在場（沒有連線、也沒有最近的操作） */
+  nobodyPresent: boolean;
+}
+
+/**
+ * 推進一個 tick（就地修改 s）。
+ * 回傳 true 代表時鐘因「重要事件」被攔下：呼叫端應該停止繼續推進，
+ * 等玩家處理（s.clock.holds.events 已加入該事件）。
+ */
+export function stepTick(s: MallState, ctx: StepContext = { nobodyPresent: false }): boolean {
   const t = s.tick;
   const time = timeInfo(t);
   const rng = rngForTick(s.seed, t);
 
   if (s.today.day !== time.day) rollover(s, time);
 
-  s.protection = t - s.lastActionTick > PROTECTION_AFTER_TICKS;
-
   completeBuilds(s);
   receiveDeliveries(s);
   expireModifiers(s);
   resolveDeadlines(s, rng);
-  maybeSpawnEvent(s, time, rng);
+  const spawned = maybeSpawnEvent(s, time, rng);
   if (t % 6 === 0) autoRestock(s);
 
   for (const shop of s.shops) shop.served = 0;
@@ -72,6 +79,13 @@ export function stepTick(s: MallState): void {
   upkeep(s, units, rng);
 
   s.tick = t + 1;
+
+  // 沒人在場時遇到「放著會吃大虧」的事件：時鐘停在這裡等人處理
+  if (spawned?.uid && spawned.def.attention === "pause" && ctx.nobodyPresent && s.clock.pauseOnEvents) {
+    s.clock.holds.events.push(spawned.uid);
+    return true;
+  }
+  return false;
 }
 
 export function isOpen(s: MallState, time: TimeInfo): boolean {
@@ -158,14 +172,13 @@ function runCustomers(s: MallState, time: TimeInfo, rng: Rng): number {
   if (open.length === 0) return 0;
   const diversity = new Set(s.shops.map((x) => x.category)).size;
   const divMult = clamp(0.6 + 0.08 * diversity, 0.6, 2);
-  const prot = s.protection ? 0.5 : 1;
   let units = 0;
 
   for (const p of PERSONAS) {
     const share = (time.weekend ? p.weekendHourShare : p.hourShare)[time.hour] ?? 0;
     const daily = p.dailyBase * (time.weekend ? p.weekendMult : 1);
     const lambda =
-      ((daily * share) / TICKS_PER_HOUR) * indexFactor(s, p) * divMult * trafficMult(s, p.id, s.tick) * prot;
+      ((daily * share) / TICKS_PER_HOUR) * indexFactor(s, p) * divMult * trafficMult(s, p.id, s.tick);
     const n = rng.poisson(lambda);
     for (let i = 0; i < n; i++) units += serveGroup(s, rng, p, open);
   }
@@ -276,7 +289,6 @@ function nudgeIndex(s: MallState, which: IndexId, target: number, alpha: number)
   const cur = s[which];
   let next = cur + (target - cur) * alpha;
   if (next < cur) {
-    if (s.protection) return; // 保全模式：不再下滑
     const peak = which === "localRep" ? s.peakLocal : s.peakTourist;
     const floor = Math.max(INDEX_FLOOR_ABS, INDEX_FLOOR_RATIO * peak, s.today.startIndex[which] - INDEX_MAX_DAILY_DROP);
     next = Math.max(next, Math.min(cur, floor));
@@ -329,7 +341,7 @@ function rollover(s: MallState, time: TimeInfo): void {
     }
   }
   // 整天沒人上門：口碑慢慢被淡忘
-  if (s.today.groups === 0 && !s.protection && s.shops.length > 0) {
+  if (s.today.groups === 0 && s.shops.length > 0) {
     for (const which of ["localRep", "touristHeat"] as const) {
       const peak = which === "localRep" ? s.peakLocal : s.peakTourist;
       const floor = Math.max(INDEX_FLOOR_ABS, INDEX_FLOOR_RATIO * peak, s.today.startIndex[which] - INDEX_MAX_DAILY_DROP);
