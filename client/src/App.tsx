@@ -1,32 +1,33 @@
-import { signal } from "@preact/signals";
 import { useEffect } from "preact/hooks";
-import { isPaused, presetOfSpeed } from "@coidle/shared";
+import { EVENT_BY_ID, guestTodoCount, isPaused, presetOfSpeed } from "@coidle/shared";
 import { ClockBanner } from "./components/ClockBanner";
 import { Toasts } from "./components/ui";
 import { clockText, dateText } from "./format";
+import { goTo, tab, type Tab } from "./nav";
 import { Auth } from "./screens/Auth";
 import { Floor } from "./screens/Floor";
+import { Guests } from "./screens/Guests";
 import { Lobby } from "./screens/Lobby";
-import { Ops } from "./screens/Ops";
+import { More } from "./screens/More";
 import { Overview } from "./screens/Overview";
 import { Reports } from "./screens/Reports";
-import { Team } from "./screens/Team";
 import { authReady, bootstrap, mallId, mallInfo, online, state, user } from "./store";
-
-type Tab = "overview" | "floor" | "reports" | "ops" | "team";
-const tab = signal<Tab>("overview");
 
 const TABS: { id: Tab; icon: string; label: string }[] = [
   { id: "overview", icon: "🏠", label: "總覽" },
   { id: "floor", icon: "🏬", label: "樓層" },
+  { id: "guests", icon: "🙋", label: "客人" },
   { id: "reports", icon: "📰", label: "日報" },
-  { id: "ops", icon: "⚙️", label: "營運" },
-  { id: "team", icon: "👥", label: "團隊" },
+  { id: "more", icon: "☰", label: "更多" },
 ];
 
 function MallShell() {
   const s = state.value;
-  const pending = s?.pending.length ?? 0;
+  // 總覽徽章：待決的一般事件；面對客人的事（客訴、評價、客人事件）算在「客人」分頁
+  const badges: Partial<Record<Tab, number>> = {
+    overview: s ? s.pending.filter((p) => EVENT_BY_ID[p.defId]?.category !== "guest").length : 0,
+    guests: s ? guestTodoCount(s) : 0,
+  };
   return (
     <div class="app">
       <header class="topbar">
@@ -34,7 +35,7 @@ function MallShell() {
         <span class="mall-name">{mallInfo.value?.name}</span>
         <span class="spacer" />
         {s && (
-          <button class={`speed-chip ${isPaused(s.clock) ? "paused" : ""}`} onClick={() => (tab.value = "ops")} title="時間流速（點一下調整）">
+          <button class={`speed-chip ${isPaused(s.clock) ? "paused" : ""}`} onClick={() => goTo("more", "ops")} title="時間流速（點一下調整）">
             {isPaused(s.clock) ? "⏸ 已暫停" : s.clock.speed === 1 ? "⏩ 標準" : `🐢 ${presetOfSpeed(s.clock.speed).name}`}
           </button>
         )}
@@ -49,13 +50,16 @@ function MallShell() {
       <ClockBanner />
       <div class="layout">
         <nav class="nav" aria-label="主選單">
-          {TABS.map((t) => (
-            <button key={t.id} class={tab.value === t.id ? "active" : ""} onClick={() => (tab.value = t.id)}>
-              <span class="ico">{t.icon}</span>
-              <span>{t.label}</span>
-              {t.id === "overview" && pending > 0 && <span class="badge">{pending}</span>}
-            </button>
-          ))}
+          {TABS.map((t) => {
+            const n = badges[t.id] ?? 0;
+            return (
+              <button key={t.id} class={tab.value === t.id ? "active" : ""} onClick={() => goTo(t.id)}>
+                <span class="ico">{t.icon}</span>
+                <span>{t.label}</span>
+                {n > 0 && <span class="badge">{n}</span>}
+              </button>
+            );
+          })}
         </nav>
         <main class="content">
           {!s ? (
@@ -64,12 +68,12 @@ function MallShell() {
             <Overview />
           ) : tab.value === "floor" ? (
             <Floor />
+          ) : tab.value === "guests" ? (
+            <Guests />
           ) : tab.value === "reports" ? (
             <Reports />
-          ) : tab.value === "ops" ? (
-            <Ops />
           ) : (
-            <Team />
+            <More />
           )}
         </main>
       </div>

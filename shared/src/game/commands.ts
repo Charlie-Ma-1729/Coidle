@@ -14,4 +14,10 @@ export type Command =
   | { type: "refreshShop"; shopId: string }
   | { type: "resolveEvent"; uid: string; optionId: string }
   | { type: "resolveAllDefault" }
+  /** 處理收件匣的客訴／評價；optionId 是客訴處理方式或評價回覆方式 */
+  | { type: "resolveInbox"; uid: string; optionId: string }
+  /** 巡場：聽聽此刻店裡客人的心聲 */
+  | { type: "walkFloor" }
+  | { type: "walkAct"; voiceId: string; optionId: string }
+  | { type: "setGuestPrefs"; complaintStance?: "soft" | "balanced" | "firm"; autoReplyReviews?: boolean }
   | { type: "setLease"; shopId: string; enabled: boolean; rent?: number; commission?: number };

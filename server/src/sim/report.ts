@@ -37,6 +37,8 @@ export function buildReport(s: MallState): DailyReport {
   if (s.cleanliness < 40) notes.push("館內越來越髒了，客人開始皺眉頭。");
   if (s.equipment < 40) notes.push("設備老舊，再不維護恐怕會出狀況。");
   if (s.funds < 0) notes.push("帳上資金為負，自動補貨已暫停，快想辦法周轉！");
+  if (d.complaints > 0) notes.push(`收到 ${d.complaints} 則客訴。`);
+  if (d.reviews > 0) notes.push(`網路上多了 ${d.reviews} 則評價，平均 ${(d.starsSum / d.reviews).toFixed(1)} 顆星。`);
   if (d.events.length > 0) notes.push(`今日事件：${d.events.join("、")}。`);
 
   let headline: string;
@@ -63,5 +65,6 @@ export function buildReport(s: MallState): DailyReport {
     events: d.events.slice(),
     headline,
     notes,
+    guest: { complaints: d.complaints, reviews: d.reviews, avgStars: d.reviews > 0 ? d.starsSum / d.reviews : null },
   };
 }

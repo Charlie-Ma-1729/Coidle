@@ -146,7 +146,8 @@ export type EventCategory =
   | "supply"
   | "market"
   | "luck"
-  | "festival";
+  | "festival"
+  | "guest";
 
 export interface EventOption {
   id: string;
@@ -209,6 +210,10 @@ export interface DayStats {
   groupsByPersona: Record<PersonaId, number>;
   startIndex: { localRep: number; touristHeat: number };
   events: string[];
+  /** 今日客人互動：收到的客訴數、客訴累計處理、收到的評價數與星數總和 */
+  complaints: number;
+  reviews: number;
+  starsSum: number;
 }
 
 export interface DailyReport {
@@ -230,10 +235,61 @@ export interface DailyReport {
   events: string[];
   headline: string;
   notes: string[];
+  guest?: { complaints: number; reviews: number; avgStars: number | null };
 }
 
-/** 傳給玩家的狀態：不含亂數種子與內部冷卻表 */
-export type PublicMallState = Omit<MallState, "seed" | "cooldowns">;
+/** 傳給玩家的狀態：不含亂數種子與內部冷卻／累積表 */
+export type PublicMallState = Omit<MallState, "seed" | "cooldowns" | "grievances">;
+
+// ───────── 客人互動層 ─────────
+
+export type ComplaintCause = "stockout" | "wait" | "price" | "dirty" | "facility" | "quality";
+/** 客人的語氣（玩家看得到；是不是「奧客」要自己從語氣判斷，不會直接告訴你） */
+export type ComplaintTone = "sincere" | "angry" | "demanding";
+/** 離線時的客訴處理偏好 */
+export type Stance = "soft" | "balanced" | "firm";
+export type ReviewReplyId = "polite" | "funny" | "sincere" | "ignore";
+
+/** 收件匣：等你處理的客人互動（客訴、評價） */
+export interface InboxItem {
+  uid: string;
+  kind: "complaint" | "review";
+  createdTick: number;
+  deadlineTick: number;
+  shopId: string | null;
+  persona: PersonaId;
+  text: string;
+  cause?: ComplaintCause;
+  tone?: ComplaintTone;
+  stars?: number;
+}
+
+export interface ReviewRecord {
+  tick: number;
+  persona: PersonaId;
+  stars: number;
+  text: string;
+  shopName: string | null;
+  /** 怎麼回的；"auto" 代表用了離線自動回覆 */
+  reply: ReviewReplyId | "auto" | null;
+}
+
+/** 巡場時聽到的客人心聲 */
+export interface WalkVoice {
+  id: string;
+  shopId: string;
+  persona: PersonaId;
+  mood: "happy" | "annoyed" | "angry" | "curious";
+  situation: string;
+  text: string;
+  expireTick: number;
+}
+
+export interface GuestPrefs {
+  complaintStance: Stance;
+  /** 評價沒人回時，自動送出禮貌的回覆 */
+  autoReplyReviews: boolean;
+}
 
 /** 時間流速檔位（倍率相對於基準 TIME_SCALE） */
 export type SpeedId = "standard" | "relaxed" | "slow" | "glacial";
@@ -266,7 +322,7 @@ export interface MallClock {
 }
 
 export interface MallState {
-  version: 2;
+  version: 3;
   clock: MallClock;
   seed: number;
   tick: number;
@@ -290,6 +346,12 @@ export interface MallState {
   modifiers: Modifier[];
   pending: PendingChoice[];
   cooldowns: Record<string, number>;
+  /** 各店各種不滿的累積（內部用，滿了就變成一則客訴）：鍵為 "shopId:cause" */
+  grievances: Record<string, number>;
+  inbox: InboxItem[];
+  reviewLog: ReviewRecord[];
+  guestPrefs: GuestPrefs;
+  walk: { nextTick: number; voices: WalkVoice[] };
   today: DayStats;
   reports: DailyReport[];
   log: LogEntry[];

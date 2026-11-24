@@ -12,9 +12,11 @@ import {
   type RestockRule,
 } from "@coidle/shared";
 import { resolveChoice } from "./events";
+import { resolveInbox, walkAct, walkFloor } from "./guests";
 import { rngForTick } from "./rng";
 import { addLog, isFeatureEnabled, isZoneUnlocked, nextId } from "./state";
-import { placeOrder } from "./step";
+import { isOpen, placeOrder } from "./step";
+import { timeInfo } from "./time";
 
 export type { Command };
 
@@ -159,6 +161,36 @@ export function applyCommand(state: MallState, cmd: Command): CommandResult {
       if (s.pending.length === 0) return err("沒有待處理的事件");
       const rng = rngForTick(s.seed, s.tick ^ 0x5bd1e995);
       for (const p of s.pending.slice()) resolveChoice(s, p.uid, null, rng);
+      break;
+    }
+
+    case "resolveInbox": {
+      const r = resolveInbox(s, cmd.uid, cmd.optionId);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "walkFloor": {
+      const r = walkFloor(s, rngForTick(s.seed, s.tick ^ 0x3c6ef372), isOpen(s, timeInfo(s.tick)));
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "walkAct": {
+      const r = walkAct(s, cmd.voiceId, cmd.optionId);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "setGuestPrefs": {
+      if (cmd.complaintStance !== undefined) {
+        if (!["soft", "balanced", "firm"].includes(cmd.complaintStance)) return err("處理偏好無效");
+        s.guestPrefs.complaintStance = cmd.complaintStance;
+      }
+      if (cmd.autoReplyReviews !== undefined) {
+        if (typeof cmd.autoReplyReviews !== "boolean") return err("設定無效");
+        s.guestPrefs.autoReplyReviews = cmd.autoReplyReviews;
+      }
       break;
     }
 

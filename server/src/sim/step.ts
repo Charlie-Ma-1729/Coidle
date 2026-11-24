@@ -20,12 +20,14 @@ import {
   TICKS_PER_HOUR,
   UTILITIES_PER_DAY,
   categoryHasStock,
+  type ComplaintCause,
   type IndexId,
   type MallState,
   type PersonaDef,
   type Shop,
 } from "@coidle/shared";
 import { expireModifiers, maybeSpawnEvent, resolveDeadlines } from "./events";
+import { generateDailyReviews, noteGrievance, resolveInboxDeadlines } from "./guests";
 import { buildReport } from "./report";
 import { rngForTick, type Rng } from "./rng";
 import {
@@ -71,6 +73,7 @@ export function stepTick(s: MallState, ctx: StepContext = { nobodyPresent: false
   receiveDeliveries(s);
   expireModifiers(s);
   resolveDeadlines(s, rng);
+  resolveInboxDeadlines(s);
   const spawned = maybeSpawnEvent(s, time, rng);
   if (t % 6 === 0) autoRestock(s);
 
@@ -215,6 +218,7 @@ function serveGroup(s: MallState, rng: Rng, p: PersonaDef, open: Shop[]): number
     shop.day.stockouts++;
     s.today.walkouts++;
     recordSample(s, p, 0.2);
+    noteGrievance(s, rng, shop, p.id, "stockout");
     // 一半的客人會改去別家
     const alt = rng.chance(0.5) ? pickShop(s, rng, p, open.filter((x) => x !== shop && (x.mode === "lease" || !categoryHasStock(CATEGORY_BY_ID[x.category]!) || x.stock > 0)), false) : null;
     if (!alt) return 0;
@@ -229,6 +233,7 @@ function serveGroup(s: MallState, rng: Rng, p: PersonaDef, open: Shop[]): number
     shop.day.lost++;
     s.today.walkouts++;
     recordSample(s, p, 0.35);
+    noteGrievance(s, rng, shop, p.id, "wait");
     return 0;
   }
   const qty = Math.min(size, cap - shop.served, hasStock ? shop.stock : size);
@@ -261,7 +266,14 @@ function serveGroup(s: MallState, rng: Rng, p: PersonaDef, open: Shop[]): number
     s.totalRevenue += commission;
   }
 
-  recordSample(s, p, satisfaction(s, p, shop, cat.refPrice));
+  const sat = satisfaction(s, p, shop, cat.refPrice);
+  recordSample(s, p, sat);
+  if (sat < 0.45) {
+    // 買到了但不開心：把原因記下來，累積夠了就變成客訴
+    const cause: ComplaintCause | null =
+      s.cleanliness < 45 ? "dirty" : s.equipment < 45 ? "facility" : shop.price > cat.refPrice * 1.25 ? "price" : shop.freshness < 40 ? "quality" : null;
+    if (cause) noteGrievance(s, rng, shop, p.id, cause);
+  }
   return qty;
 }
 
@@ -349,6 +361,7 @@ function rollover(s: MallState, time: TimeInfo): void {
     }
   }
 
+  generateDailyReviews(s); // 今天客人的感受 → 幾則線上評價（先於日報，才算得進去）
   s.reports.push(buildReport(s));
   if (s.reports.length > MAX_REPORTS) s.reports.splice(0, s.reports.length - MAX_REPORTS);
 

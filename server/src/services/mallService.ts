@@ -37,7 +37,7 @@ export interface Notifier {
 }
 
 export function toPublic(s: MallState): PublicMallState {
-  const { seed: _seed, cooldowns: _cooldowns, ...rest } = s;
+  const { seed: _seed, cooldowns: _cooldowns, grievances: _grievances, ...rest } = s;
   return rest;
 }
 
@@ -71,6 +71,16 @@ export function describeCommand(s: MallState, cmd: Command, actor: string): stri
       return `${actor} 把待決事件全部採預設處理`;
     case "setLease":
       return `${actor} 調整了「${shopName(cmd.shopId)}」的出租設定`;
+    case "resolveInbox": {
+      const item = s.inbox.find((i) => i.uid === cmd.uid);
+      return item?.kind === "review" ? `${actor} 回覆了一則評價` : `${actor} 處理了一則客訴`;
+    }
+    case "walkFloor":
+      return `${actor} 巡了一圈場`;
+    case "walkAct":
+      return null; // 巡場中的小動作不洗版團隊動態
+    case "setGuestPrefs":
+      return `${actor} 調整了客人互動的處理偏好`;
   }
 }
 

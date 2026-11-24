@@ -174,6 +174,82 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).toContain("全部採預設處理並恢復");
   });
 
+  it("Guests shows complaints with tone, reviews with stars, guest events and the walk card", async () => {
+    store.state.value = publicState(0, (s) => {
+      const shop = s.shops[0]!;
+      s.inbox.push(
+        { uid: "in1", kind: "complaint", createdTick: s.tick, deadlineTick: s.tick + 100, shopId: shop.id, persona: "local", text: `「${shop.name}」又缺貨！`, cause: "stockout", tone: "angry" },
+        { uid: "in2", kind: "review", createdTick: s.tick, deadlineTick: s.tick + 200, shopId: shop.id, persona: "tourist", text: "太好吃了", stars: 5 },
+      );
+      s.pending.push({ uid: "ev60", defId: "lost_child", deadlineTick: s.tick + 100 });
+      s.reviewLog.push({ tick: s.tick, persona: "local", stars: 2, text: "有點失望", shopName: shop.name, reply: "sincere" });
+    });
+    const { Guests } = await import("./screens/Guests");
+    await mount(<Guests />);
+    expect(container.textContent).toContain("巡場");
+    expect(container.textContent).toContain("待處理（3）");
+    expect(container.textContent).toContain("客訴・缺貨");
+    expect(container.textContent).toContain("語氣：憤怒");
+    expect(container.textContent).toContain("誠懇道歉");
+    expect(container.textContent).toContain("網路評價");
+    expect(container.textContent).toContain("幽默回應");
+    expect(container.textContent).toContain("走失的小朋友");
+    expect(container.textContent).toContain("近期評價");
+    expect(container.textContent).toContain("已回覆：誠懇道歉／改進");
+    expect(container.textContent).toContain("逾時將依偏好自動");
+    expect(container.querySelectorAll(".stars").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("Guests shows an empty inbox, a walk cooldown hint and the stance picker", async () => {
+    store.state.value = publicState(0, (s) => {
+      s.walk.nextTick = s.tick + 1000;
+    });
+    const { Guests } = await import("./screens/Guests");
+    await mount(<Guests />);
+    expect(container.textContent).toContain("目前沒有客人在等你");
+    expect(container.textContent).toContain("保守");
+    expect(container.textContent).toContain("強硬");
+    const walkBtn = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("巡一圈")) as HTMLButtonElement;
+    expect(walkBtn.disabled).toBe(true);
+  });
+
+  it("Guests lists walk voices with their options and costs", async () => {
+    store.state.value = publicState(0, (s) => {
+      s.walk.voices.push({ id: "wv1", shopId: s.shops[0]!.id, persona: "tourist", mood: "annoyed", situation: "queue", text: "排了好久", expireTick: s.tick + 50 });
+    });
+    const { Guests } = await import("./screens/Guests");
+    await mount(<Guests />);
+    expect(container.textContent).toContain("排了好久");
+    expect(container.textContent).toContain("發號碼牌");
+    expect(container.textContent).toContain("請大家喝冰麥茶");
+  });
+
+  it("Overview points to the Guests tab instead of listing guest events", async () => {
+    store.state.value = publicState(0, (s) => {
+      s.pending.push({ uid: "ev61", defId: "lost_child", deadlineTick: s.tick + 100 });
+      s.inbox.push({ uid: "in3", kind: "review", createdTick: s.tick, deadlineTick: s.tick + 100, shopId: null, persona: "local", text: "ok", stars: 4 });
+    });
+    const { Overview } = await import("./screens/Overview");
+    await mount(<Overview />);
+    expect(container.textContent).toContain("客人那邊有 2 件事等你");
+    expect(container.textContent).not.toContain("走失的小朋友");
+  });
+
+  it("More switches between ops and team", async () => {
+    store.state.value = publicState(0);
+    store.user.value = { id: 1, username: "u", displayName: "我" };
+    store.mallId.value = 1;
+    store.mallInfo.value = { id: 1, name: "測試", inviteCode: "ABCD2345", members: [{ userId: 1, displayName: "我", role: "gm", isOwner: true, joinedAt: 0 }] };
+    const { More } = await import("./screens/More");
+    const nav = await import("./nav");
+    nav.moreSub.value = "ops";
+    await mount(<More />);
+    expect(container.textContent).toContain("時間流速");
+    nav.moreSub.value = "team";
+    await tick();
+    expect(container.textContent).toContain("ABCD2345");
+  });
+
   it("Team shows members and the invite code for owners", async () => {
     store.state.value = publicState(0);
     store.user.value = { id: 1, username: "u", displayName: "我" };

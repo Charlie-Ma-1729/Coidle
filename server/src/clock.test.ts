@@ -117,11 +117,11 @@ describe("event pause in the sim", () => {
     expect(r2.ok && r2.state.clock.holds.events).toEqual([]);
   });
 
-  it("migrates a v1 state to v2 with a clock and no protection fields", () => {
+  it("migrates a v1 state all the way up, with a clock and no protection fields", () => {
     const v1 = { ...createInitialState(1, 1000, 0), version: 1, protection: true, lastActionTick: 5 } as Record<string, unknown>;
     delete v1.clock;
     const m = migrateState(v1, 123_456);
-    expect(m.version).toBe(2);
+    expect(m.version).toBe(3);
     expect(m.clock.anchorTick).toBe(1000);
     expect(m.clock.anchorRealMs).toBe(123_456);
     expect("protection" in m).toBe(false);

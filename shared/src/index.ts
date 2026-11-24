@@ -4,6 +4,7 @@ export * from "./game/roles";
 export * from "./game/commands";
 export * from "./game/time";
 export * from "./game/helpers";
+export * from "./game/guests";
 
 export interface HealthResponse {
   ok: true;

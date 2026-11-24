@@ -1,34 +1,30 @@
-import { CATEGORY_BY_ID, EVENT_BY_ID, LEVELS, ticksToRealMinutes, timeInfo, periodOf, type PublicMallState } from "@coidle/shared";
+import { CATEGORY_BY_ID, EVENT_BY_ID, LEVELS, guestTodoCount, timeInfo, periodOf, type PublicMallState } from "@coidle/shared";
+import { EventChoiceCard } from "../components/EventCards";
 import { Btn, Card, Chip, Empty, Meter } from "../components/ui";
 import { clockText, money, moneyShort, num, pct } from "../format";
-import { run, state } from "../store";
+import { goTo } from "../nav";
+import { state } from "../store";
 
 function PendingEvents({ s }: { s: PublicMallState }) {
-  if (s.pending.length === 0) return null;
+  // 面對客人的事件放在「客人」分頁；總覽只顯示其餘事件，另加一個提醒
+  const others = s.pending.filter((p) => EVENT_BY_ID[p.defId]?.category !== "guest");
+  const guestTodo = guestTodoCount(s);
   return (
     <>
-      {s.pending.map((p) => {
-        const def = EVENT_BY_ID[p.defId];
-        if (!def?.choice) return null;
-        const mins = Math.max(0, Math.round(ticksToRealMinutes(p.deadlineTick - s.tick, s.clock.speed)));
-        const defaultLabel = def.choice.options.find((o) => o.id === def.choice!.defaultOption)?.label;
-        return (
-          <div class="alert" key={p.uid}>
-            <h4>
-              ⚡ {def.title} <span class="dim small">（{mins >= 60 ? `${Math.round(mins / 6) / 10} 小時` : `${mins} 分鐘`}內回覆）</span>
-            </h4>
-            <p class="small">{def.text}</p>
-            <div class="row">
-              {def.choice.options.map((o) => (
-                <Btn key={o.id} small kind={o.id === def.choice!.defaultOption ? "ghost" : "primary"} onClick={() => run({ type: "resolveEvent", uid: p.uid, optionId: o.id }, "已處理")}>
-                  {o.label}
-                </Btn>
-              ))}
-            </div>
-            <p class="small dim">沒人回應就會：{defaultLabel}</p>
+      {others.map((p) => (
+        <EventChoiceCard key={p.uid} s={s} p={p} />
+      ))}
+      {guestTodo > 0 && (
+        <div class="alert cyan">
+          <h4>👥 客人那邊有 {guestTodo} 件事等你</h4>
+          <p class="small dim">客訴、評價、突發狀況。放著不管會依你的處理偏好自動處理，但親自處理通常更划算。</p>
+          <div class="row">
+            <Btn small kind="primary" onClick={() => goTo("guests")}>
+              去看看
+            </Btn>
           </div>
-        );
-      })}
+        </div>
+      )}
     </>
   );
 }
@@ -37,9 +33,9 @@ function Warnings({ s }: { s: PublicMallState }) {
   const warns: { tone: "red" | "amber"; text: string }[] = [];
   if (s.funds < 0) warns.push({ tone: "red", text: "帳上資金為負，自動補貨已暫停！" });
   const out = s.shops.filter((x) => x.mode === "direct" && CATEGORY_BY_ID[x.category] && ["food", "retail"].includes(CATEGORY_BY_ID[x.category]!.group) && x.stock < 1);
-  for (const sh of out) warns.push({ tone: "red", text: `「${sh.name}」缺貨中` });
+  if (out.length > 0) warns.push({ tone: "red", text: `${out.map((x) => `「${x.name}」`).join("")}缺貨中` });
   const closed = s.shops.filter((x) => x.closedUntilTick > s.tick);
-  for (const sh of closed) warns.push({ tone: "red", text: `「${sh.name}」暫停營業中` });
+  if (closed.length > 0) warns.push({ tone: "red", text: `${closed.map((x) => `「${x.name}」`).join("")}暫停營業中` });
   if (s.cleanliness < 40) warns.push({ tone: "amber", text: "館內太髒了，提高清潔等級吧" });
   if (s.equipment < 40) warns.push({ tone: "amber", text: "設備老舊，小心故障，提高維護等級" });
   const stale = s.shops.filter((x) => x.mode === "direct" && x.freshness < 40);

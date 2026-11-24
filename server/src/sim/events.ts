@@ -1,4 +1,4 @@
-import { EVENTS, EVENT_BY_ID, type EffectSpec, type EventDef, type MallState } from "@coidle/shared";
+import { EVENTS, EVENT_BY_ID, PERSONA_BY_ID, type EffectSpec, type EventDef, type MallState, type PersonaId } from "@coidle/shared";
 import type { Rng } from "./rng";
 import { addLog, isZoneUnlocked, nextId } from "./state";
 import type { TimeInfo } from "./time";
@@ -66,8 +66,19 @@ function pushModifier(s: MallState, m: MallState["modifiers"][number]): void {
   if (s.modifiers.length > MAX_MODIFIERS) s.modifiers.splice(0, s.modifiers.length - MAX_MODIFIERS);
 }
 
+/** 依客人類型把人氣變動套到對應的指標（在地口碑／觀光熱度，兩者皆可的各一半） */
+export function applyPersonaIndex(s: MallState, persona: PersonaId, amount: number): void {
+  const idx = PERSONA_BY_ID[persona].index;
+  if (idx === "both") {
+    applyIndexDelta(s, "localRep", amount / 2);
+    applyIndexDelta(s, "touristHeat", amount / 2);
+  } else {
+    applyIndexDelta(s, idx, amount);
+  }
+}
+
 /** 事件帶來的人氣變動 */
-function applyIndexDelta(s: MallState, which: "localRep" | "touristHeat", amount: number): void {
+export function applyIndexDelta(s: MallState, which: "localRep" | "touristHeat", amount: number): void {
   const v = clamp(s[which] + amount, 0, 100);
   s[which] = v;
   if (which === "localRep") s.peakLocal = Math.max(s.peakLocal, v);

@@ -45,6 +45,9 @@ export function newDayStats(day: number, idx: { localRep: number; touristHeat: n
     groupsByPersona: personaRecord(),
     startIndex: { localRep: idx.localRep, touristHeat: idx.touristHeat },
     events: [],
+    complaints: 0,
+    reviews: 0,
+    starsSum: 0,
   };
 }
 
@@ -99,7 +102,7 @@ export function createInitialState(seed: number, startTick: number, nowMs = 0): 
     for (let i = 0; i < z.slots; i++) slots.push({ id: slots.length, zone: z.id, shopId: null });
   }
   const s: MallState = {
-    version: 2,
+    version: 3,
     clock: newClock(nowMs, startTick),
     seed: seed >>> 0,
     tick: startTick,
@@ -122,6 +125,11 @@ export function createInitialState(seed: number, startTick: number, nowMs = 0): 
     modifiers: [],
     pending: [],
     cooldowns: {},
+    grievances: {},
+    inbox: [],
+    reviewLog: [],
+    guestPrefs: { complaintStance: "balanced", autoReplyReviews: true },
+    walk: { nextTick: 0, voices: [] },
     today: newDayStats(t.day, { localRep: INDEX_START, touristHeat: INDEX_START }),
     reports: [],
     log: [],
