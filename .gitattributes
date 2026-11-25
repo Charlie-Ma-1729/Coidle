@@ -1,0 +1,4 @@
+# 部署檔會在 Linux 上執行／讀取：一律用 LF（在 Windows 上 autocrlf 會把它們變成 CRLF，導致 .sh 無法執行）
+deploy/** text eol=lf
+*.sh text eol=lf
+.env.example text eol=lf

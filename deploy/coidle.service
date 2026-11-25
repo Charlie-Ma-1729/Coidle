@@ -1,5 +1,5 @@
 # systemd：讓 Coidle 開機自動啟動、掛掉自動重啟。
-# 安裝：sudo cp deploy/coidle.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now coidle
+# 安裝：sudo cp /opt/coidle/deploy/coidle.service /etc/systemd/system/coidle.service
 [Unit]
 Description=Coidle game server
 After=network.target
@@ -11,7 +11,8 @@ Group=coidle
 WorkingDirectory=/opt/coidle
 EnvironmentFile=/opt/coidle/.env
 Environment=NODE_ENV=production
-ExecStart=/opt/coidle/node_modules/.bin/tsx --tsconfig tsconfig.json server/src/index.ts
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/local/bin/node /opt/coidle/node_modules/tsx/dist/cli.mjs --tsconfig tsconfig.json server/src/index.ts
 Restart=always
 RestartSec=3
 # 優雅關閉：等 SQLite 寫完

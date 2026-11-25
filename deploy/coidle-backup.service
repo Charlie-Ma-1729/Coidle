@@ -8,7 +8,7 @@ Group=coidle
 WorkingDirectory=/opt/coidle
 EnvironmentFile=/opt/coidle/.env
 Environment=BACKUP_DIR=/opt/coidle/backups
-ExecStart=/usr/bin/node deploy/backup.mjs
+ExecStart=/usr/local/bin/node deploy/backup.mjs
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/opt/coidle/data /opt/coidle/backups
