@@ -997,6 +997,34 @@ describe("舊總覽／樓層的行為，在新位置的等價驗證", () => {
     expect(container.textContent).toMatch(/★/);
   });
 
+  it("各店損益：店很多時預設只看賠錢的，可切分頁，點開才看原因", async () => {
+    const { ShopPlCard } = await import("./screens/ShopPl");
+    const mk = (i: number, net: number) => ({
+      id: `s${i}`,
+      name: `店${i}`,
+      category: "拉麵",
+      mode: "direct" as const,
+      revenue: Math.max(0, net),
+      cost: 0,
+      wage: Math.max(0, -net),
+      net,
+      verdict: net > 0 ? ("profit" as const) : net < 0 ? ("loss" as const) : ("even" as const),
+      reasons: [{ tone: "bad" as const, text: `原因${i}` }],
+    });
+    const shops = [...Array.from({ length: 20 }, (_, i) => mk(i, 1000 + i)), ...Array.from({ length: 5 }, (_, i) => mk(100 + i, -500 - i))];
+    await mount(<ShopPlCard mb={{ shops, shopsNet: 1, publicCosts: 2, otherCosts: 3, operating: -4 }} />);
+    const rows = () => container.querySelectorAll(".shop-pl-row");
+    expect(container.textContent).toContain("賠錢 5");
+    expect(container.textContent).toContain("賺錢 20");
+    expect(rows().length).toBe(5); // 預設分頁＝賠錢
+    expect(container.querySelector(".shop-pl-row")!.textContent).toContain("店104"); // 賠最多的排前面
+    expect(container.querySelector(".shop-pl-row[open]")).toBeNull(); // 預設收合
+    const all = [...container.querySelectorAll<HTMLButtonElement>(".shop-pl-tabs button")].find((b) => b.textContent?.startsWith("全部"))!;
+    all.click();
+    await tick();
+    expect(rows().length).toBe(25);
+  });
+
   it("ShopSheet 顯示定價、庫存與自動補貨、新鮮感、升級", async () => {
     store.state.value = publicState(2);
     const shop = store.state.value!.shops.find((x) => x.name === "串八")!;
