@@ -585,7 +585,7 @@ export interface GuestPrefs {
 }
 
 /** 時間流速檔位（倍率相對於基準 TIME_SCALE） */
-export type SpeedId = "standard" | "relaxed" | "slow" | "glacial";
+export type SpeedId = "turbo" | "rapid" | "brisk" | "standard" | "relaxed" | "slow";
 
 /**
  * 每座商場自己的時鐘。真實時間 → tick 的換算只看這個，

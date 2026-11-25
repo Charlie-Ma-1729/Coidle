@@ -229,6 +229,8 @@ input[type="range"] { width: 100%; accent-color: var(--pink); }
 .alert.cyan .quote { border-left-color: var(--cyan); }
 @keyframes pulse { 50% { box-shadow: 0 0 12px rgba(255, 200, 87, 0.45); } }
 .seg.five { grid-template-columns: repeat(5, 1fr); }
+.seg.seven { grid-auto-flow: row; grid-template-columns: repeat(4, 1fr); }
+.seg.seven button { padding: 8px 2px; }
 .seg.five button { padding: 8px 2px; }
 .seg button.pause.active { border-color: var(--amber); box-shadow: 0 0 12px rgba(255, 200, 87, 0.35); }
 .clock-banner { display: grid; gap: 10px; padding: 12px 16px; background: rgba(255, 200, 87, 0.1); border-bottom: 1px solid rgba(255, 200, 87, 0.4); }

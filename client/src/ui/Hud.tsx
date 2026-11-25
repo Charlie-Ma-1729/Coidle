@@ -98,7 +98,7 @@ export function TopBar(props: {
           </button>
         ))}
         {props.onCycleSpeed && (
-          <button class="st-btn st-speed" title="換時間流速（標準→悠閒→慢活→極慢）" aria-label={`時間流速：${props.speedName ?? ""}，點一下換下一檔`} onClick={props.onCycleSpeed}>
+          <button class="st-btn st-speed" title="換時間流速（極速→快速→輕快→標準→悠閒→現實）" aria-label={`時間流速：${props.speedName ?? ""}，點一下換下一檔`} onClick={props.onCycleSpeed}>
             {props.speedName}
           </button>
         )}

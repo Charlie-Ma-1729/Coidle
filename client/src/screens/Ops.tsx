@@ -42,7 +42,7 @@ export function TimeSettings() {
   return (
         <Card title="⏱ 時間流速" right={<Chip tone={isPaused(clock) ? "amber" : "green"}>{isPaused(clock) ? "⏸ 已暫停" : `${activePreset.name}・${activePreset.realHoursPerDay} 小時＝1 日`}</Chip>}>
           <div class="stack">
-            <div class="seg five">
+            <div class="seg seven">
               {SPEED_PRESETS.map((p) => (
                 <button key={p.id} class={!manualPaused && activePreset.id === p.id ? "active" : ""} onClick={() => setClock({ speed: p.id }, `時間流速：${p.name}`)}>
                   <b>{p.name}</b>
@@ -55,7 +55,7 @@ export function TimeSettings() {
               </button>
             </div>
             <p class="small dim">
-              最快就是「標準」。調慢會讓營收、升級、事件、建造<b>一起變慢</b>；暫停時間完全靜止——不營業、不扣成本、不發生事件，什麼都不會流失。任何隊員都可以調整，不用等別人同意。
+              最快是 1 小時＝1 天，最慢和現實時間一樣（24 小時＝1 天），預設「標準」是 6 小時＝1 天。調快或調慢會讓營收、升級、事件、建造<b>一起變快或變慢</b>；暫停時間完全靜止——不營業、不扣成本、不發生事件，什麼都不會流失。任何隊員都可以調整，不用等別人同意。
             </p>
             <label class="row">
               <input type="checkbox" checked={clock.pauseOnEvents} onChange={(e) => setClock({ pauseOnEvents: (e.target as HTMLInputElement).checked })} />

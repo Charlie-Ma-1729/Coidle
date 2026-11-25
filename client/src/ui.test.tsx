@@ -471,10 +471,12 @@ describe("screens render with real simulated state", () => {
     const { Ops } = await import("./screens/Ops");
     await mount(<Ops />);
     expect(container.textContent).toContain("時間流速");
-    for (const name of ["標準", "悠閒", "慢活", "極慢", "暫停"]) expect(container.textContent).toContain(name);
+    for (const name of ["極速", "快速", "輕快", "標準", "悠閒", "現實", "暫停"]) expect(container.textContent).toContain(name);
     expect(container.textContent).toContain("6 小時/日");
+    expect(container.textContent).toContain("1 小時/日");
+    expect(container.textContent).toContain("24 小時/日");
     expect(container.textContent).toContain("遇到重要事件自動暫停");
-    expect(container.querySelectorAll(".seg.five button").length).toBe(5);
+    expect(container.querySelectorAll(".seg.seven button").length).toBe(7);
   });
 
   it("ClockBanner is hidden while the clock runs, and shows resume when manually paused", async () => {

@@ -189,7 +189,7 @@ describe("clock API and service", () => {
 
     // 活動紀錄會寫下是誰調的
     const feed = (await call(a, owner, "GET", `/api/malls/${id}/activity`)).json();
-    expect(feed[0].text).toContain("慢活");
+    expect(feed[0].text).toContain("現實");
   });
 
   it("changing speed never makes time jump", async () => {
@@ -197,8 +197,33 @@ describe("clock API and service", () => {
     const { owner, id } = await setup(a);
     a.clock.t += 3 * HOUR;
     const before = (await call(a, owner, "GET", `/api/malls/${id}/state`)).json().tick;
-    const after = (await call(a, owner, "POST", `/api/malls/${id}/clock`, { speed: "glacial" })).json().tick;
+    const after = (await call(a, owner, "POST", `/api/malls/${id}/clock`, { speed: "turbo" })).json().tick;
     expect(after).toBe(before);
+  });
+
+  it("the fastest preset is 1 real hour per game day and the slowest is real time", async () => {
+    const a = makeApp();
+    const { owner, id } = await setup(a);
+    const t0 = (await call(a, owner, "GET", `/api/malls/${id}/state`)).json().tick;
+    expect((await call(a, owner, "POST", `/api/malls/${id}/clock`, { speed: "turbo" })).json().clock.speed).toBe(6);
+    a.clock.t += HOUR;
+    a.service.tickAll();
+    expect((await call(a, owner, "GET", `/api/malls/${id}/state`)).json().tick - t0).toBe(TICKS_PER_DAY);
+    expect(Math.min(...SPEED_PRESETS.map((p) => p.mult))).toBe(0.25);
+    expect(Math.max(...SPEED_PRESETS.map((p) => p.realHoursPerDay))).toBe(24);
+  });
+
+  it("a clock left at the old 72-hour speed is lifted to real time without making time jump", async () => {
+    const a = makeApp();
+    const { owner, id } = await setup(a);
+    a.service.sync(id).clock.speed = 1 / 12; // 舊版的「極慢」
+    a.clock.t += 3 * HOUR;
+    const st = a.service.sync(id);
+    expect(st.clock.speed).toBe(0.25);
+    const tick = st.tick;
+    a.clock.t += 24 * HOUR;
+    a.service.tickAll();
+    expect((await call(a, owner, "GET", `/api/malls/${id}/state`)).json().tick - tick).toBe(TICKS_PER_DAY);
   });
 
   it("pause freezes everything: no income, no costs, no ticks; resume continues from the same place", async () => {

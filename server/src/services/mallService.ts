@@ -20,6 +20,7 @@ import {
   mallStars,
   isPaused,
   reanchor,
+  SLOWEST_SPEED,
   speedPreset,
   tickAt,
   tickFromRealMs,
@@ -534,6 +535,12 @@ export class MallService {
       }
     }
     if (!isPaused(s.clock)) s = this.advanceNow(mallId, s, nowMs);
+    // 舊版有比「現實時間」更慢的檔位（72 小時＝1 天）；現在最慢就是現實時間，從現在起改用最慢檔，不會讓時間跳動
+    if (s.clock.speed > 0 && s.clock.speed < SLOWEST_SPEED) {
+      s = structuredClone(s);
+      s.clock.speed = SLOWEST_SPEED;
+      if (!isPaused(s.clock)) reanchor(s.clock, s.tick, nowMs);
+    }
 
     this.refreshDirectory(mallId, s, nowMs);
     if (s !== before) {

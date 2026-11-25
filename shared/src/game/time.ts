@@ -73,13 +73,20 @@ export interface SpeedPreset {
   realHoursPerDay: number;
 }
 
-/** 最快的「標準」就是預設；調速只會往慢走。暫停另外用 holds.manual 表示。 */
+/**
+ * 由快到慢：最快 1 真實小時＝1 遊戲日，最慢和現實時間一樣（24 小時＝1 遊戲日）；「標準」（6 小時）是預設。
+ * 暫停另外用 holds.manual 表示。
+ */
 export const SPEED_PRESETS: SpeedPreset[] = [
+  { id: "turbo", name: "極速", mult: 6, realHoursPerDay: 1 },
+  { id: "rapid", name: "快速", mult: 3, realHoursPerDay: 2 },
+  { id: "brisk", name: "輕快", mult: 2, realHoursPerDay: 3 },
   { id: "standard", name: "標準", mult: 1, realHoursPerDay: 6 },
   { id: "relaxed", name: "悠閒", mult: 1 / 2, realHoursPerDay: 12 },
-  { id: "slow", name: "慢活", mult: 1 / 4, realHoursPerDay: 24 },
-  { id: "glacial", name: "極慢", mult: 1 / 12, realHoursPerDay: 72 },
+  { id: "slow", name: "現實", mult: 1 / 4, realHoursPerDay: 24 },
 ];
+/** 最慢的檔位倍率（比這更慢的舊設定會在載入時被拉回） */
+export const SLOWEST_SPEED = 1 / 4;
 
 export function speedPreset(id: string): SpeedPreset | undefined {
   return SPEED_PRESETS.find((p) => p.id === id);
@@ -87,7 +94,7 @@ export function speedPreset(id: string): SpeedPreset | undefined {
 
 /** 目前流速最接近哪個檔位 */
 export function presetOfSpeed(speed: number): SpeedPreset {
-  return SPEED_PRESETS.reduce((best, p) => (Math.abs(p.mult - speed) < Math.abs(best.mult - speed) ? p : best), SPEED_PRESETS[0]!);
+  return SPEED_PRESETS.reduce((best, p) => (Math.abs(p.mult - speed) < Math.abs(best.mult - speed) ? p : best), SPEED_PRESETS[3]!);
 }
 
 export function newClock(nowMs: number, tick: number): MallClock {
