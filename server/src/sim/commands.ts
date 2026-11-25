@@ -399,7 +399,7 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
       if (!leaseEnabled(s)) return err("出租功能尚未開放（商場 Lv.3）");
       const shop = findShop(cmd.shopId);
       if (!shop) return err("找不到這間店");
-      if (!cmd.enabled && shop.tenant && !shop.tenant.own) return err("這是簽約的租戶，要解約請到「更多 → 招商」（有違約金）");
+      if (!cmd.enabled && shop.tenant && !shop.tenant.own) return err("這是簽約的租戶，要解約請到「開發 → 招商」（有違約金）");
       shop.mode = cmd.enabled ? "lease" : "direct";
       if (!cmd.enabled) shop.tenant = null;
       else if (!shop.tenant) shop.tenant = { brand: shop.name, quality: 0.65, fame: 30, rent: shop.rent, commission: shop.commission, startTick: s.tick, endTick: s.tick + 60 * TICKS_PER_DAY, satisfaction: 60, lowDays: 0, own: true };

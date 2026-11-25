@@ -111,7 +111,7 @@ function TastingCard({ s, t }: { s: PublicMallState; t: Tasting }) {
       <div class="row">
         {dish ? (
           <>
-            <Btn small kind="primary" disabled={full} title={full ? "菜單滿了，到「菜單」分頁換掉一道" : ""} onClick={() => run({ type: "tastingAction", uid: t.uid, action: "list" }, "上架了")}>
+            <Btn small kind="primary" disabled={full} title={full ? "菜單滿了，先到上方「菜單」換掉一道" : ""} onClick={() => run({ type: "tastingAction", uid: t.uid, action: "list" }, "上架了")}>
               上架到菜單
             </Btn>
             <Btn small onClick={() => run({ type: "tastingAction", uid: t.uid, action: "keep" })}>
@@ -256,7 +256,7 @@ function MenuView({ s, shop }: { s: PublicMallState; shop: Shop }) {
       </Card>
       <Card title="可以上架的作品">
         {avail.length === 0 ? (
-          <Empty>食譜本裡沒有適合這間店的作品。到「研發」試做看看吧。</Empty>
+          <Empty>食譜本裡沒有適合這間店的作品。到「研發」分頁試做看看吧。</Empty>
         ) : (
           <div class="stack">
             {avail.map((d) => (

@@ -40,7 +40,7 @@ switch (cmd) {
     const temp = randomBytes(9).toString("base64url");
     repo.setPassHash(u.id, await hashPassword(temp));
     repo.deleteSessionsOfUser(u.id);
-    console.log(`「${u.username}」的臨時密碼：${temp}\n（只會顯示這一次，請請他登入後立刻到「團隊 → 帳號」改掉）`);
+    console.log(`「${u.username}」的臨時密碼：${temp}\n（只會顯示這一次，請請他登入後立刻到「☰ 選單 → 設定 → 商場與帳號」改掉）`);
     break;
   }
   case "delete-user": {

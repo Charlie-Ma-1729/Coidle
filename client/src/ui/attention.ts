@@ -10,6 +10,7 @@ import {
   INSPECTIONS,
   STARTER_QUESTS,
   SUPPLY_FAMILIES,
+  TICKS_PER_DAY,
   TEAM_EVENT_BY_ID,
   billsDueWithin,
   chosenSupplier,
@@ -36,7 +37,19 @@ function within(s: PublicMallState, tick: number): string {
 
 const clip = (t: string, n: number): string => (t.length > n ? `${t.slice(0, n)}…` : t);
 
-export function buildAttention(s: PublicMallState, userId?: string | number | null): AttentionItem[] {
+/** 待回覆的聯名邀請（來自 /world/alliances；不在遊戲狀態裡，所以由畫面另外傳入） */
+export interface PendingInvite {
+  id: number;
+  partnerName: string;
+  /** 邀請失效的真實時間（毫秒） */
+  until: number;
+}
+
+/** 這則跨商場通知在待辦中心保留多久（遊戲日） */
+const NOTICE_DAYS = 2;
+const MAX_NOTICE_ITEMS = 3;
+
+export function buildAttention(s: PublicMallState, userId?: string | number | null, invites: PendingInvite[] = [], nowMs: number = Date.now()): AttentionItem[] {
   const out: AttentionItem[] = [];
   const add = (it: AttentionItem) => out.push(it);
 
@@ -143,6 +156,19 @@ export function buildAttention(s: PublicMallState, userId?: string | number | nu
     add({ id: "team-event", severity: "decision", icon: "event", title: `團隊事件：${TEAM_EVENT_BY_ID[te.defId]?.title ?? "任務"}`, detail: `需要 ${te.needed} 位隊員各認領一項（目前 ${te.contributions.length} 位）。`, cta: "去認領", target: { kind: "menu", page: "goals" } });
   }
 
+  for (const inv of invites) {
+    const hrs = Math.max(0, Math.ceil((inv.until - nowMs) / 3_600_000));
+    add({
+      id: `alliance:${inv.id}`,
+      severity: "decision",
+      icon: "lease",
+      title: `「${clip(inv.partnerName, 12)}」邀請你們聯名`,
+      detail: hrs > 0 ? `約 ${hrs} 小時內回覆；沒回覆視為婉拒。` : "邀請快失效了。",
+      cta: "回覆",
+      target: { kind: "hub", hub: "world", tab: "dir" },
+    });
+  }
+
   // ───── 機會 ─────
   if (leaseEnabled(s) && s.leasing.candidates.length > 0) {
     add({ id: "candidates", severity: "opportunity", icon: "lease", title: `有 ${s.leasing.candidates.length} 個品牌想進駐洽談`, detail: s.leasing.candidates.slice(0, 3).map((c) => c.brand).join("、"), cta: "看看", target: { kind: "hub", hub: "develop", tab: "leasing" } });
@@ -154,6 +180,16 @@ export function buildAttention(s: PublicMallState, userId?: string | number | nu
   }
 
   // ───── 資訊 ─────
+  // 剛升級：新樓層與新業態開放了（一個遊戲日內）
+  const lvUp = s.log.find((l) => l.text.startsWith("商場升到 Lv.") && s.tick - l.tick <= TICKS_PER_DAY);
+  if (lvUp) {
+    add({ id: `levelup:${s.level}`, severity: "opportunity", icon: "star", title: `商場升到 Lv.${s.level}！`, detail: "新的樓層與業態開放了，看看多了什麼。", cta: "全部功能", target: { kind: "menu", page: "all" } });
+  }
+  // 跨商場來信：收到的資金與貨、被搶客、季賽獎勵、對方解除協議…（邀請本身另有一項，不重複）
+  s.world.notices
+    .filter((n) => s.tick - n.tick <= NOTICE_DAYS * TICKS_PER_DAY && !n.text.includes("想和你們簽"))
+    .slice(0, MAX_NOTICE_ITEMS)
+    .forEach((n, i) => add({ id: `notice:${n.tick}:${i}`, severity: "info", icon: "news", title: clip(n.text, 40), cta: "看看", target: { kind: "hub", hub: "world", tab: "dir" } }));
   const last = s.reports[s.reports.length - 1];
   if (last) {
     add({ id: `report:${last.date}`, severity: "info", icon: "news", title: `${last.date} 日報：${last.headline}`, cta: "閱讀", target: { kind: "hub", hub: "finance", tab: "reports" } });

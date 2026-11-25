@@ -5,7 +5,7 @@
  */
 import { CATEGORY_BY_ID, ZONES, dayWeather, expandInfo, isZoneUnlocked, mallStars, techFx, timeInfo, weatherNow, type CategoryDef, type PublicMallState, type Shop } from "@coidle/shared";
 import { dateText } from "../format";
-import { buildAttention, shopFlagsFrom } from "../ui/attention";
+import { buildAttention, shopFlagsFrom, type PendingInvite } from "../ui/attention";
 import type { FloorLinkKind } from "./floorplan";
 import type { Archetype, ShopFlag, StageFloor, StageLot, StageModel, StageShop } from "./model";
 
@@ -69,8 +69,8 @@ function toStageShop(s: PublicMallState, shop: Shop, flags: Set<ShopFlag>): Stag
   };
 }
 
-export function toStageModel(s: PublicMallState, userId?: string | number | null): StageModel {
-  const attention = buildAttention(s, userId);
+export function toStageModel(s: PublicMallState, userId?: string | number | null, invites: PendingInvite[] = []): StageModel {
+  const attention = buildAttention(s, userId, invites);
   const flagMap = shopFlagsFrom(attention);
   const shopBySlot = new Map<number, Shop>();
   for (const sh of s.shops) shopBySlot.set(sh.slot, sh);
@@ -118,7 +118,7 @@ export function toStageModel(s: PublicMallState, userId?: string | number | null
       id: z.id,
       zoneId: z.id,
       label: FLOOR_LABELS[z.id] ?? z.id,
-      name: z.name.replace(/^\S+\s/, ""),
+      name: z.name.replace(/^(?:B1|\d+F)\s/, ""), // 只拿掉樓層前綴（「3C 與文創」的 3C 是名稱的一部分）
       description: z.description,
       lots,
       ground: z.id === GROUND_ZONE,

@@ -79,7 +79,7 @@ export type HubId = "operate" | "guests" | "develop" | "finance" | "world";
 export type AttentionTarget =
   | { kind: "shop"; shopId: string }
   | { kind: "hub"; hub: HubId; tab?: string }
-  | { kind: "menu"; page: "goals" | "achievements" | "help" }
+  | { kind: "menu"; page: "goals" | "achievements" | "help" | "all" }
   | { kind: "event"; uid: string }
   | { kind: "inspection"; uid: string };
 

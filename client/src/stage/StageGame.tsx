@@ -16,7 +16,7 @@ import { HUBS } from "../ui/Dock";
 import { RealShopPanel } from "../ui/RealShopPanel";
 import { BuildSheet } from "../screens/BuildSheet";
 import { ShopSheet } from "../screens/ShopSheet";
-import { mallId, mallInfo, online, run, setClock, state, user } from "../store";
+import { invites, mallId, mallInfo, online, refreshInvites, run, setClock, state, user } from "../store";
 import { locateShop, toStageModel } from "./adapter";
 import type { AttentionItem, HubId } from "./model";
 import { useStage } from "./useStage";
@@ -38,7 +38,17 @@ function StageGameInner() {
   const s = state.value!;
   const u = user.value;
   const info = mallInfo.value;
-  const model = useMemo(() => ({ ...toStageModel(s, u?.id), mallName: info?.name ?? "" }), [s, u?.id, info?.name]);
+  const pendingInvites = invites.value;
+  const model = useMemo(() => ({ ...toStageModel(s, u?.id, pendingInvites), mallName: info?.name ?? "" }), [s, u?.id, info?.name, pendingInvites]);
+
+  // 聯名邀請不在遊戲狀態裡：收到新信（mailCount 變動）時，以及每分鐘，重新讀一次
+  useEffect(() => {
+    void refreshInvites();
+  }, [s.world.mailCount]);
+  useEffect(() => {
+    const t = setInterval(() => void refreshInvites(), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   const host = useRef<HTMLDivElement>(null);
   const [floorIdx, setFloorIdx] = useState(0);
@@ -300,7 +310,7 @@ function StageGameInner() {
       )}
       {pending && <PendingWindow kind={pending.kind} uid={pending.uid} onClose={() => setPending(null)} />}
 
-      {hint && <HintBar hint={hint} onDismiss={() => markSeen(u?.id, mallId.value, hint.id)} onDisableAll={() => disableHints(u?.id, mallId.value)} />}
+      {hint && <HintBar lifted={!!floor.expand} hint={hint} onDismiss={() => markSeen(u?.id, mallId.value, hint.id)} onDisableAll={() => disableHints(u?.id, mallId.value)} />}
 
       <Dock
         active={hub?.id ?? null}

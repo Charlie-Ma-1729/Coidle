@@ -246,15 +246,15 @@ export interface StarterQuest {
 const cmd = (s: MallState, type: string) => (s.meta.tally[`cmd_${type}`] ?? 0) > 0;
 /** 完成會自動領獎金；用「q_」開頭的 id 記在成就表裡 */
 export const STARTER_QUESTS: StarterQuest[] = [
-  { id: "q_look", icon: "🏬", name: "逛逛你的店", hint: "到「樓層」點開任何一間店，看看它的售價、庫存與經營狀況。", reward: 30_000, check: (s) => cmd(s, "touch") || s.tick > s.meta.startTick + 6 },
+  { id: "q_look", icon: "🏬", name: "逛逛你的店", hint: "點開場景裡任何一間店，看看它的售價、庫存與經營狀況。", reward: 30_000, check: (s) => cmd(s, "touch") || s.tick > s.meta.startTick + 6 },
   { id: "q_price", icon: "🏷️", name: "調整一次售價", hint: "在店面詳情改價格：定太高客人跑掉，定太低又賺不到。", reward: 50_000, check: (s) => cmd(s, "setPrice") },
-  { id: "q_hours", icon: "🕒", name: "設定營業時間", hint: "到「更多 → 營運」看客流曲線，把營業時間調到尖峰時段。", reward: 50_000, check: (s) => cmd(s, "setHours") },
+  { id: "q_hours", icon: "🕒", name: "設定營業時間", hint: "到底部「營運 → 營業時間」看客流曲線，把營業時間調到尖峰時段。", reward: 50_000, check: (s) => cmd(s, "setHours") },
   { id: "q_stock", icon: "📦", name: "設定補貨或手動進貨", hint: "缺貨會讓客人白跑一趟。在店面詳情設定自動補貨，或手動進一批。", reward: 50_000, check: (s) => cmd(s, "setRestock") || cmd(s, "orderStock") },
   { id: "q_walk", icon: "🚶", name: "巡場一次", hint: "到「客人」分頁按「巡場」，聽聽此刻店裡客人的心聲。", reward: 50_000, check: (s) => cmd(s, "walkFloor") },
   { id: "q_report", icon: "📰", name: "迎接第一份日報", hint: "每個遊戲日結束會出一份日報（標準流速約 6 個真實小時）。回來看看賺了多少。", reward: 50_000, check: (s) => s.reports.length >= 1 },
-  { id: "q_build", icon: "🏗️", name: "開一間新店", hint: "到「樓層」點空的店面招商開店。業態越多元，整體客流越大。", reward: 100_000, check: (s) => cmd(s, "buildShop") },
-  { id: "q_promo", icon: "📣", name: "辦一場優惠活動", hint: "到「更多 → 行銷」排一場活動，客流會增加，客人也更滿意。", reward: 50_000, check: (s) => cmd(s, "schedulePromo") },
+  { id: "q_build", icon: "🏗️", name: "開一間新店", hint: "點場景裡的空地招商開店。業態越多元，整體客流越大。", reward: 100_000, check: (s) => cmd(s, "buildShop") },
+  { id: "q_promo", icon: "📣", name: "辦一場優惠活動", hint: "到底部「營運 → 行銷」排一場活動，客流會增加，客人也更滿意。", reward: 50_000, check: (s) => cmd(s, "schedulePromo") },
   { id: "q_research", icon: "🧪", name: "試做一次研發", hint: "到「工坊」選素材試做新菜或新品，運氣好會做出隱藏的招牌。", reward: 100_000, check: (s) => cmd(s, "startRnd") },
-  { id: "q_invite", icon: "👥", name: "邀請一位朋友", hint: "到「更多 → 團隊」複製邀請碼給朋友。團隊事件需要不同的隊員一起完成。", reward: 200_000, check: (s) => s.meta.team.size >= 2 },
+  { id: "q_invite", icon: "👥", name: "邀請一位朋友", hint: "到「☰ 選單 → 設定 → 團隊」複製邀請碼給朋友。團隊事件需要不同的隊員一起完成。", reward: 200_000, check: (s) => s.meta.team.size >= 2 },
 ];
 export const STARTER_BY_ID = Object.fromEntries(STARTER_QUESTS.map((q) => [q.id, q])) as Record<string, StarterQuest>;

@@ -229,3 +229,41 @@ describe("hubBadges / hubOfItem / shopFlagsFrom", () => {
     for (const it of items) if (it.target.kind === "shop") expect(attentionShopId(it)).toBe(it.target.shopId);
   });
 });
+
+describe("跨商場待辦", () => {
+  const NOW = 1_800_000_000_000;
+
+  it("待回覆的聯名邀請 → 需要決定，導向世界 → 名錄，並算進世界樞紐徽章", () => {
+    const items = buildAttention(stateAt(0), 1, [{ id: 5, partnerName: "月見百貨", until: NOW + 5 * 3_600_000 }], NOW);
+    const it = items.find((i) => i.id === "alliance:5")!;
+    expect(it.severity).toBe("decision");
+    expect(it.title).toContain("月見百貨");
+    expect(it.detail).toContain("5 小時");
+    expect(it.target).toEqual({ kind: "hub", hub: "world", tab: "dir" });
+    expect(hubBadges(items).world).toBe(1);
+    expect(buildAttention(stateAt(0), 1, [], NOW).some((i) => i.id.startsWith("alliance:"))).toBe(false);
+  });
+
+  it("近兩天的跨商場通知列為資訊；太舊的不列；邀請通知不重複", () => {
+    const items = buildAttention(
+      stateAt(0, (s) => {
+        s.world.notices = [
+          { tick: s.tick, text: "收到「月見百貨」送來的資金 ¥50,000，雪中送炭。" },
+          { tick: s.tick, text: "「月見百貨」想和你們簽聯名協議。到「世界 → 名錄與榜單」回覆。" },
+          { tick: s.tick - 5 * TICKS_PER_DAY, text: "很久以前的通知" },
+        ];
+      }),
+    );
+    const notes = items.filter((i) => i.id.startsWith("notice:"));
+    expect(notes).toHaveLength(1);
+    expect(notes[0]!.title).toContain("雪中送炭");
+    expect(notes[0]!.severity).toBe("info");
+  });
+
+  it("剛升級 → 提示新樓層開放；過了一天就不再提示", () => {
+    const fresh = buildAttention(stateAt(0, (s) => s.log.unshift({ tick: s.tick, kind: "info", text: "商場升到 Lv.3！新的區域與業態開放了。" })));
+    expect(fresh.find((i) => i.id.startsWith("levelup:"))?.target).toEqual({ kind: "menu", page: "all" });
+    const old = buildAttention(stateAt(0, (s) => s.log.unshift({ tick: s.tick - 2 * TICKS_PER_DAY, kind: "info", text: "商場升到 Lv.3！新的區域與業態開放了。" })));
+    expect(old.some((i) => i.id.startsWith("levelup:"))).toBe(false);
+  });
+});

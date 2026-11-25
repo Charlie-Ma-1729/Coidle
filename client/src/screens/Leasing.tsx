@@ -4,7 +4,6 @@ import {
   COUNTER_STEPS,
   LEASE_MIN_LEVEL,
   TICKS_PER_DAY,
-  ZONE_BY_ID,
   leaseEnabled,
   leaseRemainingRent,
   marketRent,
@@ -16,6 +15,7 @@ import {
 import { Btn, Card, Chip, Empty, Meter } from "../components/ui";
 import { dateText, money, realDuration } from "../format";
 import { categoryIcon } from "../icons";
+import { FLOOR_LABELS } from "../stage/adapter";
 import { run, state } from "../store";
 
 function freeSlots(s: PublicMallState, zone: string): number[] {
@@ -52,7 +52,7 @@ function Candidate({ s, c }: { s: PublicMallState; c: TenantCandidate }) {
           <span class="dim">店面：</span>
           {free.map((id) => (
             <button key={id} class={`zone-tab ${(slot ?? free[0]) === id ? "active" : ""}`} onClick={() => setSlot(id)}>
-              {ZONE_BY_ID[cat?.zone ?? ""]?.name.split(" ")[0]} #{id + 1}
+              {FLOOR_LABELS[cat?.zone ?? ""] ?? ""} #{id + 1}
             </button>
           ))}
         </div>

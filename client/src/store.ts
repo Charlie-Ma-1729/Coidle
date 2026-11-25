@@ -1,6 +1,7 @@
 import { signal } from "@preact/signals";
 import { registerEvents, registerRegulars, type ActivityEntry, type Command, type MallSummary, type MeResponse, type PublicMallState } from "@coidle/shared";
 import { api, ApiError, type ClockPatch, type MallInfo } from "./api";
+import type { PendingInvite } from "./ui/attention";
 import { connectMall, disconnectMall } from "./ws";
 
 export const user = signal<MeResponse["user"] | null>(null);
@@ -13,6 +14,21 @@ export const state = signal<PublicMallState | null>(null);
 export const activity = signal<ActivityEntry[]>([]);
 export const online = signal(false);
 export const busy = signal(false);
+/** 待回覆的聯名邀請（待辦中心用） */
+export const invites = signal<PendingInvite[]>([]);
+
+/** 重新讀取待回覆的聯名邀請；失敗就維持原樣（只是少一個提醒） */
+export async function refreshInvites(): Promise<void> {
+  const id = mallId.value;
+  if (id === null) return;
+  try {
+    const r = await api.alliances(id);
+    if (mallId.value !== id) return;
+    invites.value = r.alliances.filter((a) => a.status === "pending" && a.direction === "in").map((a) => ({ id: a.id, partnerName: a.partnerName, until: a.until }));
+  } catch {
+    // ignore
+  }
+}
 
 export interface Toast {
   id: number;
@@ -62,7 +78,9 @@ export async function openMall(id: number): Promise<void> {
   mallInfo.value = info;
   state.value = st;
   activity.value = act;
+  invites.value = [];
   connectMall(id);
+  void refreshInvites();
 }
 
 export function leaveMall(): void {
@@ -71,6 +89,7 @@ export function leaveMall(): void {
   mallInfo.value = null;
   state.value = null;
   activity.value = [];
+  invites.value = [];
   localStorage.removeItem("coidle.mall");
 }
 

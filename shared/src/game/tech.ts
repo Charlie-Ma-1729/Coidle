@@ -63,7 +63,7 @@ export const TECH_BRANCHES: Record<TechBranch, { name: string; icon: string }> =
 export const TECHS: TechDef[] = [
   { id: "t_app", name: "智慧導覽 App", icon: "📱", branch: "guide", desc: "館內導覽、優惠推播與樓層查詢，客人更容易找到想去的店。", effectText: "客流 +3%（觀光客 +6%）", cost: 4_000_000, ticks: 288, minLevel: 1, requires: [], fx: { traffic: { all: 1.03, tourist: 1.06 } } },
   { id: "t_member", name: "會員與點數系統", icon: "💳", branch: "guide", desc: "集點、會員價與生日禮，把路過的客人變成熟客。", effectText: "常客親密度成長 +25%；在地客與家庭客流 +5%", cost: 6_000_000, ticks: 432, minLevel: 2, requires: ["t_app"], fx: { regularGainMult: 1.25, traffic: { local: 1.05, family: 1.05 } } },
-  { id: "t_data", name: "大數據客流分析", icon: "📊", branch: "guide", desc: "即時掌握各時段、各客群的人流，營運頁解鎖客流預測。", effectText: "解鎖客流預測；滿意度 +2%", cost: 7_500_000, ticks: 432, minLevel: 3, requires: ["t_app"], fx: { forecast: true, satBonus: 0.02 } },
+  { id: "t_data", name: "大數據客流分析", icon: "📊", branch: "guide", desc: "即時掌握各時段、各客群的人流，「營運 → 營業時間」解鎖客流預測。", effectText: "解鎖客流預測；滿意度 +2%", cost: 7_500_000, ticks: 432, minLevel: 3, requires: ["t_app"], fx: { forecast: true, satBonus: 0.02 } },
   { id: "t_ar", name: "AR 導覽", icon: "🥽", branch: "guide", desc: "用手機看見每間店的特色與排隊狀況，逛完一家自然想再逛一家。", effectText: "業態多樣性加成 +0.15；觀光客客流 +6%", cost: 10_000_000, ticks: 576, minLevel: 3, requires: ["t_app"], fx: { diversityBonus: 0.15, traffic: { tourist: 1.06 } } },
 
   { id: "t_checkout", name: "無人結帳", icon: "🧾", branch: "ops", desc: "自助結帳與行動支付，櫃台人力大幅減少、結帳更快。", effectText: "薪資 −15%；服務容量 +8%；設備故障機率 ×1.4", cost: 7_500_000, ticks: 432, minLevel: 2, requires: [], fx: { wageMult: 0.85, capacityMult: 1.08, breakdownMult: 1.4 } },

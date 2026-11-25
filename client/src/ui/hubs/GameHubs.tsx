@@ -191,6 +191,7 @@ function SettingsWindow(props: { onClose: () => void }) {
       icon="gear"
       tabs={[
         { id: "time", label: "遊戲時間" },
+        { id: "team", label: "團隊" },
         { id: "mall", label: "商場與帳號" },
       ]}
       tab={tab}
@@ -199,6 +200,8 @@ function SettingsWindow(props: { onClose: () => void }) {
     >
       {tab === "time" ? (
         <TimeSettings />
+      ) : tab === "team" ? (
+        <TeamMembers />
       ) : (
         <>
           <DeviceCard />

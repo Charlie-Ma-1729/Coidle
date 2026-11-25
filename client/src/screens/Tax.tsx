@@ -180,7 +180,7 @@ function Rules({ s }: { s: PublicMallState }) {
             })}
           </div>
         )}
-        <p class="small dim">衛生與消防的定期稽查在「營運」頁處理。</p>
+        <p class="small dim">衛生與消防的定期稽查在「營運 → 設備與稽查」處理。</p>
       </Card>
     </>
   );

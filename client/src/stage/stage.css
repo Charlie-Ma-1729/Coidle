@@ -230,6 +230,7 @@
 
 /* ───── 情境提示 ───── */
 .st-hint-bar { position: absolute; z-index: 14; left: 50%; transform: translateX(-50%); bottom: calc(var(--st-dock-h) + 24px); width: min(560px, calc(100% - 20px)); display: flex; align-items: center; gap: 12px; padding: 10px 12px; }
+.st-hint-bar.lift { bottom: calc(var(--st-dock-h) + 24px + 58px); }
 .st-hint-text { display: grid; gap: 2px; flex: 1; min-width: 0; font-size: 0.84rem; line-height: 1.45; }
 .st-hint-text b { font-size: 0.9rem; }
 .st-hint-text span { color: var(--dim); }

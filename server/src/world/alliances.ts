@@ -156,7 +156,7 @@ export class AllianceService {
 
     if (this.activeOf(targetKey) >= ALLIANCE_MAX_ACTIVE) throw new ServiceError(400, "對方的聯名名額已經滿了");
     this.repo.addAlliance(me, targetKey, "pending", t, t + ALLIANCE_INVITE_MS, null, null);
-    this.mailTo(targetKey, "notice", { text: `「${this.nameOf(me)}」想和你們簽聯名協議。到「更多 → 名錄」回覆（24 小時內有效，沒回覆視為婉拒）。` });
+    this.mailTo(targetKey, "notice", { text: `「${this.nameOf(me)}」想和你們簽聯名協議。到「世界 → 名錄與榜單」回覆（24 小時內有效，沒回覆視為婉拒）。` });
     return this.list(mallId);
   }
 

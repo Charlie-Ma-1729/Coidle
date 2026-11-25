@@ -75,7 +75,7 @@ export const FEATURES: FeatureDef[] = [
     tab: null,
     label: "世界",
     unlockHint: `商場 Lv.${WORLD_MIN_LEVEL} 開放`,
-    visible: (s) => s.level >= WORLD_MIN_LEVEL || s.world.alliances.length > 0 || s.world.seasons.length > 0,
+    visible: (s) => s.level >= WORLD_MIN_LEVEL || s.world.alliances.length > 0 || s.world.seasons.length > 0 || s.world.notices.length > 0,
   },
   { id: "world.dir", hub: "world", tab: "dir", label: "名錄與榜單", unlockHint: "", visible: always },
   { id: "world.rivals", hub: "world", tab: "rivals", label: "商戰", unlockHint: "", visible: (s) => s.rivals.list.length > 0 },
