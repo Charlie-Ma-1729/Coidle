@@ -21,6 +21,7 @@ npm run admin -- rotate-overseer-key      # 換一把新金鑰：舊金鑰與所
 | 🏢 NPC 商場 | 全域自動出手開關與頻率；每座 NPC 的調整（改名、等級加減、分數／營收倍率、口碑與熱度加減、暫時隱藏、出手頻率、到期時間）；手動出手（搶客、邀請聯名、送貨救援）與代為回覆邀請、辦聯名活動、結束協議；NPC 動態紀錄 |
 | 🎲 事件與天氣 | 寫隨機事件（有選項或公告型，每個選項 1–2 個白名單效果）、上下架、對指定或全部商場立刻觸發任何事件；調整天氣（晴／陰／雨／暴風雨、氣溫、持續遊戲小時）套用到全部或指定商場 |
 | 🤖 AI 內容 | 預算與內容池、立即生成、待審事件與新常客的核准或拒絕、已上線內容的移除（沿用原本的功能） |
+| 📈 平衡數據 | 每座商場每個遊戲日一列（永久保存）：營收、利潤、離場原因（排不到位子／缺貨／嫌太貴）、標價倍率、口碑；折線圖、「標價倍率 vs 每店每日表現」、各業態表；匯出每商場每日／每店每日 CSV 與 JSON |
 | 📜 稽核 | 誰、何時、做了什麼；依動作開頭與操作者篩選、往更早翻、匯出 CSV |
 
 管理室是左側選單＋右側內容的版面（手機上選單變成頂部橫列）。商場與 NPC 的細項調整在右側滑出的面板裡做；刪除、重設密碼等危險操作會先跳出確認視窗；臨時密碼只在視窗裡顯示一次，有複製鈕。離開管理室去商場再回來，會停在原本那一頁。
@@ -52,7 +53,7 @@ npm run admin -- sandbox-mall overseer         # 沒給編號：新開一座全�
 ```
 [audit] 2026-11-25T08:30:11.000Z overseer(#2) mall.flag mall#3(測試商場) {"flag":"zone:f1","value":true,"status":200} ip=1.2.3.4
 ```
-在伺服器上用 `journalctl -u coidle -f` 就是後台 terminal。紀錄裡密碼、金鑰、token 一律以 `***` 遮蔽，不會出現臨時密碼。事件類型：`overseer.login`／`.login.fail`／`.login.blocked`、`admin.denied`（非 Overseer 打管理 API）、`mall.*`、`user.*`、`npc.*`、`event.*`、`weather.set`、`ai.*`、`metrics.export`、`spectate.open`，以及指令列的 `overseer.create`、`mall.sandbox` 等（操作者是 `cli`）。
+在伺服器上用 `journalctl -u coidle -f` 就是後台 terminal。紀錄裡密碼、金鑰、token 一律以 `***` 遮蔽，不會出現臨時密碼。事件類型：`overseer.login`／`.login.fail`／`.login.blocked`、`admin.denied`（非 Overseer 打管理 API）、`mall.*`、`user.*`、`npc.*`、`event.*`、`weather.set`、`ai.*`、`metrics.export`、`balance.export`、`spectate.open`，以及指令列的 `overseer.create`、`mall.sandbox` 等（操作者是 `cli`）。
 
 ## 營運數據
 每分鐘一筆樣本（保留 30 天）：線上玩家／有人在場的商場／WebSocket 連線數、24 小時與 7 天活躍玩家、玩家與商場總數、每分鐘請求／錯誤／指令／NPC 出手、tick 最長耗時、事件迴圈延遲、記憶體、運行時間。每日統計永久保存（日界線是台灣時間 00:00，`METRICS_TZ_OFFSET_HOURS` 可改）：活躍玩家、新註冊、尖峰線上、請求、指令、錯誤、NPC 出手、最慢 tick。「線上」只算有開著商場連線的玩家（旁觀與 Overseer 不算）；「活躍」是該時間之後有任何已登入請求。匯出：`GET /api/admin/metrics/export?kind=samples|daily&format=csv|json&from=&to=`。
