@@ -1,6 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { PERSONAS, type NpcOverride } from "@coidle/shared";
 import { adminApi, type Overview } from "./adminApi";
+import { Badge, Card, Drawer, Empty, Field, fmtDate, fmtMoney, Section, Switch } from "./kit";
 import { errMsg, toast } from "../store";
 
 interface NpcRow {
@@ -29,13 +30,11 @@ interface NpcList {
   npcs: NpcRow[];
 }
 
-const when = (ms: number) => new Date(ms).toLocaleString("zh-TW", { hour12: false });
 const ACTION_NAMES: Record<string, string> = { poach: "搶客", propose: "邀請聯名", joint: "聯名活動", rescue: "送貨救援", end: "結束聯名", respond: "回覆邀請", retaliate: "回敬搶客" };
 
-function NpcCard(props: { n: NpcRow; ov: Overview; reload: () => Promise<void> }) {
+function NpcDrawer(props: { n: NpcRow; ov: Overview; reload: () => Promise<void>; onClose: () => void }) {
   const { n } = props;
   const o = n.override ?? {};
-  const [open, setOpen] = useState(false);
   const [f, setF] = useState({
     name: o.name ?? "",
     levelDelta: String(o.levelDelta ?? 0),
@@ -68,97 +67,93 @@ function NpcCard(props: { n: NpcRow; ov: Overview; reload: () => Promise<void> }
         }),
       "已套用",
     );
-  const field = (label: string, key: keyof typeof f, w = "90px") => (
-    <label class="small" style={{ display: "inline-flex", flexDirection: "column", gap: "2px" }}>
-      {label}
-      <input type="number" step="any" value={f[key] as string} onInput={(e) => setF({ ...f, [key]: (e.target as HTMLInputElement).value })} style={{ width: w }} />
-    </label>
+  const num = (label: string, key: keyof typeof f, hint?: string) => (
+    <Field label={label} hint={hint}>
+      <input type="number" step="any" value={f[key] as string} onInput={(e) => setF({ ...f, [key]: (e.target as HTMLInputElement).value })} />
+    </Field>
   );
 
   return (
-    <div class="card">
-      <h3>
-        {n.entry.name} <span class="small dim">（{n.publicKey}）</span> {n.override?.hidden && <span class="chip chip-red">已隱藏</span>} {n.override && !n.override.hidden && <span class="chip chip-amber">有調整{n.expiresAt ? `・到 ${when(n.expiresAt)}` : ""}</span>}
-      </h3>
-      <p class="small">
-        Lv.{n.entry.level}・綜合 {n.entry.score.toFixed(1)}・口碑 {n.entry.localRep.toFixed(0)}・熱度 {n.entry.touristHeat.toFixed(0)}・30 天營收 {Math.round(n.entry.revenue30 / 10000)} 萬・{n.entry.shops} 間店・缺貨 {n.entry.stockouts}・24 小時內出手 {n.actions24h} 次
-      </p>
+    <Drawer
+      onClose={props.onClose}
+      title={
+        <>
+          {n.entry.name} {n.override?.hidden && <Badge tone="red">已隱藏</Badge>} {n.override && !n.override.hidden && <Badge tone="amber">有調整</Badge>}
+        </>
+      }
+      sub={`${n.publicKey}${n.expiresAt ? `・調整到 ${fmtDate(n.expiresAt)}` : ""}`}
+    >
       {n.pending.length > 0 && (
-        <div class="small">
-          聯名：
-          {n.pending.map((p) => (
-            <span key={p.allianceId} style={{ marginRight: "10px" }}>
-              {p.kind === "active" ? "生效中" : "邀請中"}・{p.name}
-              {p.kind === "invite" && (
-                <>
-                  {" "}
-                  <button class="linklike small" onClick={() => void run(() => adminApi.post(`/npc/${n.id}/act`, { action: "respond", allianceId: p.allianceId, accept: true }), "已接受")}>
-                    代為接受
-                  </button>{" "}
-                  <button class="linklike small" onClick={() => void run(() => adminApi.post(`/npc/${n.id}/act`, { action: "respond", allianceId: p.allianceId, accept: false }), "已婉拒")}>
-                    代為婉拒
-                  </button>
-                </>
-              )}
-              {p.kind === "active" && (
-                <>
-                  {" "}
-                  <button class="linklike small" onClick={() => void run(() => adminApi.post(`/npc/${n.id}/act`, { action: "joint", allianceId: p.allianceId }), "已辦聯名活動")}>
-                    辦聯名活動
-                  </button>{" "}
-                  <button class="linklike small" onClick={() => void run(() => adminApi.post(`/npc/${n.id}/act`, { action: "end", allianceId: p.allianceId }), "已結束")}>
-                    結束
-                  </button>
-                </>
-              )}
-            </span>
-          ))}
+        <Section title="聯名">
+          <div class="ad-list">
+            {n.pending.map((p) => (
+              <div key={p.allianceId} class="ad-row" style={{ justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--ad-line)" }}>
+                <span>
+                  <Badge tone={p.kind === "active" ? "green" : "amber"}>{p.kind === "active" ? "生效中" : "邀請中"}</Badge> {p.name}
+                </span>
+                <span class="ad-row">
+                  {p.kind === "invite" && (
+                    <>
+                      <button class="ad-link" onClick={() => void run(() => adminApi.post(`/npc/${n.id}/act`, { action: "respond", allianceId: p.allianceId, accept: true }), "已接受")}>
+                        代為接受
+                      </button>
+                      <button class="ad-link" onClick={() => void run(() => adminApi.post(`/npc/${n.id}/act`, { action: "respond", allianceId: p.allianceId, accept: false }), "已婉拒")}>
+                        代為婉拒
+                      </button>
+                    </>
+                  )}
+                  {p.kind === "active" && (
+                    <>
+                      <button class="ad-link" onClick={() => void run(() => adminApi.post(`/npc/${n.id}/act`, { action: "joint", allianceId: p.allianceId }), "已辦聯名活動")}>
+                        辦聯名活動
+                      </button>
+                      <button class="ad-link danger" onClick={() => void run(() => adminApi.post(`/npc/${n.id}/act`, { action: "end", allianceId: p.allianceId }), "已結束")}>
+                        結束
+                      </button>
+                    </>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      <Section title="調整數字">
+        <div class="ad-form">
+          <Field label="改名" hint="留空＝原名">
+            <input type="text" maxLength={30} value={f.name} onInput={(e) => setF({ ...f, name: (e.target as HTMLInputElement).value })} />
+          </Field>
+          {num("等級加減", "levelDelta")}
+          {num("分數倍率", "scoreMult")}
+          {num("營收倍率", "revenueMult")}
+          {num("口碑加減", "repDelta")}
+          {num("熱度加減", "heatDelta")}
+          {num("出手頻率倍率", "activity", "0＝不出手")}
+          {num("持續幾小時", "hours", "0＝不過期")}
         </div>
-      )}
-      {n.recent.length > 0 && (
-        <p class="small dim">
-          最近：{n.recent.map((r) => `${when(r.ts)} ${ACTION_NAMES[r.action] ?? r.action}${r.target ? `→${r.target}` : ""}${r.manual ? "（手動）" : ""}`).join("；")}
-        </p>
-      )}
-      <button class="btn btn-ghost btn-sm" onClick={() => setOpen(!open)}>
-        {open ? "收起" : "調整與手動出手"}
-      </button>
+        <Switch checked={f.hidden} onChange={(v) => setF({ ...f, hidden: v })} label="暫時隱藏（名錄與排行都看不到）" />
+        <div class="ad-row">
+          <button class="ad-btn pri" onClick={() => void apply()}>
+            套用調整
+          </button>
+          <button class="ad-btn" onClick={() => void run(() => adminApi.post(`/npc/${n.id}/clear`), "已恢復原樣")}>
+            恢復原樣
+          </button>
+        </div>
+      </Section>
 
-      {open && (
-        <div class="stack" style={{ marginTop: "10px" }}>
-          <div class="row" style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
-            <label class="small" style={{ display: "inline-flex", flexDirection: "column", gap: "2px" }}>
-              改名（留空＝原名）
-              <input type="text" maxLength={30} value={f.name} onInput={(e) => setF({ ...f, name: (e.target as HTMLInputElement).value })} style={{ width: "170px" }} />
-            </label>
-            {field("等級加減", "levelDelta")}
-            {field("分數倍率", "scoreMult")}
-            {field("營收倍率", "revenueMult")}
-            {field("口碑加減", "repDelta")}
-            {field("熱度加減", "heatDelta")}
-            {field("出手頻率倍率", "activity", "110px")}
-            {field("持續幾小時（0＝不過期）", "hours", "150px")}
-            <label class="small" style={{ display: "inline-flex", gap: "4px", alignItems: "center" }}>
-              <input type="checkbox" checked={f.hidden} onChange={(e) => setF({ ...f, hidden: (e.target as HTMLInputElement).checked })} />
-              暫時隱藏
-            </label>
-          </div>
-          <div class="row">
-            <button class="btn btn-primary btn-sm" onClick={() => void apply()}>
-              套用調整
-            </button>
-            <button class="btn btn-ghost btn-sm" onClick={() => void run(() => adminApi.post(`/npc/${n.id}/clear`), "已恢復原樣")}>
-              恢復原樣
-            </button>
-          </div>
-
-          <p class="small dim">手動出手：照一般規則；勾「忽略上限」可以略過冷卻、每日次數與對方的保護期（稽核紀錄會記下來）。</p>
-          <div class="row" style={{ flexWrap: "wrap" }}>
+      <Section title="手動出手">
+        <p class="ad-sub">照一般規則；勾「忽略上限」可以略過冷卻、每日次數與對方的保護期（稽核紀錄會記下來）。</p>
+        <div class="ad-form wide">
+          <Field label="動作">
             <select value={act.action} onChange={(e) => setAct({ ...act, action: (e.target as HTMLSelectElement).value })} aria-label="動作">
               <option value="poach">搶客</option>
               <option value="propose">邀請聯名</option>
               <option value="rescue">送貨救援</option>
             </select>
+          </Field>
+          <Field label="對象">
             <select value={act.target} onChange={(e) => setAct({ ...act, target: (e.target as HTMLSelectElement).value })} aria-label="對象">
               <option value="">選擇商場…</option>
               {real.map((m) => (
@@ -167,7 +162,9 @@ function NpcCard(props: { n: NpcRow; ov: Overview; reload: () => Promise<void> }
                 </option>
               ))}
             </select>
-            {act.action === "poach" && (
+          </Field>
+          {act.action === "poach" && (
+            <Field label="客群">
               <select value={act.persona} onChange={(e) => setAct({ ...act, persona: (e.target as HTMLSelectElement).value })} aria-label="客群">
                 {PERSONAS.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -175,18 +172,83 @@ function NpcCard(props: { n: NpcRow; ov: Overview; reload: () => Promise<void> }
                   </option>
                 ))}
               </select>
-            )}
-            <label class="small" style={{ display: "inline-flex", gap: "4px", alignItems: "center" }}>
-              <input type="checkbox" checked={act.ignoreLimits} onChange={(e) => setAct({ ...act, ignoreLimits: (e.target as HTMLInputElement).checked })} />
-              忽略上限
-            </label>
-            <button class="btn btn-ghost btn-sm" disabled={!act.target} onClick={() => void run(() => adminApi.post(`/npc/${n.id}/act`, act), "已出手")}>
-              出手
-            </button>
-          </div>
+            </Field>
+          )}
         </div>
+        <Switch checked={act.ignoreLimits} onChange={(v) => setAct({ ...act, ignoreLimits: v })} label="忽略上限" />
+        <div class="ad-row">
+          <button class="ad-btn pri" disabled={!act.target} onClick={() => void run(() => adminApi.post(`/npc/${n.id}/act`, act), "已出手")}>
+            出手
+          </button>
+        </div>
+      </Section>
+
+      {n.recent.length > 0 && (
+        <Section title="最近動態">
+          <div class="ad-list">
+            {n.recent.map((r) => (
+              <div class="ad-sub" key={r.id} style={{ padding: "4px 0" }}>
+                {fmtDate(r.ts)}　{ACTION_NAMES[r.action] ?? r.action}
+                {r.target ? ` → ${r.target}` : ""}
+                {r.manual ? "（手動）" : ""}
+              </div>
+            ))}
+          </div>
+        </Section>
       )}
-    </div>
+    </Drawer>
+  );
+}
+
+function NpcCard(props: { n: NpcRow; onOpen: () => void }) {
+  const { n } = props;
+  return (
+    <Card
+      title={
+        <>
+          {n.entry.name} {n.override?.hidden && <Badge tone="red">已隱藏</Badge>} {n.override && !n.override.hidden && <Badge tone="amber">有調整</Badge>}
+        </>
+      }
+      desc={`${n.publicKey}${n.expiresAt ? `・調整到 ${fmtDate(n.expiresAt)}` : ""}`}
+      actions={
+        <button class="ad-btn sm" onClick={props.onOpen}>
+          調整與手動出手
+        </button>
+      }
+    >
+      <div class="ad-kv">
+        <div>
+          <span>等級</span>
+          <b>Lv.{n.entry.level}</b>
+        </div>
+        <div>
+          <span>綜合分數</span>
+          <b>{n.entry.score.toFixed(1)}</b>
+        </div>
+        <div>
+          <span>口碑</span>
+          <b>{n.entry.localRep.toFixed(0)}</b>
+        </div>
+        <div>
+          <span>熱度</span>
+          <b>{n.entry.touristHeat.toFixed(0)}</b>
+        </div>
+        <div>
+          <span>30 天營收</span>
+          <b>{fmtMoney(n.entry.revenue30)}</b>
+        </div>
+        <div>
+          <span>店數／缺貨</span>
+          <b>
+            {n.entry.shops}／{n.entry.stockouts}
+          </b>
+        </div>
+      </div>
+      <div class="ad-sub">
+        24 小時內出手 {n.actions24h} 次
+        {n.pending.length > 0 && `・聯名 ${n.pending.map((p) => `${p.kind === "active" ? "生效中" : "邀請中"} ${p.name}`).join("、")}`}
+      </div>
+    </Card>
   );
 }
 
@@ -194,6 +256,7 @@ function NpcCard(props: { n: NpcRow; ov: Overview; reload: () => Promise<void> }
 export function NpcTab(props: { ov: Overview; reload: () => Promise<void> }) {
   const [list, setList] = useState<NpcList | null>(null);
   const [actions, setActions] = useState<ActionRow[]>([]);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const load = async () => {
     try {
@@ -215,48 +278,51 @@ export function NpcTab(props: { ov: Overview; reload: () => Promise<void> }) {
       toast(errMsg(e), "error");
     }
   };
+  const reloadAll = async () => {
+    await load();
+    await props.reload();
+  };
 
-  if (!list) return <p class="small dim">載入中…</p>;
+  if (!list) return <p class="ad-empty">載入中…</p>;
+  const sel = list.npcs.find((x) => x.id === openId) ?? null;
   return (
-    <div class="stack">
-      <div class="card">
-        <h3>NPC 自動出手</h3>
-        <p class="small dim">
-          名錄裡的 NPC 商場和真人商場長得一模一樣（沒有任何標示）。它們會自己低機率出手（搶客、邀請聯名、辦聯名活動、送貨救援），也會回覆玩家的聯名邀請、偶爾回敬搶客，守的規則和玩家一樣。預設每座 NPC 約每 {Math.round(1 / list.settings.baseProbPerHour)} 小時出手一次。
-        </p>
-        <div class="row" style={{ flexWrap: "wrap" }}>
-          <label style={{ display: "inline-flex", gap: "6px", alignItems: "center" }}>
-            <input type="checkbox" checked={list.settings.auto} onChange={(e) => void settings({ auto: (e.target as HTMLInputElement).checked })} />
-            開啟自動出手
-          </label>
-          <label class="small" style={{ display: "inline-flex", gap: "6px", alignItems: "center" }}>
-            全域頻率倍率
-            <input type="number" min={0} max={5} step={0.5} value={list.settings.activity} onChange={(e) => void settings({ activity: Number((e.target as HTMLInputElement).value) })} style={{ width: "80px" }} />
-            （0＝不出手，1＝預設，最高 5）
-          </label>
+    <>
+      <Card title="NPC 自動出手" desc={`名錄裡的 NPC 商場和真人商場長得一模一樣（沒有任何標示）。它們會自己低機率出手（搶客、邀請聯名、辦聯名活動、送貨救援），也會回覆玩家的聯名邀請、偶爾回敬搶客，守的規則和玩家一樣。預設每座 NPC 約每 ${Math.round(1 / list.settings.baseProbPerHour)} 小時出手一次。`}>
+        <div class="ad-row" style={{ gap: "22px" }}>
+          <Switch checked={list.settings.auto} onChange={(v) => void settings({ auto: v })} label="開啟自動出手" />
+          <Field label="全域頻率倍率" hint="0＝不出手，1＝預設，最高 5">
+            <input type="number" min={0} max={5} step={0.5} value={list.settings.activity} onChange={(e) => void settings({ activity: Number((e.target as HTMLInputElement).value) })} style={{ width: "110px" }} />
+          </Field>
         </div>
+      </Card>
+
+      <div class="ad-grid fit">
+        {list.npcs.map((n) => (
+          <NpcCard key={`${n.id}:${JSON.stringify(n.override)}`} n={n} onOpen={() => setOpenId(n.id)} />
+        ))}
       </div>
 
-      {list.npcs.map((n) => (
-        <NpcCard key={`${n.id}:${JSON.stringify(n.override)}`} n={n} ov={props.ov} reload={async () => { await load(); await props.reload(); }} />
-      ))}
-
-      <div class="card">
-        <h3>NPC 動態</h3>
-        {actions.length === 0 && <p class="small dim">還沒有 NPC 動態。</p>}
-        <div class="log">
-          <ul>
+      <Card title="NPC 動態" desc="自動與手動的出手紀錄，新的在前。">
+        {actions.length === 0 ? (
+          <Empty>還沒有 NPC 動態。</Empty>
+        ) : (
+          <div class="ad-list">
             {actions.map((a) => (
-              <li key={a.id}>
-                <time>{when(a.ts)}</time>
-                <span>
-                  <b>{a.npcName}</b> {ACTION_NAMES[a.action] ?? a.action} {a.target && <span class="dim">→ {a.target}</span>} <span class="small dim">{a.detail}{a.manual ? "（手動）" : ""}</span>
-                </span>
-              </li>
+              <div class="ad-item" key={a.id}>
+                <time>{fmtDate(a.ts)}</time>
+                <div>
+                  <b>{a.npcName}</b> <Badge tone={a.manual ? "pink" : undefined}>{ACTION_NAMES[a.action] ?? a.action}</Badge> {a.target && <span class="dim">→ {a.target}</span>}
+                  <div class="ad-sub">
+                    {a.detail}
+                    {a.manual ? "（手動）" : ""}
+                  </div>
+                </div>
+              </div>
             ))}
-          </ul>
-        </div>
-      </div>
-    </div>
+          </div>
+        )}
+      </Card>
+      {sel && <NpcDrawer key={`${sel.id}:${JSON.stringify(sel.override)}`} n={sel} ov={props.ov} reload={reloadAll} onClose={() => setOpenId(null)} />}
+    </>
   );
 }

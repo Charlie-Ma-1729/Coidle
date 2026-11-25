@@ -144,6 +144,7 @@ function StageGameInner() {
   };
 
   const paused = isPaused(s.clock);
+  const isOverseer = user.value?.role === "overseer";
 
   // 情境提示：視窗、面板、彈出層都沒開的時候才出現，一次一則
   const anyOverlay = !!hub || !!menuPage || !!pending || attnOpen || statusOpen || reportOpen || panelOpen || buildSlot !== null || !!sheetShop || menuOpen || paused; // 暫停橫幅出現時，提示先不出現（避免兩個一起擠在畫面上）
@@ -160,16 +161,14 @@ function StageGameInner() {
     <div class="st-root">
       <div class="st-scene" ref={host} />
 
-      {spectating.value && (
+      {isOverseer && (
         <div class="st-spectate st-panel" role="status">
-          <span>👁 旁觀中・唯讀（你的操作不會送出，也不算在場）</span>
-          <button class="st-btn" onClick={leaveMall}>
-            離開旁觀
-          </button>
+          {spectating.value ? "旁觀中・唯讀（你的操作不會送出，也不算在場）" : "管理者身分・可以直接操作這座商場"}
         </div>
       )}
 
       <TopBar
+        onBack={isOverseer ? leaveMall : undefined}
         mallName={model.mallName}
         level={model.level}
         stars={model.stars}
@@ -288,7 +287,7 @@ function StageGameInner() {
             <Icon name="list" size={2} />
             全部功能
           </button>
-          {(myMalls.value.length > 1 || spectating.value) && (
+          {(myMalls.value.length > 1 || isOverseer) && (
             <button
               role="menuitem"
               onClick={() => {
@@ -297,7 +296,7 @@ function StageGameInner() {
               }}
             >
               <Icon name="list" size={2} />
-              {spectating.value ? "離開旁觀" : "切換商場"}
+              {isOverseer ? "返回管理室" : "切換商場"}
             </button>
           )}
         </div>

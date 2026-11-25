@@ -392,7 +392,7 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).toContain("2026-11-25");
     expect(container.textContent).toContain("進入「測試全開商場」");
 
-    const tab = (label: string) => Array.from(container.querySelectorAll("button.zone-tab")).find((b) => b.textContent?.includes(label)) as HTMLButtonElement;
+    const tab = (label: string) => Array.from(container.querySelectorAll("button.ad-nav-item")).find((b) => b.textContent?.includes(label)) as HTMLButtonElement;
     tab("商場").click();
     await tick();
     expect(container.textContent).toContain("真實商場");

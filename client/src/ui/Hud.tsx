@@ -41,10 +41,17 @@ export function TopBar(props: {
   fundsOpen?: boolean;
   /** 此刻的天氣；點了展開狀態面板（含預報） */
   weather?: Weather;
+  /** Overseer 才有：返回管理室（任何畫面都看得到，不會被面板蓋住） */
+  onBack?: () => void;
 }) {
   const pos = props.todayProfit >= 0;
   return (
     <header class="st-top">
+      {props.onBack && (
+        <button class="st-btn pri" aria-label="返回管理室" onClick={props.onBack}>
+          ←<span class="hide-m"> 管理室</span>
+        </button>
+      )}
       <button class={`st-btn sq ${props.menuOpen ? "on" : ""}`} aria-label="商場選單" onClick={props.onMenu}>
         ☰
       </button>

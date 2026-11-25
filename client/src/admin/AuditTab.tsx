@@ -1,8 +1,10 @@
 import { useEffect, useState } from "preact/hooks";
 import { adminApi, type AuditEntry } from "./adminApi";
+import { Badge, Card, Empty, fmtDateFull, Ico } from "./kit";
 import { errMsg, toast } from "../store";
 
-const when = (ms: number) => new Date(ms).toLocaleString("zh-TW", { hour12: false });
+const tone = (a: string): "green" | "amber" | "red" | "cyan" | "pink" | undefined =>
+  a.endsWith(".fail") || a.endsWith(".denied") || a.endsWith(".blocked") || a.startsWith("admin.denied") ? "red" : a.startsWith("overseer.") ? "pink" : a.startsWith("npc.") ? "amber" : a.startsWith("mall.") ? "cyan" : a.startsWith("user.") ? "green" : undefined;
 
 /** 稽核紀錄：誰、何時、做了什麼；可依動作與操作者篩選，往更早翻，匯出成 CSV */
 export function AuditTab() {
@@ -35,48 +37,74 @@ export function AuditTab() {
   };
 
   return (
-    <div class="card">
-      <h3>稽核紀錄</h3>
-      <p class="small dim">每個管理操作都會記錄在這裡，也同時印在伺服器的 terminal（journalctl -u coidle -f）。</p>
+    <Card
+      title="紀錄"
+      desc="同時印在伺服器 terminal：journalctl -u coidle -f"
+      actions={
+        <button class="ad-btn sm" type="button" onClick={csv} disabled={rows.length === 0}>
+          <Ico n="download" />
+          匯出 CSV
+        </button>
+      }
+    >
       <form
-        class="row"
-        style={{ flexWrap: "wrap", marginBottom: "8px" }}
+        class="ad-row"
         onSubmit={(e) => {
           e.preventDefault();
           void load();
         }}
       >
-        <input type="text" placeholder="動作開頭，例如 mall. 或 user." value={action} onInput={(e) => setAction((e.target as HTMLInputElement).value)} />
-        <input type="text" placeholder="操作者" value={actor} onInput={(e) => setActor((e.target as HTMLInputElement).value)} />
-        <button class="btn btn-ghost btn-sm" type="submit">
+        <input type="text" placeholder="動作開頭，例如 mall. 或 user." value={action} onInput={(e) => setAction((e.target as HTMLInputElement).value)} style={{ width: "230px" }} />
+        <input type="text" placeholder="操作者" value={actor} onInput={(e) => setActor((e.target as HTMLInputElement).value)} style={{ width: "150px" }} />
+        <button class="ad-btn sm" type="submit">
           篩選
         </button>
-        <button class="btn btn-ghost btn-sm" type="button" onClick={csv} disabled={rows.length === 0}>
-          匯出 CSV
-        </button>
       </form>
-      <div class="log">
-        <ul>
-          {rows.map((r) => (
-            <li key={r.id}>
-              <time>{when(r.ts)}</time>
-              <span>
-                <b>{r.actor}</b> {r.action} {r.target && <span class="dim">{r.target}</span>}{" "}
-                <span class="small dim">
-                  {Object.keys(r.detail).length ? JSON.stringify(r.detail) : ""}
-                  {r.ip ? ` ・${r.ip}` : ""}
-                </span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
-      {rows.length === 0 && <p class="small dim">沒有符合的紀錄。</p>}
-      {more && (
-        <button class="btn btn-ghost btn-sm" onClick={() => load(true)}>
-          更早的紀錄
-        </button>
+      {rows.length === 0 ? (
+        <Empty>沒有符合的紀錄。</Empty>
+      ) : (
+        <div class="ad-scroll">
+          <table class="ad-table">
+            <thead>
+              <tr>
+                <th>時間</th>
+                <th>操作者</th>
+                <th>動作</th>
+                <th>對象</th>
+                <th>內容</th>
+                <th>來源</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td class="num dim" style={{ whiteSpace: "nowrap" }}>
+                    {fmtDateFull(r.ts)}
+                  </td>
+                  <td>
+                    <b>{r.actor}</b>
+                  </td>
+                  <td>
+                    <Badge tone={tone(r.action)}>{r.action}</Badge>
+                  </td>
+                  <td>{r.target || <span class="dim">—</span>}</td>
+                  <td class="mono dim" style={{ maxWidth: "340px", overflowWrap: "anywhere" }}>
+                    {Object.keys(r.detail).length ? JSON.stringify(r.detail) : ""}
+                  </td>
+                  <td class="mono dim">{r.ip}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
-    </div>
+      {more && (
+        <div class="ad-row end">
+          <button class="ad-btn" onClick={() => load(true)}>
+            更早的紀錄
+          </button>
+        </div>
+      )}
+    </Card>
   );
 }
