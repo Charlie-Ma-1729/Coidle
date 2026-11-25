@@ -246,8 +246,7 @@ describe("similarity and tradeoff checks", () => {
     const repo = new Repo(openDb(":memory:"));
     let n = 0;
     const svc = new ContentService(repo, cfg(), () => clock.t, async (o) => {
-      seen.push(o.messages.map((m) => m.content).join("
-"));
+      seen.push(o.messages.map((m) => m.content).join(" "));
       return { text: replies[n++]!, model: "test/model", promptTokens: 300, completionTokens: 300, reasoningTokens: 0, costUsd: 0.0005, ms: 5, finishReason: "stop" } satisfies ChatResult;
     });
     expect((await svc.generate("news", 1)).accepted).toBe(1);
