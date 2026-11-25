@@ -3,6 +3,7 @@ import { CATEGORIES, EVENTS, REGULARS, registerEvents, registerRegulars, type Ev
 import type { Repo } from "../db/repo";
 import type { BrandFlavor, FlavorGroup, FlavorMood, FlavorSource, FlavorTier } from "../sim/flavor";
 import { checkBrand, checkDish, checkEvent, checkNews, checkRegular, checkReview, NEWS_MOODS, REVIEW_TIERS, type Checked } from "./content";
+import { SIMILAR_LIMIT, textSimilarity } from "./validate";
 import { chat, extractJson, LlmError, type ChatMessage, type ChatResult } from "./openrouter";
 import { brandPrompt, dishPrompt, eventPrompt, newsPrompt, regularPrompt, reviewPrompt } from "./prompts";
 
@@ -174,9 +175,9 @@ export class ContentService {
     const n = count ?? (kind === "event" ? 4 : kind === "regular" ? 3 : 12);
     const messages =
       kind === "news"
-        ? newsPrompt(n)
+        ? newsPrompt(n, this.recentTexts("news"))
         : kind === "review"
-          ? reviewPrompt(n)
+          ? reviewPrompt(n, this.recentTexts("review"))
           : kind === "brand"
             ? brandPrompt(this.thinnest(this.brands), 2)
             : kind === "dish"
@@ -209,11 +210,20 @@ export class ContentService {
         res.error = e instanceof LlmError ? e.message : "解析失敗";
       }
       res.asked = items.length;
+      const seen = kind === "news" || kind === "review" ? this.recentTexts(kind, 400) : [];
       for (const raw of items) {
         const c = this.check(kind, raw);
         if (!c.ok) {
           res.rejected.push(c.reason);
           continue;
+        }
+        if (kind === "news" || kind === "review") {
+          const text = (c.value as { text: string }).text;
+          if (!seen.includes(text) && seen.some((t) => textSimilarity(t, text) >= SIMILAR_LIMIT)) {
+            res.rejected.push("太像已有的");
+            continue;
+          }
+          seen.push(text);
         }
         if (this.store(kind, c.value)) res.accepted++;
         else res.rejected.push("重複");
@@ -279,6 +289,12 @@ export class ContentService {
   private knownRegulars(): { name: string; persona: string; fav: string }[] {
     const pending = this.repo.contentList("regular", "pending", 50).map((r) => r.payload as RegularDef);
     return [...REGULARS, ...pending].map((r) => ({ name: r.name, persona: r.persona, fav: r.fav }));
+  }
+
+  /** 已上線的快訊／評價文字（新的在後面），用來提示模型避開、並擋掉太像的 */
+  private recentTexts(kind: "news" | "review", limit = 25): string[] {
+    const pool = kind === "news" ? Object.values(this.news).flat() : Object.values(this.reviews).flat();
+    return pool.slice(-limit);
   }
 
   private dishTotal(): number {

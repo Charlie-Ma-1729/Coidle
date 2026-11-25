@@ -38,3 +38,22 @@ export function checkText(text: unknown, rule: TextRule): string | null {
   if (/[぀-ヿ]{8,}/.test(t)) return "日文假名過多"; // 允許少量日文風味，但整句日文不收
   return null;
 }
+
+/** 兩段文字的雙字組重疊程度（0–1，取較短那段為分母）：用來擋掉「換個說法的同一件事」。無關的句子通常 < 0.1，同題材的常在 0.27 以上 */
+export function textSimilarity(a: string, b: string): number {
+  const grams = (s: string): Set<string> => {
+    const t = s.replace(/[\s，。、！？「」『』（）()：；,.!?"'{}]/g, "");
+    const out = new Set<string>();
+    for (let i = 0; i < t.length - 1; i++) out.add(t.slice(i, i + 2));
+    return out;
+  };
+  const A = grams(a);
+  const B = grams(b);
+  if (A.size === 0 || B.size === 0) return 0;
+  let n = 0;
+  for (const g of A) if (B.has(g)) n++;
+  return n / Math.min(A.size, B.size);
+}
+
+/** 與既有內容太像的門檻 */
+export const SIMILAR_LIMIT = 0.26;

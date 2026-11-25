@@ -3,7 +3,7 @@ import { EVENT_BY_ID, TICKS_PER_DAY } from "@coidle/shared";
 import { checkEvent, checkNews, checkReview } from "./ai/content";
 import { chat, extractJson, LlmError, type ChatResult } from "./ai/openrouter";
 import { ContentService, type AiConfig, type ChatFn } from "./ai/service";
-import { checkText } from "./ai/validate";
+import { checkText, SIMILAR_LIMIT, textSimilarity } from "./ai/validate";
 import { buildApp } from "./app";
 import { openDb } from "./db/db";
 import { Repo } from "./db/repo";
@@ -27,13 +27,22 @@ function setup(over: Partial<AiConfig> = {}, reply?: (n: number) => string, cost
   return { clock, repo, svc, calls: () => calls };
 }
 
-const news = (n: number, tag = "") => JSON.stringify({ items: Array.from({ length: n }, (_, i) => ({ mood: (["good", "bad", "neutral", "season"] as const)[i % 4], text: `站前的小店今天來了一位熟客，老闆笑著多送一碟小菜（${tag}${i}）` })) });
+// 測試用的假內容：每一則的「鑰匙」對應一段互不重疊的字，所以彼此不會被「太像」擋掉；同一把鑰匙每次給的字都一樣（用來測重複）
+const SIMPLE = "篮这们时对说过还么发开见买卖热汤鱼饭鸡烧样种听吗为让门问间网电车长马鸟书东风头关气经现应总题无业乐华货费";
+const POOL = Array.from({ length: 6000 }, (_, k) => String.fromCharCode(0x4e00 + k * 3)).filter((c) => !SIMPLE.includes(c));
+const WINDOWS = new Map<string, number>();
+const win = (key: string, len: number): string => {
+  if (!WINDOWS.has(key)) WINDOWS.set(key, WINDOWS.size);
+  const at = WINDOWS.get(key)! * 16;
+  return POOL.slice(at, at + len).join("");
+};
+const news = (n: number, tag = "") => JSON.stringify({ items: Array.from({ length: n }, (_, i) => ({ mood: (["good", "bad", "neutral", "season"] as const)[i % 4], text: `今天的${win(`news-${tag}${i}`, 14)}` })) });
 const goodEvent = (title: string, over: Record<string, unknown> = {}) => ({
   title,
   text: "對面老街的老店老闆說，今天想請商場一起辦個小攤位活動，順便把客人帶過來，人情味滿滿。",
   category: "crowd",
   options: [
-    { label: "出資佈置攤位，一起辦", effect: { t: "funds", amount: -20000 } },
+    { label: "出資佈置攤位，一起辦", effects: [{ t: "funds", amount: -50000 }, { t: "index", which: "localRep", amount: 1 }] },
     { label: "只借場地，其餘自理", effect: { t: "index", which: "localRep", amount: 0.5 } },
   ],
   ...over,
@@ -72,7 +81,7 @@ describe("event validation: whitelist and clamping", () => {
     const r = checkEvent(
       goodEvent("老街聯名小攤", {
         options: [
-          { label: "出資佈置攤位，一起辦", effect: { t: "funds", amount: -9_999_999 } },
+          { label: "出資佈置攤位，一起辦", effects: [{ t: "funds", amount: -9_999_999 }, { t: "index", which: "localRep", amount: 1 }] },
           { label: "請客人排隊拍照打卡", effect: { t: "traffic", persona: "tourist", mult: 50, ticks: 99999 } },
           { label: "婉拒，維持原樣", effect: { t: "index", which: "localRep", amount: 99 } },
         ],
@@ -200,7 +209,7 @@ describe("generation pipeline and budget", () => {
   });
 
   it("top-up fills news, reviews, brand and dish names, then proposes events, and stops when pools are full", async () => {
-    const reviews = JSON.stringify({ items: Array.from({ length: 45 }, (_, i) => ({ tier: (["high", "mid", "low"] as const)[i % 3], text: `{shop}的東西真好吃，老闆又親切，下次還要帶朋友來（${i}）` })) });
+    const reviews = JSON.stringify({ items: Array.from({ length: 45 }, (_, i) => ({ tier: (["high", "mid", "low"] as const)[i % 3], text: `{shop}${win(`review-${i}`, 16)}` })) });
     const groups = ["food", "retail", "entertainment", "service"] as const;
     const bcats = ["ramen", "fashion", "cinema", "spa"];
     const brands = JSON.stringify({ items: Array.from({ length: 180 }, (_, i) => ({ category: bcats[i % 4], name: `星屑${i}堂`, blurb: "一間很有個性的小店，老闆總是笑咪咪的。" })) });
@@ -214,6 +223,44 @@ describe("generation pipeline and budget", () => {
     expect((await svc.topUp())?.kind).toBe("dish");
     expect((await svc.topUp())?.kind).toBe("event");
     expect(repo.contentCount("event", "pending")).toBe(1);
+  });
+});
+
+describe("similarity and tradeoff checks", () => {
+  it("textSimilarity flags the same story told twice, but not unrelated lines", () => {
+    const a = "地下美食街的排氣扇昨晚故障，今早整條走廊飄著油煙味，店家們正忙著叫修繕師傅，還請大家多多包涵。";
+    const b = "地下美食街的排風扇昨晚故障，今早已請維修人員處理，造成的不便還請多多包涵。";
+    const c = "對面老街的福引商店街今日舉辦小型抽獎，不少常客特地繞過來逛一圈。";
+    expect(textSimilarity(a, b)).toBeGreaterThanOrEqual(SIMILAR_LIMIT);
+    expect(textSimilarity(a, c)).toBeLessThan(SIMILAR_LIMIT);
+    expect(textSimilarity("", c)).toBe(0);
+  });
+
+  it("generation drops a line that is too close to one already in the pool (and the prompt tells the model what to avoid)", async () => {
+    const first = "地下美食街的排氣扇昨晚故障，今早整條走廊飄著油煙味，店家們正忙著叫修繕師傅，還請大家多多包涵。";
+    const second = "地下美食街的排風扇昨晚故障，今早已請維修人員處理，造成的不便還請多多包涵。";
+    const fresh = "對面老街的福引商店街今日舉辦小型抽獎，不少常客特地繞過來逛一圈。";
+    const replies = [JSON.stringify({ items: [{ mood: "bad", text: first }] }), JSON.stringify({ items: [{ mood: "bad", text: second }, { mood: "good", text: fresh }] })];
+    const seen: string[] = [];
+    const clock = { t: T0 };
+    const repo = new Repo(openDb(":memory:"));
+    let n = 0;
+    const svc = new ContentService(repo, cfg(), () => clock.t, async (o) => {
+      seen.push(o.messages.map((m) => m.content).join("
+"));
+      return { text: replies[n++]!, model: "test/model", promptTokens: 300, completionTokens: 300, reasoningTokens: 0, costUsd: 0.0005, ms: 5, finishReason: "stop" } satisfies ChatResult;
+    });
+    expect((await svc.generate("news", 1)).accepted).toBe(1);
+    const r = await svc.generate("news", 2);
+    expect(r.accepted).toBe(1);
+    expect(r.rejected).toContain("太像已有的");
+    expect(seen[1]).toContain(first); // 第二次呼叫時，提示詞裡有第一則，叫模型避開
+  });
+
+  it("an option that only costs money while another only helps is not a real choice", () => {
+    const costOnly = goodEvent("老街聯名小攤", { options: [{ label: "出資佈置攤位，一起辦", effect: { t: "funds", amount: -25000 } }, { label: "只借場地，其餘自理", effect: { t: "index", which: "localRep", amount: 1 } }] });
+    expect(checkEvent(costOnly).ok).toBe(false);
+    expect(checkEvent(goodEvent("老街聯名小攤")).ok).toBe(true); // 花錢的選項同時帶來口碑，才算取捨
   });
 });
 

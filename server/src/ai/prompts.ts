@@ -6,32 +6,44 @@ import type { ChatMessage } from "./openrouter";
 
 export const WORLD = `你在替一款中文（繁體）的商場經營遊戲寫文案。
 世界觀：一座虛構的現代科技感複合式商場，緊鄰一個熱鬧的老街區，昭和老街的人情味與近未來科技共存；有很多國外觀光客，也有在地常客。
-語氣：輕鬆、有人情味，帶一點點關西腔的幽默（例如「ぼちぼち」「ええ」「なんでやねん」可偶爾出現，但整體仍是繁體中文），不油膩、不說教。
+語氣：輕鬆、有人情味，不油膩、不說教，整體是自然的繁體中文。
+關西腔的幽默只留給「老街居民說的話」，而且要少（例如老闆娘笑著說一句「ええやん」）；商場自己的公告、一般客人的留言都不要用，也不要把日文單字硬塞進中文句子中間（例如「ぼちぼち啦」這種混搭不要寫）。
 硬性規則：
 1. 絕對不要寫出任何真實的地名、車站名、地標、品牌、公司或人名。只能用虛構名稱，或「站前」「對面的老街」這類含蓄說法。
 2. 對鄰近的老街區與居民要尊重、溫暖，不使用刻板印象或貶抑性描述。
 3. 不談政治、宗教、暴力、色情，不用粗話，不放網址或聯絡方式。
 4. 只輸出 JSON，不要任何額外說明或 Markdown。`;
 
-export function newsPrompt(n: number): ChatMessage[] {
+const avoidList = (recent: string[]): string => (recent.length ? recent.slice(-25).map((t) => `「${t}」`).join("") : "（無）");
+
+export function newsPrompt(n: number, recent: string[] = []): ChatMessage[] {
   return [
     { role: "system", content: WORLD },
     {
       role: "user",
       content: `請寫 ${n} 則「商場日報」裡的小快訊，每則一句話（20–50 字），不要提到具體金額。
-心情分類 mood：good（生意好、有喜事）、bad（出狀況、冷清）、neutral（日常小插曲）、season（季節或天氣）。每種至少一則。
+心情分類 mood：good（生意好、有喜事）、bad（出狀況、冷清）、neutral（日常小插曲）、season（天氣的一般性描述）。每種至少一則。
+內容要求（很重要，這些快訊會在一年中任何時候出現，也會被反覆讀到）：
+- 每一則的題材都要不一樣，不要把同一件事換個說法再寫一次
+- season 類只寫「當下的天氣感受」（陽光、微風、午後陣雨、傍晚轉涼、空氣乾爽之類），不要指明季節、月份、節氣或節日（不要寫「梅雨」「入秋」「櫻花」「聖誕」「新年」），也不要寫具體氣溫
+- 不要寫樓層編號，也不要說某一層有哪一種店；用「中庭」「入口」「服務台」「電扶梯」「美食街」「屋頂花園」這類通用地點，店家只說「店家」「攤位」「老闆」
+- 避開已經寫過太多次的題材：梅雨與雨傘、排風扇或電梯故障、失物招領、週末中庭擠滿人、老街阿嬤或大嬸來逛街、落葉或銀杏燈飾
+- 不要和這些近期的快訊太像：${avoidList(recent)}
 輸出格式：{"items":[{"mood":"good","text":"..."}]}`,
     },
   ];
 }
 
-export function reviewPrompt(n: number): ChatMessage[] {
+export function reviewPrompt(n: number, recent: string[] = []): ChatMessage[] {
   return [
     { role: "system", content: WORLD },
     {
       role: "user",
-      content: `請寫 ${n} 則客人在網路上留下的店家評價，語氣像真人，各有不同的個性。必須包含 {shop} 這個佔位符（代表店名），不要自己編店名。
+      content: `請寫 ${n} 則客人在網路上留下的店家評價，語氣像真人，各有不同的個性（有人愛碎念、有人很簡短、有人客氣、有人直接）。必須包含 {shop} 這個佔位符（代表店名），不要自己編店名。
 tier：high（4–5 星，稱讚）、mid（3 星，普通）、low（1–2 星，不滿但不要人身攻擊）。每種至少一則。每則 25–70 字。
+重要：同一則評價可能被貼在任何一種店（服飾店、拉麵店、電影院、診所都有可能），所以只能談「服務態度、等待時間、環境整潔、價格感受、整體心情」，不要提到任何具體的商品、料理、器材或服務項目，也不要寫樓層。
+不要使用關西腔或日文單字；就是一般客人會寫的中文。
+不要和這些近期的評價太像：${avoidList(recent)}
 輸出格式：{"items":[{"tier":"high","text":"...{shop}..."}]}`,
     },
   ];
@@ -46,15 +58,15 @@ export function eventPrompt(n: number, existingTitles: string[]): ChatMessage[] 
 - title：標題（4–14 字）
 - text：事件描述（30–90 字）
 - category：crowd（客流）、facility（設施）、luck（好運）、market（市場）、festival（節慶）之一
-- options：2 或 3 個玩家選項，每個有 label（6–24 字）和 effect
-  effect 只能是以下其中一種（不要發明別的）：
+- options：2 或 3 個玩家選項，每個有 label（6–24 字）和 effects（陣列，1–2 個效果）
+  每個效果只能是以下其中一種（不要發明別的）：
   {"t":"funds","amount":整數，介於 -60000 和 60000}
   {"t":"index","which":"localRep" 或 "touristHeat","amount":小數，介於 -2 和 2}
   {"t":"traffic","persona":"tourist|local|commuter|family|student|couple|all","mult":介於 0.8 和 1.5,"ticks":介於 12 和 144}
   {"t":"cleanliness","amount":整數，介於 -15 和 15}
-  選項要有取捨（花錢換口碑、省錢冒險之類），不要有明顯唯一最佳解。
+  選項要有真正的取捨：「花錢」的選項一定要同時有好處（例如 funds 負數＋index 正數），不能只有花費沒有回報；不花錢的選項好處要比較小或有風險。不要出現「完全比別的選項差」或「完全比別的選項好」的選項。
 不要和這些已有的重複：${existingTitles.slice(0, 20).join("、") || "（無）"}。
-輸出格式：{"items":[{"title":"...","text":"...","category":"crowd","options":[{"label":"...","effect":{"t":"funds","amount":-20000}}]}]}`,
+輸出格式：{"items":[{"title":"...","text":"...","category":"crowd","options":[{"label":"...","effects":[{"t":"funds","amount":-20000},{"t":"index","which":"localRep","amount":1}]},{"label":"...","effects":[{"t":"cleanliness","amount":2}]}]}]}`,
     },
   ];
 }

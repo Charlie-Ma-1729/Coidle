@@ -125,6 +125,10 @@ export function checkEvent(raw: unknown): Checked<EventDef> {
   const worst = options.reduce((a, b) => (b.score < a.score ? b : a));
   if (best.score - worst.score > 8) return { ok: false, reason: "選項差距太大（沒有取捨）" };
   if (options.every((o) => o.score > 0) || options.every((o) => o.score < 0)) return { ok: false, reason: "所有選項都只有好處或都只有壞處（沒有取捨）" };
+  // 純花費、沒有任何回報的選項，旁邊卻有純好處的選項：前者永遠不會有人選，等於沒有選擇
+  const pureCost = (o: { effects: EffectSpec[] }) => o.effects.every((e) => effectScore(e) <= 0) && o.effects.some((e) => effectScore(e) < 0);
+  const pureGain = (o: { effects: EffectSpec[] }) => o.effects.every((e) => effectScore(e) >= 0) && o.effects.some((e) => effectScore(e) > 0);
+  if (options.some(pureCost) && options.some(pureGain)) return { ok: false, reason: "有選項只有花費沒有回報，另一個卻只有好處（沒有取捨）" };
   // 沒人處理時走最保守的：分數最接近 0 的選項
   const def = options.reduce((a, b) => (Math.abs(b.score) < Math.abs(a.score) ? b : a));
   const id = "ai_" + createHash("sha1").update(title + text).digest("hex").slice(0, 10);
