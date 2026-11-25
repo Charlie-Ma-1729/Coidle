@@ -1,4 +1,4 @@
-import { LEVELS, dayLedger, fixedCostBreakdown, mallStars, periodOf, timeInfo } from "@coidle/shared";
+import { LEVELS, dayLedger, fixedCostBreakdown, mallBreakdown, mallStars, periodOf, timeInfo } from "@coidle/shared";
 import { Card, Chip, Empty } from "../components/ui";
 import { clockText, money, moneyShort, num } from "../format";
 import { StatusMeters } from "../ui/StatusPanel";
@@ -18,6 +18,7 @@ export function FinanceSummary() {
   const d = s.today;
   const lg = dayLedger(d);
   const fc = fixedCostBreakdown(s);
+  const mb = mallBreakdown(s, d, (t.hour * 60 + t.minute) / 1440);
   const profitSoFar = lg.operating;
   const signedMoney = (n: number) => `${n > 0 ? "+" : ""}${money(n)}`;
   const next = LEVELS.find((l) => l.level === s.level + 1);
@@ -53,6 +54,56 @@ export function FinanceSummary() {
           <span class="small dim">{next ? `下一級 ${moneyShort(next.minRevenue)}` : "已達最高等級"}</span>
         </div>
       </div>
+
+      <Card title="哪些店賺錢、哪些店賠錢">
+        {mb.shops.length === 0 ? (
+          <Empty>還沒有店面。</Empty>
+        ) : (
+          <div class="shop-pl">
+            {mb.shops.map((x) => (
+              <div key={x.id} class={`shop-pl-row ${x.verdict}`}>
+                <div class="row between">
+                  <span>
+                    <Chip tone={x.verdict === "profit" ? "green" : x.verdict === "loss" ? "red" : "dim"}>{x.verdict === "profit" ? "賺" : x.verdict === "loss" ? "賠" : "持平"}</Chip> <b>{x.name}</b> <span class="small dim">{x.category}{x.mode === "lease" ? "・出租" : ""}</span>
+                  </span>
+                  <b class={x.net >= 0 ? "pos" : "neg"}>{signedMoney(x.net)}</b>
+                </div>
+                <div class="small dim">
+                  {x.mode === "lease" ? `抽成 ${money(x.revenue)}` : `營收 ${money(x.revenue)} − 成本 ${money(x.cost)} − 薪資 ${money(x.wage)}（今天累計）`}
+                </div>
+                <ul class="shop-pl-why">
+                  {x.reasons.map((r, i) => (
+                    <li key={i} class={r.tone}>
+                      {r.text}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+            <div class="ledger">
+              <div class="total">
+                <span>各店損益合計</span>
+                <b class={mb.shopsNet >= 0 ? "pos" : "neg"}>{signedMoney(mb.shopsNet)}</b>
+              </div>
+              <div>
+                <span>− 共用成本（水電、清潔維護、專屬座位；不分攤到各店）</span>
+                <b>{money(mb.publicCosts)}</b>
+              </div>
+              <div>
+                <span>− 其他支出（研發、活動、客訴、科技、維修罰款…）</span>
+                <b>{money(mb.otherCosts)}</b>
+              </div>
+              <div class="total">
+                <span>＝ 今日營運損益</span>
+                <b class={mb.operating >= 0 ? "pos" : "neg"}>{signedMoney(mb.operating)}</b>
+              </div>
+            </div>
+          </div>
+        )}
+        <p class="small dim" style={{ marginTop: "8px" }}>
+          店面損益＝營收 − 賣出成本 − 薪資。薪資是整天均攤的，所以早上還沒開門或客人還沒來的時候，每間店都會先是負的，到了尖峰時段才會慢慢賺回來。看「今天打烊後」的數字最準。
+        </p>
+      </Card>
 
       <Card title={`今日損益明細（截至 ${clockText(s.tick)}）`}>
         <div class="ledger">

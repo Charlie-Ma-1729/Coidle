@@ -68,8 +68,8 @@ b { font-variant-numeric: tabular-nums; }
 .ledger > div { display: flex; justify-content: space-between; gap: 12px; }
 .ledger .sub { padding-left: 14px; color: var(--dim); font-size: 0.86rem; }
 .ledger .total { border-top: 1px solid var(--line); padding-top: 4px; margin-top: 2px; font-weight: 700; }
-.ledger .pos { color: var(--good, #4cc38a); }
-.ledger .neg { color: var(--bad, #ff6b6b); }
+.ledger .pos { color: var(--green); }
+.ledger .neg { color: var(--red); }
 .stack { display: grid; gap: 10px; }
 .dim { color: var(--dim); }
 .small { font-size: 0.82rem; }
@@ -254,3 +254,12 @@ input[type="range"] { width: 100%; accent-color: var(--pink); }
 .banner { padding: 8px 14px; font-size: 0.85rem; text-align: center; background: rgba(255, 107, 107, 0.15); color: var(--red); }
 
 .linklike { background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; color: inherit; font: inherit; }
+.shop-pl { display: grid; gap: 10px; }
+.shop-pl-row { display: grid; gap: 4px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line); }
+.shop-pl-row.profit { border-color: rgba(82, 224, 164, 0.35); }
+.shop-pl-row.loss { border-color: rgba(255, 107, 107, 0.45); }
+.shop-pl-why { margin: 2px 0 0; padding-left: 18px; display: grid; gap: 2px; font-size: 0.86rem; }
+.shop-pl-why .bad { color: var(--red); }
+.shop-pl-why .warn { color: var(--amber, #ffc857); }
+.shop-pl-why .info { color: var(--dim); }
+.shop-pl-row .pos, .shop-pl-row .neg { white-space: nowrap; }

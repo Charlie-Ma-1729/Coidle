@@ -375,6 +375,7 @@ export function recordSale(s: MallState, rng: Rng, p: PersonaDef, shop: Shop, ca
     s.funds += revenue;
     s.today.revenue += revenue;
     s.totalRevenue += revenue;
+    shop.day.cost = (shop.day.cost ?? 0) + Math.round(qty * cat.refPrice * cat.costRatio); // 各店損益用
     if (hasStock) s.today.stockCost = (s.today.stockCost ?? 0) + Math.round(qty * cat.refPrice * cat.costRatio);
     if (!categoryHasStock(cat)) {
       // 服務型業態沒有庫存，變動成本即時支出

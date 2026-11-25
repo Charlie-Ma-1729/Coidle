@@ -90,6 +90,8 @@ export interface ShopDayStats {
   lost: number;
   /** 嫌太貴而不買的組數（舊存檔沒有） */
   priceWalks?: number;
+  /** 今天賣出的貨（或服務耗材）的成本：份數 × 單位成本（舊存檔沒有） */
+  cost?: number;
 }
 
 export interface Shop {

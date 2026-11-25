@@ -3,19 +3,22 @@ import { facilityScale } from "./helpers";
 import { RESERVE_UPKEEP_PER_DAY } from "./regulars";
 import { laborCostFactor } from "./tax";
 import { techFx } from "./tech";
-import type { MallState } from "./types";
+import type { MallState, Shop } from "./types";
 
 type CostInput = Pick<MallState, "shops" | "hours" | "tech" | "cleaningLevel" | "maintenanceLevel">;
+
+/** 一間直營店一天的薪資（深夜與長時間營業有加成；出租店沒有） */
+export function shopWagePerDay(s: Pick<MallState, "hours" | "tech">, shop: Pick<Shop, "mode" | "category" | "level">): number {
+  if (shop.mode === "lease") return 0;
+  const cat = CATEGORY_BY_ID[shop.category];
+  return cat ? cat.wage * shop.level * laborCostFactor(s.hours.open, s.hours.close) * techFx(s.tech.done).wageMult : 0;
+}
 
 /** 一天的薪資（深夜與長時間營業有加成） */
 export function dailyWages(s: Pick<MallState, "shops" | "hours" | "tech">): number {
   let c = 0;
-  for (const shop of s.shops) {
-    if (shop.mode === "lease") continue;
-    const cat = CATEGORY_BY_ID[shop.category];
-    if (cat) c += cat.wage * shop.level;
-  }
-  return c * laborCostFactor(s.hours.open, s.hours.close) * techFx(s.tech.done).wageMult;
+  for (const shop of s.shops) c += shopWagePerDay(s, shop);
+  return c;
 }
 
 /** 一天的營運支出（水電、清潔、維護）：可扣抵進項稅 */
@@ -118,4 +121,97 @@ export function dayLedger(d: DayLedgerInput): DayLedger {
     operating: income - stockCost - otherCosts - d.fixed - d.repairs,
     cash: income - d.purchases - d.fixed - d.repairs,
   };
+}
+
+// ───────── 各店損益：誰賺、誰賠、為什麼 ─────────
+export interface ShopReason {
+  tone: "bad" | "warn" | "info";
+  text: string;
+}
+
+export interface ShopLedger {
+  id: string;
+  name: string;
+  /** 業態名稱 */
+  category: string;
+  mode: Shop["mode"];
+  /** 直營＝今天的營收；出租＝今天的抽成 */
+  revenue: number;
+  /** 賣出的貨（或服務耗材）的成本 */
+  cost: number;
+  /** 這間店今天到現在累計的薪資（整天均攤） */
+  wage: number;
+  net: number;
+  verdict: "profit" | "loss" | "even";
+  /** 賠錢（或賺得少）的原因與建議；賺錢的店只放毛利說明 */
+  reasons: ShopReason[];
+}
+
+const money = (n: number) => `¥${Math.round(n).toLocaleString("en-US")}`;
+
+/**
+ * 一間店今天到現在的損益。
+ * 店面損益 ＝ 營收 − 賣出成本 − 薪資。水電、清潔維護是整個商場共用的，不分攤到各店（見 mallBreakdown）。
+ * 薪資是整天均攤的（營業或打烊都在累計），所以開門前或還沒有客人時，店面損益本來就是負的。
+ * dayFraction：今天已經過了幾分之幾（0–1）。
+ */
+export function shopLedger(s: Pick<MallState, "hours" | "tech" | "tick">, shop: Shop, dayFraction: number): ShopLedger {
+  const cat = CATEGORY_BY_ID[shop.category];
+  const base = { id: shop.id, name: shop.name, category: cat?.name ?? shop.category, mode: shop.mode };
+  const verdictOf = (net: number): ShopLedger["verdict"] => (net > 0 ? "profit" : net < 0 ? "loss" : "even");
+
+  if (shop.mode === "lease") {
+    const income = shop.day.revenue * shop.commission;
+    const reasons: ShopReason[] = [{ tone: "info", text: `出租店：賺租客營收的抽成，另有日租 ${money(shop.rent)} 每天結算時入帳；不用進貨、不用發薪。` }];
+    return { ...base, revenue: income, cost: 0, wage: 0, net: income, verdict: verdictOf(income), reasons };
+  }
+
+  const revenue = shop.day.revenue;
+  const cost = shop.day.cost ?? 0;
+  const wage = shopWagePerDay(s, shop) * Math.max(0, Math.min(1, dayFraction));
+  const net = revenue - cost - wage;
+  const reasons: ShopReason[] = [];
+
+  if (net >= 0) {
+    const margin = revenue > 0 ? Math.round(((revenue - cost) / revenue) * 100) : 0;
+    reasons.push({ tone: "info", text: `今天賣出 ${shop.day.units} 份，扣掉成本剩 ${margin}%，付完薪資還有賺。` });
+    return { ...base, revenue, cost, wage, net, verdict: verdictOf(net), reasons };
+  }
+
+  const unitCost = cat ? cat.refPrice * cat.costRatio : 0;
+  const hour = Math.floor(dayFraction * 24);
+  if (shop.closedUntilTick > s.tick) reasons.push({ tone: "bad", text: "設備故障，暫停營業中：沒有營收，但薪資照付。" });
+  if (cat && shop.price < unitCost) reasons.push({ tone: "bad", text: `標價 ${money(shop.price)} 低於每份成本約 ${money(unitCost)}，賣越多賠越多，快調高。` });
+  if (shop.day.stockouts > 0) reasons.push({ tone: "bad", text: `缺貨 ${shop.day.stockouts} 次，客人跑去別家或直接走了（補貨量或預算不夠）。` });
+  if ((shop.day.priceWalks ?? 0) >= 3 && cat) reasons.push({ tone: "bad", text: `${shop.day.priceWalks} 組客人嫌太貴走掉（標價是參考價的 ${(shop.price / cat.refPrice).toFixed(2)} 倍，超過約 1.2 倍客人會嫌貴）。` });
+  if (shop.day.lost >= 3) reasons.push({ tone: "warn", text: `${shop.day.lost} 組客人排不到位子（店太小或人手不足，可以升級）。` });
+  if (shop.freshness < 50) reasons.push({ tone: "warn", text: `新鮮感只剩 ${Math.round(shop.freshness)}，客人覺得老氣，換新菜單或做活動可以補回來。` });
+  if (reasons.length === 0) {
+    if (revenue === 0 && hour < s.hours.open) reasons.push({ tone: "info", text: "還沒開門，但薪資整天均攤，已經先累計了。" });
+    else if (revenue > cost) reasons.push({ tone: "warn", text: `每份都有賺，但客人還不夠多，攤不平這間店每天 ${money(shopWagePerDay(s, shop))} 的薪資。${dayFraction < 0.9 ? "今天還沒結束，營收還在累積。" : "可以考慮促銷、換菜單或調整營業時間。"}` });
+    else reasons.push({ tone: "info", text: "今天客人還少，營收還沒蓋過薪資。" });
+  }
+  return { ...base, revenue, cost, wage, net, verdict: "loss", reasons: reasons.slice(0, 4) };
+}
+
+export interface MallBreakdown {
+  /** 各店損益，賺最多的在前面 */
+  shops: ShopLedger[];
+  /** 各店損益合計 */
+  shopsNet: number;
+  /** 共用成本：水電、清潔維護、專屬座位（固定成本扣掉各店薪資） */
+  publicCosts: number;
+  /** 其他支出：研發、活動、客訴賠償、科技、貿易、維修罰款… 以及租金入帳的時間差（讓總數對得上上方的營運損益） */
+  otherCosts: number;
+  operating: number;
+}
+
+/** 把今天的營運損益拆成「各店損益 − 共用成本 − 其他支出」，加起來剛好等於營運損益 */
+export function mallBreakdown(s: Pick<MallState, "hours" | "tech" | "tick" | "shops">, d: DayLedgerInput, dayFraction: number): MallBreakdown {
+  const shops = s.shops.map((sh) => shopLedger(s, sh, dayFraction)).sort((a, b) => b.net - a.net);
+  const shopsNet = shops.reduce((a, x) => a + x.net, 0);
+  const wages = shops.reduce((a, x) => a + x.wage, 0);
+  const operating = dayLedger(d).operating;
+  const publicCosts = Math.max(0, d.fixed - wages);
+  return { shops, shopsNet, publicCosts, otherCosts: shopsNet - publicCosts - operating, operating };
 }
