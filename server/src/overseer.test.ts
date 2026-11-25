@@ -186,6 +186,32 @@ describe("test mall: independent from the world, owned by the Overseer", () => {
   });
 });
 
+describe("a mall the Overseer opens through the normal create endpoint", () => {
+  it("is a sandbox from the start: not in the directory, not in the world, and audited", async () => {
+    const a = make();
+    const o = await overseerLogin(a);
+    const res = await call(a, o.cookie, "POST", "/api/malls", { name: "管理者的商場" });
+    expect(res.statusCode).toBe(200);
+    const { id, sandbox } = res.json();
+    expect(sandbox).toBe(true);
+    expect(a.repo.isSandbox(id)).toBe(true);
+    expect(a.repo.directoryRows().some((r) => r.mall_id === id)).toBe(false);
+    expect(a.service.world.entries().some((e) => e.key === `m:${id}`)).toBe(false);
+    expect(a.repo.members(id).map((m) => m.userId)).toEqual([o.userId]);
+    expect(a.repo.audit({ limit: 20 }).some((r) => r.action === "mall.sandbox" && r.target === `mall#${id}`)).toBe(true);
+  });
+
+  it("a player's mall is still a normal, public one", async () => {
+    const a = make();
+    const p = await register(a, "normie", "一般玩家");
+    const res = await call(a, p.cookie, "POST", "/api/malls", { name: "一般商場" });
+    const { id, sandbox } = res.json();
+    expect(sandbox).toBe(false);
+    expect(a.repo.isSandbox(id)).toBe(false);
+    expect(a.repo.directoryRows().some((r) => r.mall_id === id)).toBe(true);
+  });
+});
+
 describe("one player, several malls", () => {
   it("a player can run two malls at once; commands and the member lists stay separate", async () => {
     const a = make();

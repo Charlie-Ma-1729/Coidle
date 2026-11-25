@@ -245,7 +245,12 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const name = str(body(req).name, "商場名稱", 1, 30);
     if (user.role !== "overseer") service.chargeFounding(user.id); // 第一座免費，之後要自己出資
     const { mallId, inviteCode } = service.createMall(user.id, name);
-    return { id: mallId, inviteCode };
+    // Overseer 開的商場一律是獨立測試商場：不進名錄／排行／賽季，也不會變成世界裡一座沒人經營的真商場
+    if (user.role === "overseer") {
+      service.adminMakeSandbox(user.id, mallId);
+      audit.record({ id: user.id, name: user.username }, "mall.sandbox", `mall#${mallId}`, { created: true, owner: user.username }, req.ip);
+    }
+    return { id: mallId, inviteCode, sandbox: user.role === "overseer" };
   });
 
   app.post("/api/malls/join", async (req) => {
