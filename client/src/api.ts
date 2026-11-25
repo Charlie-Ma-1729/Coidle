@@ -28,7 +28,14 @@ export class ApiError extends Error {
   }
 }
 
+/** 旁觀模式（Overseer 看別人的商場）：只能讀，任何會改動商場的請求在送出前就擋掉 */
+let readOnly = false;
+export function setReadOnly(v: boolean): void {
+  readOnly = v;
+}
+
 export async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
+  if (readOnly && method !== "GET" && url.startsWith("/api/malls/")) throw new ApiError(0, "旁觀中，這裡只能看、不能操作");
   let res: Response;
   try {
     res = await fetch(url, {
@@ -77,6 +84,7 @@ export const api = {
   register: (username: string, password: string, displayName: string, signupSecret?: string) =>
     request<{ ok: true }>("POST", "/api/auth/register", { username, password, displayName, signupSecret }),
   login: (username: string, password: string) => request<{ ok: true }>("POST", "/api/auth/login", { username, password }),
+  overseerLogin: (key: string) => request<{ ok: true }>("POST", "/api/auth/overseer", { key }),
   logout: () => request<{ ok: true }>("POST", "/api/auth/logout", {}),
   createMall: (name: string) => request<{ id: number; inviteCode: string }>("POST", "/api/malls", { name }),
   joinMall: (code: string, role?: RoleId) => request<{ id: number }>("POST", "/api/malls/join", { code, role }),

@@ -3,12 +3,13 @@ import { activity, mallInfo, online, state, user } from "./store";
 
 let socket: WebSocket | null = null;
 let currentMall: number | null = null;
+let currentSpectate = false;
 let retry = 0;
 let timer: ReturnType<typeof setTimeout> | null = null;
 
 function url(id: number): string {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
-  return `${proto}//${location.host}/ws?mall=${id}`;
+  return `${proto}//${location.host}/ws?mall=${id}${currentSpectate ? "&spectate=1" : ""}`;
 }
 
 function open(id: number): void {
@@ -45,9 +46,10 @@ function open(id: number): void {
   ws.onerror = () => ws.close();
 }
 
-export function connectMall(id: number): void {
+export function connectMall(id: number, spectate = false): void {
   disconnectMall();
   currentMall = id;
+  currentSpectate = spectate;
   open(id);
 }
 

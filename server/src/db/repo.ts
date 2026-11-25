@@ -277,6 +277,52 @@ export class Repo {
     this.db.prepare("DELETE FROM mall_directory WHERE mall_id = ?").run(mallId);
   }
 
+  // ── 營運指標
+  activePlayersSince(since: number): number {
+    return Number((this.db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'player' AND last_seen_at >= ?").get(since) as { n: number }).n);
+  }
+  newPlayersSince(since: number): number {
+    return Number((this.db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'player' AND created_at >= ?").get(since) as { n: number }).n);
+  }
+  countPlayers(): number {
+    return Number((this.db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'player'").get() as { n: number }).n);
+  }
+  countRealMalls(): number {
+    return Number((this.db.prepare("SELECT COUNT(*) AS n FROM malls WHERE sandbox = 0").get() as { n: number }).n);
+  }
+  addSample(s: { ts: number; online_users: number; online_malls: number; ws_conns: number; active_24h: number; active_7d: number; users_total: number; malls_total: number; requests: number; errors: number; commands: number; npc_actions: number; tick_ms: number; loop_lag_ms: number; rss_mb: number; heap_mb: number; uptime_s: number }): void {
+    this.db
+      .prepare(
+        `INSERT OR REPLACE INTO metrics_samples (ts, online_users, online_malls, ws_conns, active_24h, active_7d, users_total, malls_total, requests, errors, commands, npc_actions, tick_ms, loop_lag_ms, rss_mb, heap_mb, uptime_s)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(s.ts, s.online_users, s.online_malls, s.ws_conns, s.active_24h, s.active_7d, s.users_total, s.malls_total, s.requests, s.errors, s.commands, s.npc_actions, s.tick_ms, s.loop_lag_ms, s.rss_mb, s.heap_mb, s.uptime_s);
+  }
+  samples(from: number, to: number, limit: number): Record<string, number>[] {
+    return this.db.prepare("SELECT * FROM metrics_samples WHERE ts >= ? AND ts < ? ORDER BY ts LIMIT ?").all(from, to, limit) as never;
+  }
+  pruneSamples(before: number): void {
+    this.db.prepare("DELETE FROM metrics_samples WHERE ts < ?").run(before);
+  }
+  upsertDaily(day: string, d: { dau: number; newUsers: number; online: number; ws: number; requests: number; errors: number; commands: number; npcActions: number; tickMs: number }): void {
+    this.db
+      .prepare(
+        `INSERT INTO daily_stats (day, dau, new_users, peak_online, peak_ws, requests, errors, commands, npc_actions, max_tick_ms, samples)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+         ON CONFLICT(day) DO UPDATE SET dau = MAX(dau, excluded.dau), new_users = excluded.new_users,
+           peak_online = MAX(peak_online, excluded.peak_online), peak_ws = MAX(peak_ws, excluded.peak_ws),
+           requests = requests + excluded.requests, errors = errors + excluded.errors, commands = commands + excluded.commands,
+           npc_actions = npc_actions + excluded.npc_actions, max_tick_ms = MAX(max_tick_ms, excluded.max_tick_ms), samples = samples + 1`,
+      )
+      .run(day, d.dau, d.newUsers, d.online, d.ws, d.requests, d.errors, d.commands, d.npcActions, d.tickMs);
+  }
+  dailyStats(limit: number): Record<string, number | string>[] {
+    return this.db.prepare("SELECT * FROM daily_stats ORDER BY day DESC LIMIT ?").all(limit) as never;
+  }
+  dailyStatsBetween(fromDay: string, toDay: string): Record<string, number | string>[] {
+    return this.db.prepare("SELECT * FROM daily_stats WHERE day >= ? AND day <= ? ORDER BY day").all(fromDay, toDay) as never;
+  }
+
   // ── 稽核紀錄
   addAudit(e: { ts: number; actorId: number | null; actorName: string; action: string; target: string; detail: unknown; ip: string }): number {
     const r = this.db

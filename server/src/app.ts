@@ -13,6 +13,7 @@ import { registerSecurityHeaders, registerStatic } from "./static";
 import { MallService, ServiceError } from "./services/mallService";
 import { PushService, type PushSender } from "./services/push";
 import { AuditService, type AuditSink } from "./services/audit";
+import { Metrics } from "./services/metrics";
 
 export interface BuildOptions {
   config?: Partial<Config>;
@@ -53,15 +54,20 @@ export function buildApp(opts: BuildOptions = {}) {
     time: new Date().toISOString(),
   }));
 
-  const deps = { config, repo, service, push, now, content, audit };
+  const metrics = new Metrics(repo, now, service);
+  app.addHook("onResponse", async (req, reply) => {
+    if (req.url.startsWith("/api/")) metrics.request(reply.statusCode);
+  });
+  const deps = { config, repo, service, push, now, content, audit, metrics };
   registerRoutes(app, deps);
   registerWs(app, deps);
   registerSecurityHeaders(app);
   registerStatic(app, config.staticDir);
 
   app.addHook("onClose", async () => {
+    metrics.stop();
     db.close();
   });
 
-  return { app, service, repo, config, push, content, audit };
+  return { app, service, repo, config, push, content, audit, metrics };
 }

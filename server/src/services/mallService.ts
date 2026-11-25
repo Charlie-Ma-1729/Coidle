@@ -266,6 +266,16 @@ export class MallService {
   }
 
   /** WebSocket 連線數增減 */
+  /** 目前有人在場（非旁觀連線）的商場數 */
+  presentMalls(): number {
+    return this.connections.size;
+  }
+
+  /** 管理用：每座商場目前的連線人數 */
+  connectionsOf(mallId: number): number {
+    return this.connections.get(mallId) ?? 0;
+  }
+
   addConnection(mallId: number, delta: 1 | -1): void {
     const n = Math.max(0, (this.connections.get(mallId) ?? 0) + delta);
     if (n === 0) this.connections.delete(mallId);
@@ -651,6 +661,66 @@ export class MallService {
   }
 
   /** 團隊動態：跨商場行動（聯名等）留下紀錄 */
+  // ── 管理用（Overseer）：直接改商場與成員。每一個都由呼叫端負責寫稽核紀錄。
+  adminRenameMall(mallId: number, name: string): void {
+    if (!this.repo.mallById(mallId)) throw new ServiceError(404, "找不到這座商場");
+    this.repo.renameMall(mallId, name);
+    this.lastDirectory.delete(mallId);
+    this.refreshDirectory(mallId, this.load(mallId), this.now(), true);
+    this.announceMembers(mallId);
+  }
+
+  adminSetFunds(mallId: number, funds: number): void {
+    if (!Number.isFinite(funds) || Math.abs(funds) > 1e12) throw new ServiceError(400, "金額不正確");
+    this.mutate(mallId, (s) => {
+      s.funds = Math.round(funds);
+    });
+  }
+
+  adminSetLevel(mallId: number, level: number): void {
+    if (!Number.isInteger(level) || level < 1 || level > LEVELS.length) throw new ServiceError(400, `等級要在 1–${LEVELS.length} 之間`);
+    this.mutate(mallId, (s) => {
+      s.level = level;
+      const need = LEVELS.find((l) => l.level === level)!;
+      if (s.totalRevenue < need.minRevenue) s.totalRevenue = need.minRevenue; // 不然下一次結算會覺得等級「不對」
+    });
+  }
+
+  adminAddMember(mallId: number, userId: number, role: RoleId = "ops"): void {
+    if (!this.repo.mallById(mallId)) throw new ServiceError(404, "找不到這座商場");
+    const u = this.repo.userById(userId);
+    if (!u) throw new ServiceError(404, "找不到這位使用者");
+    if (u.role === "overseer") throw new ServiceError(400, "Overseer 不加入商場；要看請用旁觀");
+    if (this.repo.member(mallId, userId)) throw new ServiceError(409, "他已經在這座商場裡了");
+    this.repo.addMember(mallId, userId, ROLE_IDS.includes(role) ? role : "ops", this.repo.memberCount(mallId) === 0, this.now());
+    this.announceMembers(mallId);
+  }
+
+  /** 移出成員；如果他是創辦人，創辦人自動交給最早加入的其他成員；最後一人不能移出（要解散請用解散商場） */
+  adminRemoveMember(mallId: number, userId: number): void {
+    const m = this.repo.member(mallId, userId);
+    if (!m) throw new ServiceError(404, "他不在這座商場裡");
+    const rest = this.repo.members(mallId).filter((x) => x.userId !== userId);
+    if (rest.length === 0) throw new ServiceError(409, "這是最後一位成員，要移除請改用「解散商場」");
+    this.repo.removeMember(mallId, userId);
+    if (m.is_owner) this.repo.setOwner(mallId, rest[0]!.userId, true);
+    this.announceMembers(mallId);
+  }
+
+  adminSetOwner(mallId: number, userId: number): void {
+    if (!this.repo.member(mallId, userId)) throw new ServiceError(404, "他不在這座商場裡");
+    for (const m of this.repo.members(mallId)) this.repo.setOwner(mallId, m.userId, m.userId === userId);
+    this.announceMembers(mallId);
+  }
+
+  /** 寄一則通知給商場（出現在待辦與日誌裡） */
+  adminNotice(mallId: number, text: string): void {
+    if (!this.repo.mallById(mallId)) throw new ServiceError(404, "找不到這座商場");
+    const t = this.now();
+    this.repo.addMail(mallId, "notice", { text }, t, t);
+    this.sync(mallId);
+  }
+
   /** 世界功能（聯名、貿易、搶客）：測試商場不參與 */
   assertInWorld(mallId: number): void {
     if (this.repo.isSandbox(mallId)) throw new ServiceError(403, "測試商場獨立於世界之外，不能聯名、貿易或搶客");

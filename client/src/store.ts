@@ -1,6 +1,6 @@
 import { signal } from "@preact/signals";
 import { registerEvents, registerRegulars, type ActivityEntry, type Command, type MallSummary, type MeResponse, type PublicMallState } from "@coidle/shared";
-import { api, ApiError, type ClockPatch, type MallInfo } from "./api";
+import { api, ApiError, setReadOnly, type ClockPatch, type MallInfo } from "./api";
 import type { PendingInvite } from "./ui/attention";
 import { connectMall, disconnectMall } from "./ws";
 
@@ -9,6 +9,8 @@ export const myMalls = signal<MallSummary[]>([]);
 /** 啟動時是否已確認過登入狀態 */
 export const authReady = signal(false);
 export const mallId = signal<number | null>(null);
+/** Overseer 正在旁觀這座商場（只能看，不能操作，也不算在場） */
+export const spectating = signal(false);
 export const mallInfo = signal<MallInfo | null>(null);
 export const state = signal<PublicMallState | null>(null);
 export const activity = signal<ActivityEntry[]>([]);
@@ -55,6 +57,7 @@ export async function bootstrap(): Promise<void> {
     user.value = me.user;
     myMalls.value = me.malls;
     const saved = Number(localStorage.getItem("coidle.mall"));
+    if (me.user.role === "overseer") return; // Overseer 登入後先進管理室，不自動進商場
     if (saved && me.malls.some((m) => m.id === saved)) await openMall(saved);
     else if (me.malls.length === 1 && me.malls[0]) await openMall(me.malls[0].id);
   } catch {
@@ -70,9 +73,12 @@ export async function refreshMe(): Promise<void> {
   myMalls.value = me.malls;
 }
 
-export async function openMall(id: number): Promise<void> {
+export async function openMall(id: number, opts: { spectate?: boolean } = {}): Promise<void> {
+  const spectate = !!opts.spectate;
+  spectating.value = spectate;
+  setReadOnly(spectate);
   mallId.value = id;
-  localStorage.setItem("coidle.mall", String(id));
+  if (!spectate) localStorage.setItem("coidle.mall", String(id));
   // 先取得新增的事件定義（AI 事件），畫面才認得待決事件
   await api.contentEvents().then((r) => registerEvents(r.events), () => undefined);
   await api.contentRegulars().then((r) => registerRegulars(r.regulars), () => undefined);
@@ -81,18 +87,25 @@ export async function openMall(id: number): Promise<void> {
   state.value = st;
   activity.value = act;
   invites.value = [];
-  connectMall(id);
+  connectMall(id, spectate);
   void refreshInvites();
 }
 
 export function leaveMall(): void {
   disconnectMall();
+  spectating.value = false;
+  setReadOnly(false);
   mallId.value = null;
   mallInfo.value = null;
   state.value = null;
   activity.value = [];
   invites.value = [];
   localStorage.removeItem("coidle.mall");
+}
+
+/** Overseer：旁觀任何一座商場（唯讀） */
+export function spectateMall(id: number): Promise<void> {
+  return openMall(id, { spectate: true });
 }
 
 export async function logout(): Promise<void> {

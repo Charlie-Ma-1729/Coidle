@@ -16,7 +16,7 @@ import { HUBS } from "../ui/Dock";
 import { RealShopPanel } from "../ui/RealShopPanel";
 import { BuildSheet } from "../screens/BuildSheet";
 import { ShopSheet } from "../screens/ShopSheet";
-import { invites, mallId, worldFocus, mallInfo, online, refreshInvites, run, setClock, state, user } from "../store";
+import { invites, leaveMall, mallId, worldFocus, mallInfo, myMalls, online, refreshInvites, run, setClock, spectating, state, user } from "../store";
 import { locateShop, toStageModel } from "./adapter";
 import type { AttentionItem, HubId } from "./model";
 import { useStage } from "./useStage";
@@ -160,6 +160,15 @@ function StageGameInner() {
     <div class="st-root">
       <div class="st-scene" ref={host} />
 
+      {spectating.value && (
+        <div class="st-spectate st-panel" role="status">
+          <span>👁 旁觀中・唯讀（你的操作不會送出，也不算在場）</span>
+          <button class="st-btn" onClick={leaveMall}>
+            離開旁觀
+          </button>
+        </div>
+      )}
+
       <TopBar
         mallName={model.mallName}
         level={model.level}
@@ -279,6 +288,18 @@ function StageGameInner() {
             <Icon name="list" size={2} />
             全部功能
           </button>
+          {(myMalls.value.length > 1 || spectating.value) && (
+            <button
+              role="menuitem"
+              onClick={() => {
+                closeOverlays();
+                leaveMall();
+              }}
+            >
+              <Icon name="list" size={2} />
+              {spectating.value ? "離開旁觀" : "切換商場"}
+            </button>
+          )}
         </div>
       )}
 

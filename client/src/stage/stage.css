@@ -34,6 +34,7 @@
 }
 .st-top > * { pointer-events: auto; }
 .st-top .st-spacer { flex: 1; pointer-events: none; }
+.st-spectate { position: absolute; z-index: 30; left: 50%; transform: translateX(-50%); top: calc(var(--st-top-h) + 10px); display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 12px; font-size: 0.85rem; font-weight: 700; max-width: calc(100% - 24px); }
 .st-btn {
   appearance: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
   height: 38px; padding: 0 12px; color: var(--text); font-size: 0.9rem; font-weight: 700;

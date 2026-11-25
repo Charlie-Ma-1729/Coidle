@@ -321,12 +321,90 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).toContain("永久刪除帳號");
   });
 
-  it("Admin screen asks for the token first", async () => {
-    sessionStorage.clear();
-    const { Admin } = await import("./screens/Admin");
-    await mount(<Admin />);
-    expect(container.textContent).toContain("管理後台");
-    expect(container.textContent).toContain("ADMIN_TOKEN");
+  it("login has a separate key mode for the Overseer, which signs in with the key only", async () => {
+    const { api } = await import("./api");
+    let sent = "";
+    api.overseerLogin = async (key: string) => {
+      sent = key;
+      return { ok: true } as const;
+    };
+    api.me = async () => ({ user: { id: 9, username: "overseer", displayName: "Overseer", role: "overseer" as const }, malls: [] });
+    store.user.value = null;
+    const { Auth } = await import("./screens/Auth");
+    await mount(<Auth />);
+    expect(container.textContent).not.toContain("管理者金鑰：");
+    const toggle = Array.from(container.querySelectorAll("button")).find((b) => b.textContent === "管理者金鑰登入") as HTMLButtonElement;
+    toggle.click();
+    await tick();
+    expect(container.textContent).toContain("管理者金鑰");
+    expect(container.querySelectorAll('input[type="password"]').length).toBe(1);
+    expect(container.textContent).not.toContain("帳號");
+    const input = container.querySelector('input[type="password"]') as HTMLInputElement;
+    input.value = "ovs_secret-key";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await tick();
+    (container.querySelector("form") as HTMLFormElement).dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    await tick();
+    await tick();
+    expect(sent).toBe("ovs_secret-key");
+    expect((store.user.value as { role: string } | null)?.role).toBe("overseer");
+  });
+
+  it("spectating blocks every write before it leaves the browser", async () => {
+    const { setReadOnly, request, ApiError } = await import("./api");
+    setReadOnly(true);
+    await expect(request("POST", "/api/malls/5/commands", { command: {} })).rejects.toBeInstanceOf(ApiError);
+    await expect(request("POST", "/api/malls/5/clock", { paused: true })).rejects.toThrow("旁觀中");
+    setReadOnly(false);
+  });
+
+  it("the Overseer's console lists live numbers, malls (with spectate and the test-mall marker), users and the audit log", async () => {
+    const { adminApi } = await import("./admin/adminApi");
+    const sample = { ts: Date.now(), online_users: 3, online_malls: 2, ws_conns: 4, active_24h: 7, active_7d: 12, users_total: 20, malls_total: 5, requests: 120, errors: 0, commands: 40, npc_actions: 1, tick_ms: 4.2, loop_lag_ms: 0.8, rss_mb: 120, heap_mb: 60, uptime_s: 7200 };
+    adminApi.live = async () => ({ now: sample, recent: [] });
+    adminApi.metrics = async () => ({ from: 0, to: 1, samples: [sample, { ...sample, ts: sample.ts + 60_000 }] });
+    adminApi.daily = async () => ({ days: [{ day: "2026-11-25", dau: 7, new_users: 2, peak_online: 5, peak_ws: 6, requests: 9000, errors: 1, commands: 800, npc_actions: 3, max_tick_ms: 30, samples: 600 }] });
+    adminApi.overview = async () => ({
+      users: [
+        { id: 1, username: "overseer", display_name: "Overseer", created_at: 1, role: "overseer" as const, last_seen_at: 0 },
+        { id: 2, username: "alice", display_name: "愛麗絲", created_at: 1, role: "player" as const, last_seen_at: Date.now() },
+      ],
+      malls: [
+        { id: 1, name: "真實商場", created_at: 1, members: 1, sandbox: 0, online: 1, members_list: [{ userId: 2, displayName: "愛麗絲", role: "gm" as const, isOwner: true, joinedAt: 0 }], level: 3, funds: 5_000_000, tick: 0, day: 12, flags: {} },
+        { id: 2, name: "測試全開商場", created_at: 1, members: 1, sandbox: 1, online: 0, members_list: [{ userId: 1, displayName: "Overseer", role: "gm" as const, isOwner: true, joinedAt: 0 }], level: 8, funds: 100_000_000, tick: 0, day: 3, flags: {} },
+      ],
+    });
+    adminApi.audit = async () => ({ entries: [{ id: 5, ts: Date.now(), actor: "overseer", actorId: 1, action: "mall.flag", target: "mall#1(真實商場)", detail: { flag: "zone:f1" }, ip: "1.2.3.4" }] });
+    store.user.value = { id: 1, username: "overseer", displayName: "Overseer", role: "overseer" };
+    store.myMalls.value = [{ id: 2, name: "測試全開商場", role: "gm", isOwner: true }];
+    const { Console } = await import("./admin/Console");
+    await mount(<Console />);
+    await tick();
+    await tick();
+    expect(container.textContent).toContain("管理室");
+    expect(container.textContent).toContain("現在線上玩家");
+    expect(container.textContent).toContain("2026-11-25");
+    expect(container.textContent).toContain("進入「測試全開商場」");
+
+    const tab = (label: string) => Array.from(container.querySelectorAll("button.zone-tab")).find((b) => b.textContent?.includes(label)) as HTMLButtonElement;
+    tab("商場").click();
+    await tick();
+    expect(container.textContent).toContain("真實商場");
+    expect(container.textContent).toContain("測試・獨立於世界");
+    expect(container.textContent).toContain("1 人在場");
+    expect(Array.from(container.querySelectorAll("button")).filter((b) => b.textContent?.includes("旁觀")).length).toBe(2);
+
+    tab("使用者").click();
+    await tick();
+    expect(container.textContent).toContain("愛麗絲");
+    expect(container.textContent).toContain("Overseer");
+    expect(container.textContent).toContain("重設密碼");
+
+    tab("稽核").click();
+    await tick();
+    await tick();
+    expect(container.textContent).toContain("mall.flag");
+    expect(container.textContent).toContain("1.2.3.4");
   });
 
   it("Reports shows an empty state before the first report", async () => {

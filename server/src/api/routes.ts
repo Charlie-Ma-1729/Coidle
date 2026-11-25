@@ -9,6 +9,7 @@ import { MallService, ServiceError, type ClockPatch } from "../services/mallServ
 import type { PushService } from "../services/push";
 import type { Command } from "../sim";
 import { RESERVED_USERNAMES, overseerByKey } from "../auth/overseer";
+import { dailyCsv, sampleCsv, type DailyStat, type Metrics, type MetricsSample } from "../services/metrics";
 import type { UserRow } from "../db/repo";
 import type { AuditService } from "../services/audit";
 import { COOKIE_NAME, SESSION_TTL_MS, requireOverseer, requireUser, sessionToken, setSessionCookie, userFromRequest } from "./auth";
@@ -30,6 +31,7 @@ export interface Deps {
   now: () => number;
   content: ContentService;
   audit: AuditService;
+  metrics: Metrics;
 }
 
 const USERNAME_RE = /^[A-Za-z0-9_぀-ヿ一-鿿]{2,20}$/;
@@ -59,7 +61,7 @@ function mallIdOf(params: unknown): number {
 }
 
 export function registerRoutes(app: FastifyInstance, deps: Deps): void {
-  const { config, repo, service, push, now, content, audit } = deps;
+  const { config, repo, service, push, now, content, audit, metrics } = deps;
   const failures = new Map<string, { n: number; resetAt: number }>();
 
   /** 管理 API 處理函式用：替這次操作寫一句稽核說明（沒寫的話，會自動記下方法與路徑） */
@@ -95,6 +97,22 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const member = repo.member(mallId, user.id);
     if (!member) throw new ServiceError(403, "你不是這座商場的成員");
     return { user, member };
+  };
+
+  /** 只讀的存取：成員，或旁觀中的 Overseer（旁觀不算在場、不能操作；每 10 分鐘最多記一次稽核） */
+  const spectated = new Map<string, number>();
+  const requireReader = (req: Parameters<typeof requireUser>[0], mallId: number) => {
+    const user = requireUser(req, repo, now());
+    const member = repo.member(mallId, user.id);
+    if (member) return { user, member, spectator: false };
+    if (user.role !== "overseer") throw new ServiceError(403, "你不是這座商場的成員");
+    if (!repo.mallById(mallId)) throw new ServiceError(404, "商場不存在");
+    const k = `${user.id}|${mallId}`;
+    if ((spectated.get(k) ?? 0) + 600_000 < now()) {
+      spectated.set(k, now());
+      audit.record({ id: user.id, name: user.username }, "spectate.open", `mall#${mallId}`, {}, req.ip);
+    }
+    return { user, member: undefined, spectator: true };
   };
 
   const startSession = (reply: Parameters<typeof setSessionCookie>[0], userId: number) => {
@@ -237,25 +255,25 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
 
   app.get("/api/malls/:id", async (req) => {
     const mallId = mallIdOf(req.params);
-    const { member } = requireMember(req, mallId);
+    const { member } = requireReader(req, mallId);
     const mall = repo.mallById(mallId)!;
     return {
       id: mall.id,
       name: mall.name,
-      inviteCode: member.is_owner ? mall.invite_code : undefined,
+      inviteCode: member?.is_owner ? mall.invite_code : undefined,
       members: service.members(mallId),
     };
   });
 
   app.get("/api/malls/:id/state", async (req) => {
     const mallId = mallIdOf(req.params);
-    requireMember(req, mallId);
-    return service.getState(mallId, true);
+    const { spectator } = requireReader(req, mallId);
+    return service.getState(mallId, !spectator); // 旁觀不更新「最近造訪」，所以不會讓商場被當成有人在
   });
 
   app.get("/api/malls/:id/activity", async (req) => {
     const mallId = mallIdOf(req.params);
-    requireMember(req, mallId);
+    requireReader(req, mallId);
     const limit = Math.min(100, Math.max(1, Number((req.query as { limit?: string }).limit ?? 30) || 30));
     return repo.activity(mallId, limit);
   });
@@ -269,6 +287,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     }
     const result = service.runCommand(mallId, { id: user.id, displayName: user.display_name }, cmd as Command);
     if (!result.ok) throw new ServiceError(422, result.error);
+    metrics.command();
     return result.publicState;
   });
 
@@ -395,7 +414,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   // ── 聯名協議（跨商場合作）：只有該商場的成員能操作
   const memberOf = (req: Parameters<typeof requireUser>[0], params: unknown, write = true) => {
     const mallId = mallIdOf(params);
-    const { user } = requireMember(req, mallId);
+    const { user } = write ? requireMember(req, mallId) : requireReader(req, mallId);
     if (write) service.assertInWorld(mallId);
     return { user, mallId };
   };
@@ -501,7 +520,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   app.get("/api/admin/overview", async (req) => {
     return {
       users: repo.allUsers(),
-      malls: repo.allMalls().map((m) => ({ ...m, ...(service.summary(m.id) ?? { level: 0, funds: 0, tick: 0, day: 0, flags: {} }) })),
+      malls: repo.allMalls().map((m) => ({ ...m, online: service.connectionsOf(m.id), members_list: repo.members(m.id), ...(service.summary(m.id) ?? { level: 0, funds: 0, tick: 0, day: 0, flags: {} }) })),
     };
   });
   app.post("/api/admin/users/:id/reset-password", async (req) => {
@@ -531,6 +550,137 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     note(req, "mall.dissolve", `mall#${id}(${mall.name})`);
     service.dissolveMall(id);
     return { ok: true };
+  });
+
+  // ── 商場與成員管理
+  const idParam = (req: { params: unknown }, name = "id"): number => {
+    const id = Number((req.params as Record<string, string>)[name]);
+    if (!Number.isInteger(id) || id < 1) throw new ServiceError(400, "編號無效");
+    return id;
+  };
+  const mallLabel = (id: number): string => `mall#${id}(${repo.mallById(id)?.name ?? "?"})`;
+  const userLabel = (id: number): string => `user#${id}(${repo.userById(id)?.username ?? "?"})`;
+
+  app.post("/api/admin/users/:id/rename", async (req) => {
+    const id = idParam(req);
+    if (!repo.userById(id)) throw new ServiceError(404, "找不到這位使用者");
+    const name = str(body(req).displayName, "暱稱", 1, 20);
+    note(req, "user.rename", userLabel(id), { displayName: name });
+    repo.setDisplayName(id, name);
+    for (const m of repo.mallsOfUser(id)) service.announceMembersOf(m.id);
+    return { ok: true };
+  });
+  app.post("/api/admin/users/:id/logout", async (req) => {
+    const id = idParam(req);
+    if (!repo.userById(id)) throw new ServiceError(404, "找不到這位使用者");
+    note(req, "user.logout-all", userLabel(id));
+    repo.deleteSessionsOfUser(id);
+    return { ok: true };
+  });
+  app.post("/api/admin/malls/:id/rename", async (req) => {
+    const id = idParam(req);
+    const name = str(body(req).name, "商場名稱", 1, 30);
+    note(req, "mall.rename", mallLabel(id), { name });
+    service.adminRenameMall(id, name);
+    return { ok: true };
+  });
+  app.post("/api/admin/malls/:id/funds", async (req) => {
+    const id = idParam(req);
+    const funds = body(req).funds;
+    if (typeof funds !== "number") throw new ServiceError(400, "金額不正確");
+    note(req, "mall.funds", mallLabel(id), { funds });
+    service.adminSetFunds(id, funds);
+    return { ok: true };
+  });
+  app.post("/api/admin/malls/:id/level", async (req) => {
+    const id = idParam(req);
+    const level = body(req).level;
+    if (typeof level !== "number") throw new ServiceError(400, "等級不正確");
+    note(req, "mall.level", mallLabel(id), { level });
+    service.adminSetLevel(id, level);
+    return { ok: true };
+  });
+  app.post("/api/admin/malls/:id/clock", async (req) => {
+    const id = idParam(req);
+    const b = body(req);
+    const patch: ClockPatch = {};
+    if (b.speed !== undefined) {
+      if (typeof b.speed !== "string" || !speedPreset(b.speed)) throw new ServiceError(400, "流速檔位無效");
+      patch.speed = b.speed as ClockPatch["speed"];
+    }
+    for (const key of ["paused", "pauseOnEvents"] as const) {
+      if (b[key] !== undefined) {
+        if (typeof b[key] !== "boolean") throw new ServiceError(400, `${key} 格式不正確`);
+        patch[key] = b[key] as boolean;
+      }
+    }
+    note(req, "mall.clock", mallLabel(id), patch);
+    const a = req.actor!;
+    service.setClock(id, { id: a.id, displayName: "Overseer" }, patch);
+    return { ok: true };
+  });
+  app.post("/api/admin/malls/:id/notice", async (req) => {
+    const id = idParam(req);
+    const text = str(body(req).text, "通知內容", 4, 120);
+    note(req, "mall.notice", mallLabel(id), { text });
+    service.adminNotice(id, text);
+    return { ok: true };
+  });
+  app.post("/api/admin/malls/:id/members", async (req) => {
+    const id = idParam(req);
+    const b = body(req);
+    const uid = typeof b.userId === "number" ? b.userId : NaN;
+    if (!Number.isInteger(uid)) throw new ServiceError(400, "使用者編號無效");
+    const role = typeof b.role === "string" && ROLE_IDS.includes(b.role) ? (b.role as RoleId) : "ops";
+    note(req, "mall.member-add", `${mallLabel(id)} ← ${userLabel(uid)}`, { role });
+    service.adminAddMember(id, uid, role);
+    return { ok: true };
+  });
+  app.post("/api/admin/malls/:id/members/:uid/remove", async (req) => {
+    const id = idParam(req);
+    const uid = idParam(req, "uid");
+    note(req, "mall.member-remove", `${mallLabel(id)} ✕ ${userLabel(uid)}`);
+    service.adminRemoveMember(id, uid);
+    return { ok: true };
+  });
+  app.post("/api/admin/malls/:id/owner", async (req) => {
+    const id = idParam(req);
+    const rawUid = body(req).userId;
+    const uid = typeof rawUid === "number" ? rawUid : NaN;
+    if (!Number.isInteger(uid)) throw new ServiceError(400, "使用者編號無效");
+    note(req, "mall.owner", `${mallLabel(id)} → ${userLabel(uid)}`);
+    service.adminSetOwner(id, uid);
+    return { ok: true };
+  });
+
+  // ── 營運與玩家數據
+  app.get("/api/admin/metrics/live", async () => ({ now: metrics.live(), recent: repo.samples(now() - 3 * 3_600_000, now() + 1, 200) }));
+  app.get("/api/admin/metrics", async (req) => {
+    const q = req.query as { from?: string; to?: string; limit?: string };
+    const to = Number(q.to) || now() + 1;
+    const from = Number(q.from) || to - 24 * 3_600_000;
+    const limit = Math.min(5000, Math.max(10, Number(q.limit) || 1500));
+    const rows = repo.samples(from, to, 50_000);
+    // 區間太長時等距抽樣，免得圖表與傳輸太大
+    const step = Math.max(1, Math.ceil(rows.length / limit));
+    return { from, to, samples: rows.filter((_, i) => i % step === 0) };
+  });
+  app.get("/api/admin/metrics/daily", async (req) => {
+    const days = Math.min(365, Math.max(1, Number((req.query as { days?: string }).days) || 30));
+    return { days: repo.dailyStats(days).reverse() };
+  });
+  app.get("/api/admin/metrics/export", async (req, reply) => {
+    const q = req.query as { kind?: string; format?: string; from?: string; to?: string };
+    const kind = q.kind === "daily" ? "daily" : "samples";
+    const format = q.format === "json" ? "json" : "csv";
+    const to = Number(q.to) || now() + 1;
+    const from = Number(q.from) || to - 7 * 86_400_000;
+    note(req, "metrics.export", kind, { format, from, to });
+    const stamp = new Date(now()).toISOString().slice(0, 10);
+    const rows = kind === "daily" ? (repo.dailyStats(3650).reverse() as unknown as DailyStat[]) : (repo.samples(from, to, 200_000) as unknown as MetricsSample[]);
+    reply.header("content-disposition", `attachment; filename="coidle-${kind}-${stamp}.${format}"`);
+    if (format === "json") return reply.type("application/json").send(JSON.stringify(rows));
+    return reply.type("text/csv; charset=utf-8").send(kind === "daily" ? dailyCsv(rows as DailyStat[]) : sampleCsv(rows as MetricsSample[]));
   });
 
   // ── 稽核紀錄：查詢（最新在前）；before 是上一頁最後一筆的 id

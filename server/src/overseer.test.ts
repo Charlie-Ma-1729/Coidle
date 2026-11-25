@@ -207,3 +207,66 @@ describe("one player, several malls", () => {
     expect((await call(a, p.cookie, "GET", `/api/malls/${m1}`)).json().members).toHaveLength(1);
   });
 });
+
+describe("spectating (read-only)", () => {
+  async function mall(a: App) {
+    const owner = await register(a, "owner1", "創辦人");
+    const { id } = (await call(a, owner.cookie, "POST", "/api/malls", { name: "被旁觀的商場" })).json();
+    return { owner, id: id as number };
+  }
+
+  it("the Overseer can read any mall, can't act in it, and doesn't count as being present", async () => {
+    const a = make();
+    const { owner, id } = await mall(a);
+    const stranger = await register(a, "stranger");
+    const o = await overseerLogin(a);
+    expect((await call(a, stranger.cookie, "GET", `/api/malls/${id}/state`)).statusCode).toBe(403);
+
+    const shop = (await call(a, owner.cookie, "GET", `/api/malls/${id}/state`)).json().shops[0];
+    const visit0 = a.service.sync(id).clock.lastVisitRealMs;
+    clock.t += 2 * 3_600_000;
+    const st = await call(a, o.cookie, "GET", `/api/malls/${id}/state`);
+    expect(st.statusCode).toBe(200);
+    expect(a.service.sync(id).clock.lastVisitRealMs).toBe(visit0); // 旁觀不算「有人來過」
+    const info = (await call(a, o.cookie, "GET", `/api/malls/${id}`)).json();
+    expect(info.inviteCode).toBeUndefined();
+    expect(info.members).toHaveLength(1);
+    expect((await call(a, o.cookie, "GET", `/api/malls/${id}/activity`)).statusCode).toBe(200);
+    expect((await call(a, o.cookie, "GET", `/api/malls/${id}/world/alliances`)).statusCode).toBe(200);
+
+    // 只能看：所有會改變商場的操作都拒絕
+    expect((await call(a, o.cookie, "POST", `/api/malls/${id}/commands`, { command: { type: "setPrice", shopId: shop.id, price: shop.price + 10 } })).statusCode).toBe(403);
+    expect((await call(a, o.cookie, "POST", `/api/malls/${id}/clock`, { paused: true })).statusCode).toBe(403);
+    expect((await call(a, o.cookie, "POST", `/api/malls/${id}/world/alliance`, { target: "n:harbor" })).statusCode).toBe(403);
+    expect((await call(a, o.cookie, "POST", `/api/malls/${id}/leave`)).statusCode).toBe(403);
+
+    // 稽核紀錄：旁觀只記一次（10 分鐘內重複打開不洗版）
+    expect(a.repo.audit({ limit: 50, action: "spectate" }).filter((r) => r.target === `mall#${id}`)).toHaveLength(1);
+    clock.t += 11 * 60_000;
+    await call(a, o.cookie, "GET", `/api/malls/${id}/state`);
+    expect(a.repo.audit({ limit: 50, action: "spectate" })).toHaveLength(2);
+  });
+
+  it("a spectator socket gets the state but is not counted as someone present; a normal player can't spectate", async () => {
+    const a = make();
+    const { owner, id } = await mall(a);
+    const stranger = await register(a, "stranger");
+    const o = await overseerLogin(a);
+    await a.app.ready();
+    const connections = () => (a.service as unknown as { connections: Map<number, number> }).connections.get(id) ?? 0;
+
+    const ws = await a.app.injectWS(`/ws?mall=${id}&spectate=1`, { headers: { cookie: o.cookie } });
+    const got = new Promise<{ type: string }>((resolve) => ws.on("message", (raw: unknown) => resolve(JSON.parse(String(raw)))));
+    ws.send(JSON.stringify({ type: "sync" }));
+    expect((await got).type).toBe("state");
+    expect(connections()).toBe(0);
+
+    const bad = await a.app.injectWS(`/ws?mall=${id}&spectate=1`, { headers: { cookie: stranger.cookie } });
+    expect(await new Promise<number>((r) => bad.on("close", (c: number) => r(c)))).toBe(4403);
+
+    const real = await a.app.injectWS(`/ws?mall=${id}`, { headers: { cookie: owner.cookie } });
+    expect(connections()).toBe(1);
+    real.terminate();
+    ws.terminate();
+  });
+});
