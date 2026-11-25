@@ -122,8 +122,26 @@ describe("toStageModel", () => {
     expect(maxed.floors[0]!.expand).toBeNull();
   });
 
-  it("時間與營業時間來自狀態；今日損益算式與總覽一致", () => {
+  it("今日損益是營運損益：進貨是存貨，不當成當天虧損", () => {
+    const m = toStageModel(
+      stateAt(2, (s) => {
+        s.today.revenue = 10_000;
+        s.today.rentIncome = 1_000;
+        s.today.purchases = 9_000; // 其中 8,000 是進貨
+        s.today.stockBought = 8_000;
+        s.today.stockCost = 3_000;
+        s.today.fixed = 2_000;
+        s.today.repairs = 0;
+      }),
+    );
+    // 現金損益 = 11,000 − 9,000 − 2,000 = 0；營運損益 = 11,000 − 3,000 − 1,000 − 2,000 = 5,000
+    expect(m.todayProfit).toBe(5_000);
+  });
+
+  it("時間與營業時間來自狀態；舊存檔（沒有進貨欄位）今日損益維持原算式", () => {
     const s = stateAt(2);
+    delete s.today.stockBought;
+    delete s.today.stockCost;
     const m = toStageModel(s);
     expect(m.minuteOfDay).toBeGreaterThanOrEqual(0);
     expect(m.minuteOfDay).toBeLessThan(1440);

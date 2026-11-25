@@ -1,25 +1,20 @@
 import {
   BONUS_FACTOR,
   BONUS_MONTHS,
-  CATEGORY_BY_ID,
-  CLEANING_COST_PER_DAY,
   CONSUMPTION_STANDARD,
   EMPLOYER_SOCIAL_RATE,
   LATE_FEE_PER_DAY,
   LOSS_CARRY_LIMIT,
-  MAINTENANCE_COST_PER_DAY,
   OBLIGATION_NAMES,
   PROPERTY_MONTHS,
   PROPERTY_TAX_RATE,
   ROYALTY_RATE,
-  UTILITIES_PER_DAY,
   assessedValue,
   billOutstanding,
   corporateTax,
-  facilityScale,
-  laborCostFactor,
+  dailyOverhead,
+  dailyWages,
   taxPortion,
-  techFx,
   TICKS_PER_DAY,
   type DayStats,
   type MallState,
@@ -48,21 +43,8 @@ export function newTaxState(): TaxState {
   };
 }
 
-/** 一天的薪資（深夜與長時間營業有加成） */
-export function dailyWages(s: MallState): number {
-  let c = 0;
-  for (const shop of s.shops) {
-    if (shop.mode === "lease") continue;
-    const cat = CATEGORY_BY_ID[shop.category];
-    if (cat) c += cat.wage * shop.level;
-  }
-  return c * laborCostFactor(s.hours.open, s.hours.close) * techFx(s.tech.done).wageMult;
-}
-
-/** 一天的營運支出（水電、清潔、維護）：可扣抵進項稅 */
-export function dailyOverhead(s: MallState): number {
-  return (UTILITIES_PER_DAY + (CLEANING_COST_PER_DAY[s.cleaningLevel] + MAINTENANCE_COST_PER_DAY[s.maintenanceLevel]) * facilityScale(s)) * techFx(s.tech.done).overheadMult;
-}
+// 每日薪資與營運支出的算式在 shared/ledger.ts（畫面要拿來顯示固定成本明細）；這裡照舊匯出給模擬與測試用
+export { dailyOverhead, dailyWages };
 
 function note(s: MallState, text: string): void {
   if (s.today.systemNotes.length < 8) s.today.systemNotes.push(text);

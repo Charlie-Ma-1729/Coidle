@@ -79,6 +79,8 @@ export function buildReport(s: MallState): DailyReport {
     fixed: d.fixed,
     repairs: d.repairs,
     profit,
+    stockBought: d.stockBought ?? 0,
+    stockCost: d.stockCost ?? 0,
     groups: d.groups,
     units: d.units,
     walkouts: d.walkouts,

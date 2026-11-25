@@ -130,8 +130,9 @@ export function stepTick(s: MallState, ctx: StepContext = { nobodyPresent: false
 
   noteWeather(s);
   for (const shop of s.shops) shop.served = 0;
-  const units = isOpen(s, time) ? runCustomers(s, time, rng) : 0;
-  upkeep(s, units, rng);
+  const open = isOpen(s, time);
+  const units = open ? runCustomers(s, time, rng) : 0;
+  upkeep(s, units, rng, open);
 
   s.tick = t + 1;
 
@@ -214,6 +215,7 @@ export function placeOrder(s: MallState, shop: Shop, qty: number): boolean {
   s.funds -= cost;
   shop.spentToday += cost;
   s.today.purchases += cost;
+  s.today.stockBought = (s.today.stockBought ?? 0) + cost;
   shop.incoming.push({ arriveTick: s.tick + d.lead, qty: d.qty });
   recordOrder(s, quote.pick);
   const fam = familyOf(shop.category);
@@ -373,6 +375,7 @@ export function recordSale(s: MallState, rng: Rng, p: PersonaDef, shop: Shop, ca
     s.funds += revenue;
     s.today.revenue += revenue;
     s.totalRevenue += revenue;
+    if (hasStock) s.today.stockCost = (s.today.stockCost ?? 0) + Math.round(qty * cat.refPrice * cat.costRatio);
     if (!categoryHasStock(cat)) {
       // 服務型業態沒有庫存，變動成本即時支出
       const varCost = Math.round(qty * cat.refPrice * cat.costRatio);
@@ -448,10 +451,11 @@ function dailyFixedCost(s: MallState): number {
   return c;
 }
 
-function upkeep(s: MallState, units: number, rng: Rng): void {
+function upkeep(s: MallState, units: number, rng: Rng, open: boolean): void {
   const fixed = dailyFixedCost(s) / TICKS_PER_DAY;
   s.funds -= fixed;
   s.today.fixed += fixed;
+  if (!open) s.today.fixedClosed = (s.today.fixedClosed ?? 0) + fixed; // 打烊時段照常支出的固定成本（讓玩家看得到它花在哪）
   s.today.fixedCredit += taxPortion(dailyOverhead(s) / TICKS_PER_DAY, CONSUMPTION_STANDARD); // 水電與清潔維護的進項稅
 
   const scale = facilityScale(s);
@@ -464,6 +468,7 @@ function upkeep(s: MallState, units: number, rng: Rng): void {
   if (extra > 0) {
     s.funds -= extra;
     s.today.fixed += extra;
+    if (!open) s.today.fixedClosed = (s.today.fixedClosed ?? 0) + extra;
     s.today.fixedCredit += taxPortion(extra, CONSUMPTION_STANDARD);
   }
   s.cleanliness = clamp(

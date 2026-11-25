@@ -76,7 +76,7 @@ export function TopBar(props: {
           <b>{moneyShort(props.funds)}</b>
         </div>
       )}
-      <div class="st-stat st-panel hide-m">
+      <div class="st-stat st-panel hide-m" title="今日營運損益：營收 − 賣出商品的成本 − 其他支出。進貨是存貨，不算當天虧損；水電、薪資整天均攤，打烊後也會繼續扣。明細在「資金與損益」">
         <small>今日損益</small>
         <b class={pos ? "pos" : "neg"}>
           {pos ? "+" : ""}

@@ -3,7 +3,7 @@
  * 場景只認 StageModel；真實資料與示範資料（fixtures）走同一條路。
  * 純函式、不依賴 DOM／Pixi。
  */
-import { CATEGORY_BY_ID, ZONES, calendarDay, calendarLabel, dayWeather, expandInfo, isZoneUnlocked, mallStars, techFx, timeInfo, weatherNow, type CategoryDef, type PublicMallState, type Shop } from "@coidle/shared";
+import { CATEGORY_BY_ID, ZONES, calendarDay, dayLedger, calendarLabel, dayWeather, expandInfo, isZoneUnlocked, mallStars, techFx, timeInfo, weatherNow, type CategoryDef, type PublicMallState, type Shop } from "@coidle/shared";
 import { dateText } from "../format";
 import { buildAttention, shopFlagsFrom, type PendingInvite } from "../ui/attention";
 import type { FloorLinkKind } from "./floorplan";
@@ -135,7 +135,7 @@ export function toStageModel(s: PublicMallState, userId?: string | number | null
     mallName: "",
     floors,
     funds: s.funds,
-    todayProfit: d.revenue + d.rentIncome - d.purchases - d.fixed - d.repairs,
+    todayProfit: dayLedger(d).operating, // 營運損益：進貨是存貨不是虧損，明細在「資金與損益」
     todayRevenue: d.revenue + d.rentIncome,
     todayGroups: d.groups,
     level: s.level,

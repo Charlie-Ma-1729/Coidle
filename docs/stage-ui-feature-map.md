@@ -123,7 +123,7 @@
 | 營運 | 營業時間（hours）、補貨與供應（supply）、行銷（promo）、設備與稽查（facility） | `Ops` 拆成 `HoursCards` / `FacilityCards`；`Suppliers`；`Marketing` |
 | 客人 | 客訴與評價（inbox）、常客（regulars）、巡場（walk） | `Guests` 拆成 `TodoCard`+`ReviewLog`+`GuestPrefs`、`WalkCard`；`Regulars` |
 | 開發 | 研發工坊（workshop）、科技（tech）、招商（leasing） | 原樣 |
-| 財務 | 資金與損益（cash）、日報（reports）、稅務與帳單（tax） | 新的 `FinanceSummary`（數字與狀態，不含提醒）；`Reports`；`Tax` |
+| 財務 | 資金與損益（cash）、日報（reports）、稅務與帳單（tax） | 新的 `FinanceSummary`（數字與狀態，不含提醒；含「今日損益明細」卡）；`Reports`；`Tax` |
 | 世界 | 名錄與榜單（dir）、商戰（rivals）、團隊（team） | `World`；`Rivals`；`Team` 的成員／邀請／動態部分 |
 | 商場選單 | 目標、成就、說明與新手任務、設定、全部功能 | `Goals`、`Achievements`、`Help`；設定＝`TimeSettings`（時間流速與自動暫停）＋`DeviceCard`＋`Team` 的商場控制與帳號；全部功能＝`reveal.ts` 索引 |
 
@@ -156,3 +156,6 @@
 - **場景**：店面室內、顧客、店員、清潔員、施工鷹架、日夜（營業時間外變暗）。
   - 人潮是**示意動畫**，由各店狀態推導（營業中、缺貨、客訴、新鮮感會影響人數）；實際營收與客數以帳本為準。
 - **店面面板的就地提示**：缺貨→補貨、故障→叫修、客訴→處理、菜單老→去工坊。
+- **今日損益的定義**：HUD 的「今日損益」是**營運損益**（`shared/src/game/ledger.ts` 的 `dayLedger`）＝營收＋租金抽成 − 賣出商品的成本 − 其他支出 − 固定成本 − 維修罰款。進貨買的是存貨，不算當天虧損；「現金變化」（整筆進貨照扣）另列在 財務 → 資金與損益 的明細卡。賣出成本以標準進價（參考價 × 成本率）估算。日報的 `profit`、稅務與平衡數據仍用現金算法。`DayStats.stockBought／stockCost` 是可選欄位，舊存檔當天退回原算式。
+- **前端自動更新**：`vite.config.ts` 每次打包產生版本代號（編進程式 `__BUILD_ID__`，同時寫進 `dist/version.json`）。`client/src/updater.ts` 在載入、每 5 分鐘、回到分頁、恢復網路、WebSocket 斷線重連時讀 `/version.json`，代號不同＝有新版：分頁在背景就直接重新載入；在前景則顯示 `UpdateBanner` 倒數 20 秒後自動載入（可「立即更新」或「稍後」，正在打字就順延）。同一個新版只自動載入一次（避免無限重載）；舊版延遲載入的區塊 404（`vite:preloadError`）也會重新載入。開發模式（`dev`）不檢查。部署時只要 `npm run build:client`，不用動 Service Worker。
+- **打烊後的固定成本**：水電、清潔維護、薪資、專屬座位維持費整天均攤到每個 tick（`step.ts` 的 `upkeep`，開門與否都跑；打烊時整潔與設備照常恢復）。`DayStats.fixedClosed`（可選）記打烊時段花掉的部分；`shared/ledger.ts` 的 `fixedCostBreakdown` 算每日明細（`dailyWages／dailyOverhead` 也搬到這裡，server 的 `sim/tax.ts` 轉出口）。財務 → 資金與損益 的「固定成本：打烊了也照常算」卡片說明原因與降低成本的做法。

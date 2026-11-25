@@ -64,6 +64,12 @@ b { font-variant-numeric: tabular-nums; }
 .grid.two { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
 .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .row.between { justify-content: space-between; }
+.ledger { display: grid; gap: 4px; font-variant-numeric: tabular-nums; }
+.ledger > div { display: flex; justify-content: space-between; gap: 12px; }
+.ledger .sub { padding-left: 14px; color: var(--dim); font-size: 0.86rem; }
+.ledger .total { border-top: 1px solid var(--line); padding-top: 4px; margin-top: 2px; font-weight: 700; }
+.ledger .pos { color: var(--good, #4cc38a); }
+.ledger .neg { color: var(--bad, #ff6b6b); }
 .stack { display: grid; gap: 10px; }
 .dim { color: var(--dim); }
 .small { font-size: 0.82rem; }
@@ -240,6 +246,7 @@ input[type="range"] { width: 100%; accent-color: var(--pink); }
 .seg.seven button { padding: 8px 2px; }
 .seg.five button { padding: 8px 2px; }
 .seg button.pause.active { border-color: var(--amber); box-shadow: 0 0 12px rgba(255, 200, 87, 0.35); }
+.update-banner { position: fixed; top: calc(8px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 120; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; width: max-content; max-width: min(94vw, 520px); padding: 8px 14px; border-radius: 14px; background: var(--panel-solid); border: 1px solid rgba(255, 200, 87, 0.6); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45); }
 .clock-banner { display: grid; gap: 10px; padding: 12px 16px; background: rgba(255, 200, 87, 0.1); border-bottom: 1px solid rgba(255, 200, 87, 0.4); }
 .clock-banner.event { background: rgba(255, 107, 107, 0.1); border-bottom-color: rgba(255, 107, 107, 0.5); }
 .cb-head { display: grid; gap: 2px; }

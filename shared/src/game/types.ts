@@ -263,6 +263,12 @@ export interface DayStats {
   inTax: number;
   /** 今天營運支出中可扣抵進項稅的部分（水電、清潔維護） */
   fixedCredit: number;
+  /** 今天向供應商進貨花的錢（已含在 purchases 裡；進的貨是存貨，不是當天的虧損。舊存檔沒有） */
+  stockBought?: number;
+  /** 今天賣掉的庫存商品的成本（份數 × 單位成本；舊存檔沒有） */
+  stockCost?: number;
+  /** 今天的固定成本中，打烊時段花掉的部分（水電、薪資照常按天攤；舊存檔沒有） */
+  fixedClosed?: number;
   /** 今天各種天氣各出現幾個 tick、最近一次的氣溫（舊存檔沒有這個欄位） */
   wx?: Record<WeatherKind, number>;
   temp?: number;
@@ -277,6 +283,9 @@ export interface DailyReport {
   fixed: number;
   repairs: number;
   profit: number;
+  /** 進貨花費與賣出商品的成本（舊日報沒有） */
+  stockBought?: number;
+  stockCost?: number;
   groups: number;
   units: number;
   walkouts: number;

@@ -1,4 +1,4 @@
-import { guestTodoCount, type PublicMallState } from "@coidle/shared";
+import { dayLedger, guestTodoCount, type PublicMallState } from "@coidle/shared";
 import { money, moneyShort } from "../../format";
 import type { HubId } from "../../stage/model";
 
@@ -29,8 +29,7 @@ export function hubSummary(s: PublicMallState, hub: HubId): Pill[] {
       return pills;
     }
     case "finance": {
-      const d = s.today;
-      const profit = d.revenue + d.rentIncome - d.purchases - d.fixed - d.repairs;
+      const profit = dayLedger(s.today).operating;
       return [
         { label: "資金", value: moneyShort(s.funds) },
         { label: "今日損益", value: `${profit >= 0 ? "+" : ""}${moneyShort(profit)}` },

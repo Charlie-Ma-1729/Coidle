@@ -1,5 +1,6 @@
 import { useEffect } from "preact/hooks";
 import { Toasts } from "./components/ui";
+import { UpdateBanner } from "./components/UpdateBanner";
 import { Console } from "./admin/Console";
 import { Auth } from "./screens/Auth";
 import { Lobby } from "./screens/Lobby";
@@ -34,6 +35,7 @@ function MainApp() {
     <>
       {body}
       <Toasts />
+      <UpdateBanner />
     </>
   );
 }

@@ -72,6 +72,7 @@ export function Reports() {
             <div class="stat">
               <span>進貨／變動</span>
               <b>{moneyShort(r.purchases)}</b>
+              {(r.stockBought ?? 0) > 0 && <small class="dim">其中進貨 {moneyShort(r.stockBought ?? 0)}（存貨）</small>}
             </div>
             <div class="stat">
               <span>固定成本</span>

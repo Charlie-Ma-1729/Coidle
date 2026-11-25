@@ -1,5 +1,6 @@
 import type { ServerMessage, PublicMallState } from "@coidle/shared";
 import { activity, mallInfo, online, state, user } from "./store";
+import { checkForUpdate } from "./updater";
 
 let socket: WebSocket | null = null;
 let currentMall: number | null = null;
@@ -16,6 +17,8 @@ function open(id: number): void {
   const ws = new WebSocket(url(id));
   socket = ws;
   ws.onopen = () => {
+    // 斷線後重連＝多半是伺服器剛重啟（部署新版），順便看看有沒有新前端
+    if (retry > 0) void checkForUpdate();
     retry = 0;
     online.value = true;
   };
