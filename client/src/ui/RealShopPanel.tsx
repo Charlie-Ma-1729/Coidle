@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import { CATEGORY_BY_ID, MAX_SHOP_LEVEL, PRICE_TOLERANCE, REFRESH_COST, UPGRADE_BASE_COST, categoryHasStock, currentUnitCost, leaseEnabled } from "@coidle/shared";
+import { CATEGORY_BY_ID, MAX_SHOP_LEVEL, PRICE_TOLERANCE, REFRESH_COST, PRICE_MIN, PRICE_HARD_MAX, UPGRADE_BASE_COST, categoryHasStock, currentUnitCost, leaseEnabled } from "@coidle/shared";
 import { money, num, realDuration } from "../format";
 import { workshopFocus } from "../screens/Workshop";
 import type { HubId, StageFloor } from "../stage/model";
@@ -190,21 +190,20 @@ export function RealShopPanel(props: {
             <h4>售價</h4>
             <div class="st-row between">
               <div class="st-stepper">
-                <button class="st-btn" onClick={() => setPrice((p) => Math.max(1, p - step))}>
+                <button class="st-btn" aria-label="降價" disabled={price <= PRICE_MIN} onClick={() => setPrice((p) => Math.max(PRICE_MIN, p - step))}>
                   −
                 </button>
                 <b>{money(price)}</b>
-                <button class="st-btn" onClick={() => setPrice((p) => p + step)}>
+                <button class="st-btn" aria-label="漲價" disabled={price >= PRICE_HARD_MAX} onClick={() => setPrice((p) => Math.min(PRICE_HARD_MAX, p + step))}>
                   ＋
                 </button>
               </div>
-              <button class="st-btn" disabled={busy.value || gap === 0 || price < 1} onClick={() => run({ type: "setPrice", shopId: shop.id, price }, "價格已更新")}>
+              <button class="st-btn" disabled={busy.value || gap === 0 || price < PRICE_MIN || price > PRICE_HARD_MAX} onClick={() => run({ type: "setPrice", shopId: shop.id, price }, "價格已更新")}>
                 套用
               </button>
             </div>
             <p class="st-hint">
-              參考價 {money(cat.refPrice)}
-              {stocked ? `・進貨 ${money(uc)}／份` : ""}。{gap === 0 ? `價格越高單價賺越多，但客人越少；超過參考價約 ${PRICE_TOLERANCE} 倍後，客人看了價格就會走。` : gap > 0 ? `比現在貴 ${money(gap)}：客人可能變少。` : `比現在便宜 ${money(-gap)}：客人可能變多。`}
+              參考價 {money(cat.refPrice)}              {stocked ? `・進貨 ${money(uc)}／份` : ""}。{gap === 0 ? `價格越高單價賺越多，但客人越少；超過參考價約 ${PRICE_TOLERANCE} 倍後，客人看了價格就會走。` : gap > 0 ? `比現在貴 ${money(gap)}：客人可能變少。` : `比現在便宜 ${money(-gap)}：客人可能變多。`}
             </p>
           </div>
         )}

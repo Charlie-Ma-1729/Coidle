@@ -30,6 +30,13 @@ export const CURRENCY = "¥";
  */
 export const PRICE_TOLERANCE = 1.2;
 export const PRICE_REJECT_RATE = 1.2;
+/**
+ * 售價不設限：只要是 ¥1 以上的整數都行。上面的 PRICE_TOLERANCE 才是真正的煞車——
+ * 標價超過參考價約 1.2 倍後客人就會逐步放棄，所以不需要再用上限擋。
+ * PRICE_HARD_MAX 只是防止數字大到溢位或畫面爆掉的技術上限，玩法上碰不到。
+ */
+export const PRICE_MIN = 1;
+export const PRICE_HARD_MAX = 100_000_000;
 
 export const INITIAL_FUNDS = 2_000_000;
 export const INDEX_START = 50;

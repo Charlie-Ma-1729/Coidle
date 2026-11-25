@@ -1,5 +1,7 @@
 import {
   CATEGORY_BY_ID,
+  PRICE_MIN,
+  PRICE_HARD_MAX,
   CONCEPT_BY_ID,
   CONCEPT_COOLDOWN_TICKS,
   MAX_SHOP_LEVEL,
@@ -64,7 +66,7 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
       if (typeof cmd.price !== "number" || !Number.isFinite(cmd.price)) return err("價格無效");
       const cat = CATEGORY_BY_ID[shop.category];
       if (!cat) return err("業態無效");
-      shop.price = Math.round(clamp(cmd.price, cat.refPrice * 0.5, cat.refPrice * 2.5));
+      shop.price = clamp(Math.round(cmd.price), PRICE_MIN, PRICE_HARD_MAX);
       break;
     }
 

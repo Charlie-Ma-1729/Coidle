@@ -13,6 +13,8 @@ import {
   currentUnitCost,
   familyOf,
   PRICE_TOLERANCE,
+  PRICE_MIN,
+  PRICE_HARD_MAX,
 } from "@coidle/shared";
 import { Btn, Card, Chip, Field, Meter, Sheet } from "../components/ui";
 import { money, num, realDuration } from "../format";
@@ -68,6 +70,7 @@ export function ShopSheet({ shopId, onClose }: { shopId: string; onClose: () => 
   const refreshCost = REFRESH_COST * shop.level;
   const ruleChanged =
     rule.enabled !== shop.restock.enabled || rule.min !== shop.restock.min || rule.target !== shop.restock.target || rule.dailyBudget !== shop.restock.dailyBudget;
+  const outOfRange = !Number.isFinite(price) || price < PRICE_MIN || price > PRICE_HARD_MAX;
   const priceTone = price > cat.refPrice * 1.3 ? "amber" : price < cat.refPrice * 0.8 ? "cyan" : "green";
 
   return (
@@ -118,9 +121,9 @@ export function ShopSheet({ shopId, onClose }: { shopId: string; onClose: () => 
           <Card title="💰 定價">
             <div class="stack">
               <div class="stepper">
-                <Btn onClick={() => setPrice(Math.max(1, price - step))}>−</Btn>
-                <NumberInput value={price} onChange={setPrice} step={step} min={1} />
-                <Btn onClick={() => setPrice(price + step)}>＋</Btn>
+                <Btn disabled={price <= PRICE_MIN} onClick={() => setPrice(Math.max(PRICE_MIN, price - step))}>−</Btn>
+                <NumberInput value={price} onChange={setPrice} step={step} min={PRICE_MIN} />
+                <Btn disabled={price >= PRICE_HARD_MAX} onClick={() => setPrice(Math.min(PRICE_HARD_MAX, price + step))}>＋</Btn>
               </div>
               <div class="row between small">
                 <span class="dim">參考價 {money(cat.refPrice)}</span>
@@ -129,7 +132,8 @@ export function ShopSheet({ shopId, onClose }: { shopId: string; onClose: () => 
                 </span>
               </div>
               <p class="small dim">定太高客人會跑掉、口碑下滑；定太低賺不到錢，但客人開心、人氣好。標價超過參考價約 {PRICE_TOLERANCE} 倍後，客人看了價格就會走。</p>
-              <Btn kind="primary" disabled={price === shop.price || price < 1} onClick={() => run({ type: "setPrice", shopId: shop.id, price }, "價格已更新")}>
+              {outOfRange && <p class="small neg">價格要在 {money(PRICE_MIN)}～{money(PRICE_HARD_MAX)} 之間。</p>}
+              <Btn kind="primary" disabled={price === shop.price || outOfRange} onClick={() => run({ type: "setPrice", shopId: shop.id, price }, "價格已更新")}>
                 套用價格
               </Btn>
             </div>
