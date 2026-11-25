@@ -185,9 +185,14 @@ export function buildAttention(s: PublicMallState, userId?: string | number | nu
   if (lvUp) {
     add({ id: `levelup:${s.level}`, severity: "opportunity", icon: "star", title: `商場升到 Lv.${s.level}！`, detail: "新的樓層與業態開放了，看看多了什麼。", cta: "全部功能", target: { kind: "menu", page: "all" } });
   }
+  // 被搶客：帶著對方 key 的那一則，提供「反擊」（預選被搶走的客群）；效果只有約一個遊戲日，所以只提示一天
+  s.world.notices
+    .filter((n) => n.from && s.tick - n.tick <= TICKS_PER_DAY)
+    .slice(0, 2)
+    .forEach((n, i) => add({ id: `counter:${n.tick}:${i}`, severity: "opportunity", icon: "exclaim", title: clip(n.text, 40), detail: "可以辦一場同客群的搶客促銷反擊（要花錢，有冷卻與每日上限），也可以不理它。", cta: "反擊", target: { kind: "hub", hub: "world", tab: "dir", focus: { key: n.from!, persona: n.persona } } }));
   // 跨商場來信：收到的資金與貨、被搶客、季賽獎勵、對方解除協議…（邀請本身另有一項，不重複）
   s.world.notices
-    .filter((n) => s.tick - n.tick <= NOTICE_DAYS * TICKS_PER_DAY && !n.text.includes("想和你們簽"))
+    .filter((n) => s.tick - n.tick <= NOTICE_DAYS * TICKS_PER_DAY && !n.text.includes("想和你們簽") && !(n.from && s.tick - n.tick <= TICKS_PER_DAY))
     .slice(0, MAX_NOTICE_ITEMS)
     .forEach((n, i) => add({ id: `notice:${n.tick}:${i}`, severity: "info", icon: "news", title: clip(n.text, 40), cta: "看看", target: { kind: "hub", hub: "world", tab: "dir" } }));
   const last = s.reports[s.reports.length - 1];

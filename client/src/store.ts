@@ -14,6 +14,8 @@ export const state = signal<PublicMallState | null>(null);
 export const activity = signal<ActivityEntry[]>([]);
 export const online = signal(false);
 export const busy = signal(false);
+/** 世界 → 名錄開啟時要直接展開的商場（待辦中心的「反擊」用），用過就清掉 */
+export const worldFocus = signal<{ key: string; persona?: string } | null>(null);
 /** 待回覆的聯名邀請（待辦中心用） */
 export const invites = signal<PendingInvite[]>([]);
 

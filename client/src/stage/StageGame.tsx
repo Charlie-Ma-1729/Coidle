@@ -16,7 +16,7 @@ import { HUBS } from "../ui/Dock";
 import { RealShopPanel } from "../ui/RealShopPanel";
 import { BuildSheet } from "../screens/BuildSheet";
 import { ShopSheet } from "../screens/ShopSheet";
-import { invites, mallId, mallInfo, online, refreshInvites, run, setClock, state, user } from "../store";
+import { invites, mallId, worldFocus, mallInfo, online, refreshInvites, run, setClock, state, user } from "../store";
 import { locateShop, toStageModel } from "./adapter";
 import type { AttentionItem, HubId } from "./model";
 import { useStage } from "./useStage";
@@ -132,6 +132,7 @@ function StageGameInner() {
       case "shop":
         return gotoShop(t.shopId);
       case "hub":
+        worldFocus.value = t.focus ?? null;
         return openHub(t.hub, t.tab);
       case "inspection":
         return setPending({ kind: "inspection", uid: t.uid });

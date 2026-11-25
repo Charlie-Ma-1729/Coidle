@@ -16,8 +16,8 @@ const MAX_NOTICES = 20;
 const num = (v: unknown, lo: number, hi: number): number => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : 0);
 const str = (v: unknown, max = 120): string => (typeof v === "string" ? v.slice(0, max) : "");
 
-function notice(s: MallState, text: string): void {
-  s.world.notices.unshift({ tick: s.tick, text });
+function notice(s: MallState, text: string, extra?: { from?: string; persona?: string }): void {
+  s.world.notices.unshift({ tick: s.tick, text, ...extra });
   if (s.world.notices.length > MAX_NOTICES) s.world.notices.length = MAX_NOTICES;
   if (s.today.systemNotes.length < 8) s.today.systemNotes.push(text);
   addLog(s, "info", `🌐 ${text}`);
@@ -54,7 +54,8 @@ export function applyMail(s: MallState, mail: Mail): void {
       const rng = createRng(hash32(s.seed ^ 0x90ac, s.tick));
       applyEffects(s, [{ t: "traffic", persona: persona as never, mult, ticks }], rng);
       const who = str(p.who, 30) || "對面的商場";
-      notice(s, hit ? `「${who}」辦了針對特定客群的促銷，把我們一部分客人搶走了（暫時的）。` : `針對「${who}」的搶客促銷上線，這一類客人往我們這邊靠過來了。`);
+      const from = hit && /^m:\d{1,9}$/.test(str(p.key, 12)) ? str(p.key, 12) : undefined; // 對方的名錄 key：只收真人商場的格式
+      notice(s, hit ? `「${who}」辦了針對特定客群的促銷，把我們一部分客人搶走了（暫時的）。` : `針對「${who}」的搶客促銷上線，這一類客人往我們這邊靠過來了。`, hit && from ? { from, persona } : undefined);
       break;
     }
     case "funds_gift": {

@@ -1,8 +1,9 @@
 // 試跑 AI 內容生成並把結果印出來審稿（不碰正式資料庫）。
 // 用法：npx tsx --env-file=.env --tsconfig tsconfig.json server/src/ai/preview.ts [brand,dish,regular] [輪數]
 // 會把 DB_PATH 指定的資料庫複製到暫存位置再跑，所以內容池與核准狀態都不會動到正式資料；
-// 但呼叫是真的，花費會算進預算（先印出目前預算）。
-import { copyFileSync, mkdtempSync } from "node:fs";
+// 但呼叫是真的：花費會在結束時記進正式資料庫的預算帳本（purpose 前綴 preview:），之後的預算計算才不會少算。
+// 加 --no-record 可以不記（例如拿測試資料庫試跑）。
+import { copyFileSync, existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CATEGORY_BY_ID } from "@coidle/shared";
@@ -40,6 +41,7 @@ if (!svc.enabled) {
   console.error("沒有設定 OPENROUTER_API_KEY，無法試跑");
   process.exit(1);
 }
+const startedAt = Date.now();
 const b0 = svc.budget();
 console.log(`模型 ${config.ai.model}；預算已花 ${usd(b0.spentUsd)}／上限 ${usd(b0.capUsd)}；今日呼叫 ${b0.calls24h} 次\n`);
 
@@ -81,3 +83,13 @@ for (const kind of kinds) {
 const b1 = svc.budget();
 console.log(`\n這次花費約 ${usd(spent)}；預算已花 ${usd(b1.spentUsd)}／上限 ${usd(b1.capUsd)}`);
 console.log(`（暫存資料庫：${copy}）`);
+
+// 把這次的花費記進正式帳本（只記帳本，不動內容池）
+if (!process.argv.includes("--no-record") && existsSync(src)) {
+  const rows = repo.ledgerRecent(500).filter((r) => r.ts >= startedAt);
+  if (rows.length > 0) {
+    const real = new Repo(openDb(src));
+    for (const r of rows) real.addLedger({ ts: r.ts, purpose: `preview:${r.purpose}`, model: r.model, promptTokens: 0, completionTokens: 0, costUsd: r.cost_usd, ok: r.ok === 1, note: r.note ?? undefined });
+    console.log(`已把 ${rows.length} 筆呼叫（${usd(rows.reduce((a, r) => a + r.cost_usd, 0))}）記進正式預算帳本。`);
+  }
+}

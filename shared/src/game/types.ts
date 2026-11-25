@@ -617,7 +617,8 @@ export interface MallClock {
 /** 跨商場世界在這座商場留下的紀錄（賽季成績、收到的通知）；對手的資料不會放在這裡 */
 export interface WorldState {
   seasons: { season: number; rank: number; of: number; title: string; reward: number }[];
-  notices: { tick: number; text: string }[];
+  /** 跨商場通知。被搶客的那一則帶著對方的名錄 key 與被搶的客群，畫面可以據此提供「反擊」 */
+  notices: { tick: number; text: string; from?: string; persona?: string }[];
   /** 已經收下的信件數 */
   mailCount: number;
   /** 生效中的聯名協議（以這座商場自己的遊戲時間計算期限） */

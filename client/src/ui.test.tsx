@@ -113,6 +113,38 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).toContain("搶客促銷");
   });
 
+  it("被搶客的通知有「反擊」：展開對方並預選被搶走的客群；待辦中心的反擊（worldFocus）一進來就展開", async () => {
+    store.state.value = publicState(2);
+    store.mallId.value = 5;
+    const { WORLD_EPOCH_MS } = await import("@coidle/shared");
+    const now = WORLD_EPOCH_MS + 3 * 86_400_000;
+    const other = { key: "m:9", kind: "player" as const, name: "鮑伯商場", tagline: "", level: 2, stars: 3, score: 50, localRep: 55, touristHeat: 52, revenue30: 8_000_000, shops: 7, topCategory: "串炸", stockouts: 0, updatedAt: now };
+    const { api } = await import("./api");
+    api.world = async () => ({ now, season: { index: 0, start: WORLD_EPOCH_MS, end: WORLD_EPOCH_MS + 28 * 86_400_000 }, entries: [other], history: [], shields: {} });
+    api.alliances = async () => ({ alliances: [] });
+    store.state.value!.world.notices = [{ tick: store.state.value!.tick, text: "「鮑伯商場」辦了針對特定客群的促銷，把我們一部分客人搶走了（暫時的）。", from: "m:9", persona: "student" }];
+    const { World } = await import("./screens/World");
+    await mount(<World />);
+    await tick();
+    await tick();
+    const btn = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.trim() === "反擊") as HTMLElement;
+    expect(btn).toBeTruthy();
+    btn.click();
+    await tick();
+    const persona = () => Array.from(container.querySelectorAll("select")).find((x) => Array.from(x.options).some((o) => o.value === "student")) as HTMLSelectElement;
+    expect(persona().value).toBe("student");
+    expect(container.textContent).toContain("搶客促銷");
+
+    // 從待辦中心進來
+    render(null, container);
+    store.worldFocus.value = { key: "m:9", persona: "couple" };
+    await mount(<World />);
+    await tick();
+    await tick();
+    expect(persona().value).toBe("couple");
+    expect(store.worldFocus.value).toBeNull();
+  });
+
   it("Reports renders after a few days", async () => {
     store.state.value = publicState(4);
     const { Reports } = await import("./screens/Reports");

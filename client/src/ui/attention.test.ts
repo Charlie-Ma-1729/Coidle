@@ -260,6 +260,21 @@ describe("跨商場待辦", () => {
     expect(notes[0]!.severity).toBe("info");
   });
 
+  it("被搶客 → 提供反擊（帶對方 key 與客群）；一天後不再提示，也不和一般通知重複", () => {
+    const hit = (age: number) =>
+      stateAt(0, (s) => {
+        s.world.notices = [{ tick: s.tick - age, text: "「對手百貨」辦了針對特定客群的促銷，把我們一部分客人搶走了（暫時的）。", from: "m:7", persona: "student" }];
+      });
+    const fresh = buildAttention(hit(10));
+    const it = fresh.find((i) => i.id.startsWith("counter:"))!;
+    expect(it.cta).toBe("反擊");
+    expect(it.target).toEqual({ kind: "hub", hub: "world", tab: "dir", focus: { key: "m:7", persona: "student" } });
+    expect(fresh.some((i) => i.id.startsWith("notice:"))).toBe(false);
+    const older = buildAttention(hit(TICKS_PER_DAY + 20));
+    expect(older.some((i) => i.id.startsWith("counter:"))).toBe(false);
+    expect(older.some((i) => i.id.startsWith("notice:"))).toBe(true); // 過了一天，退回成一般資訊
+  });
+
   it("剛升級 → 提示新樓層開放；過了一天就不再提示", () => {
     const fresh = buildAttention(stateAt(0, (s) => s.log.unshift({ tick: s.tick, kind: "info", text: "商場升到 Lv.3！新的區域與業態開放了。" })));
     expect(fresh.find((i) => i.id.startsWith("levelup:"))?.target).toEqual({ kind: "menu", page: "all" });

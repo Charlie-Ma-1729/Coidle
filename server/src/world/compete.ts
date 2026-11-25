@@ -86,7 +86,7 @@ export class CompeteService {
     // 真人商場被搶的一方受到有界的損失
     const targetId = keyToId(targetKey);
     if (targetId !== null) {
-      this.repo.addMail(targetId, "poach_hit", { persona, mult: COMPETE_TARGET_MULT, ticks: COMPETE_TICKS, who: myName }, t, t);
+      this.repo.addMail(targetId, "poach_hit", { persona, mult: COMPETE_TARGET_MULT, ticks: COMPETE_TICKS, who: myName, key: `m:${mallId}` }, t, t);
       this.host.deliver(targetId);
     }
     this.host.deliver(mallId);

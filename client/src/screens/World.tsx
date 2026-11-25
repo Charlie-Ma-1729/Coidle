@@ -3,7 +3,7 @@ import { ALLIANCE_MAX_ACTIVE, BOARDS, COMPETE_SELF_MULT, COMPETE_TARGET_MULT, PE
 import { api, type AllianceView, type WorldView } from "../api";
 import { Btn, Card, Chip, Empty } from "../components/ui";
 import { moneyShort } from "../format";
-import { mallId, state, toast } from "../store";
+import { mallId, state, toast, worldFocus } from "../store";
 
 const DAY = 86_400_000;
 const stars = (n: number) => "★".repeat(n) + "☆".repeat(5 - n);
@@ -70,9 +70,9 @@ function TradePanel({ entry, onDone }: { entry: DirectoryEntry; onDone: () => vo
 }
 
 /** 商戰搶客：只能找等級相近的商場，或以小打大 */
-function CompetePanel({ entry, shieldedUntil, onDone }: { entry: DirectoryEntry; shieldedUntil: number; onDone: () => void }) {
+function CompetePanel({ entry, shieldedUntil, onDone, defaultPersona }: { entry: DirectoryEntry; shieldedUntil: number; onDone: () => void; defaultPersona?: string }) {
   const s = state.value!;
-  const [persona, setPersona] = useState<string>("tourist");
+  const [persona, setPersona] = useState<string>(defaultPersona ?? "tourist");
   const [busy, setBusy] = useState(false);
   const allowed = canCompete(s.level, entry.level);
   const shielded = shieldedUntil > Date.now();
@@ -125,6 +125,7 @@ export function World() {
   const [open, setOpen] = useState<string | null>(null);
   const [alliances, setAlliances] = useState<AllianceView[]>([]);
   const [busy, setBusy] = useState(false);
+  const [focusPersona, setFocusPersona] = useState<{ key: string; persona?: string } | null>(null);
 
   const load = () =>
     api.world().then(
@@ -146,6 +147,15 @@ export function World() {
     void load();
     void loadAlliances();
   }, []);
+  // 從待辦中心的「反擊」進來：直接展開對方，並預選被搶走的客群
+  useEffect(() => {
+    const f = worldFocus.value;
+    if (!f || !view) return;
+    setOpen(f.key);
+    setFocusPersona(f);
+    worldFocus.value = null;
+    setTimeout(() => document.getElementById(`world-${f.key}`)?.scrollIntoView({ block: "center" }), 50);
+  }, [view]);
 
   /** 跨商場的行動：成功就更新協議列表，失敗把原因顯示出來 */
   const act = async (fn: (id: number) => Promise<{ alliances: AllianceView[] } & { cost?: number }>, okText: string) => {
@@ -265,7 +275,7 @@ export function World() {
               const npc = e.kind === "npc" ? NPC_BY_ID[e.key.slice(2)] : undefined;
               const isMine = e.key === mine;
               return (
-                <div key={e.key} class="tenant" style={isMine ? { borderColor: "var(--pink, #ff5fa2)" } : undefined}>
+                <div key={e.key} id={`world-${e.key}`} class="tenant" style={isMine ? { borderColor: "var(--pink, #ff5fa2)" } : undefined}>
                   <button class="linklike" style={{ textAlign: "left", width: "100%" }} onClick={() => setOpen(open === e.key ? null : e.key)}>
                     <div class="row between">
                       <b>
@@ -293,7 +303,7 @@ export function World() {
                         </>
                       )}
                       {!isMine && e.kind === "player" && <TradePanel entry={e} onDone={() => void load()} />}
-                      {!isMine && <CompetePanel entry={e} shieldedUntil={view?.shields[e.key] ?? 0} onDone={() => void load()} />}
+                      {!isMine && <CompetePanel key={focusPersona?.key === e.key ? focusPersona.persona ?? "f" : "-"} entry={e} shieldedUntil={view?.shields[e.key] ?? 0} onDone={() => void load()} defaultPersona={focusPersona?.key === e.key ? focusPersona.persona : undefined} />}
                       {!isMine && (
                         <Btn
                           small
@@ -345,6 +355,14 @@ export function World() {
             {s.world.notices.slice(0, 5).map((n, i) => (
               <p class="small dim" key={i}>
                 🌐 {n.text}
+                {n.from && (
+                  <>
+                    {" "}
+                    <Btn small onClick={() => { setFocusPersona({ key: n.from!, persona: n.persona }); setOpen(n.from!); setTimeout(() => document.getElementById(`world-${n.from}`)?.scrollIntoView({ block: "center" }), 50); }}>
+                      反擊
+                    </Btn>
+                  </>
+                )}
               </p>
             ))}
           </div>

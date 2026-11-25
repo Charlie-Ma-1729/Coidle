@@ -78,7 +78,7 @@ export type HubId = "operate" | "guests" | "develop" | "finance" | "world";
 /** 點待辦項目的主要動作要去哪裡 */
 export type AttentionTarget =
   | { kind: "shop"; shopId: string }
-  | { kind: "hub"; hub: HubId; tab?: string }
+  | { kind: "hub"; hub: HubId; tab?: string; /** 世界 → 名錄：直接展開這座商場（反擊用），並預選客群 */ focus?: { key: string; persona?: string } }
   | { kind: "menu"; page: "goals" | "achievements" | "help" | "all" }
   | { kind: "event"; uid: string }
   | { kind: "inspection"; uid: string };

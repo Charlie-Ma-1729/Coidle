@@ -220,6 +220,18 @@ describe("mail effects are clamped", () => {
   });
 });
 
+describe("counter-attack support", () => {
+  it("a hit notice remembers who hit us and which customers were taken; bad keys are dropped", () => {
+    const s = createInitialState(1, 1000, 0);
+    applyMail(s, { id: 1, kind: "poach_hit", payload: { persona: "student", mult: 0.9, ticks: 288, who: "對手百貨", key: "m:7" } });
+    expect(s.world.notices[0]).toMatchObject({ from: "m:7", persona: "student" });
+    applyMail(s, { id: 2, kind: "poach_hit", payload: { persona: "local", mult: 0.9, ticks: 288, who: "對手百貨", key: "npc:evil" } });
+    expect(s.world.notices[0]!.from).toBeUndefined();
+    applyMail(s, { id: 3, kind: "poach_gain", payload: { persona: "local", mult: 1.1, ticks: 288, who: "對手百貨", key: "m:7" } });
+    expect(s.world.notices[0]!.from).toBeUndefined(); // 自己發動的不會有反擊
+  });
+});
+
 describe("economic impact stays bounded (balance regression)", () => {
   const START = (Date.UTC(2027, 3, 1) - 9 * 3_600_000) / 300_000;
   const base = (): MallState => {
