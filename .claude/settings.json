@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.bak)",
+      "Read(./package-lock.json)",
+      "Read(./data/**)",
+      "Read(./backups/**)",
+      "Read(./node_modules/**)",
+      "Read(**/dist/**)"
+    ]
+  }
+}
