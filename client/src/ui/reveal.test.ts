@@ -17,16 +17,16 @@ function stateAt(days: number, mutate?: (s: Mutable) => void): PublicMallState {
 describe("漸進揭露", () => {
   it("開幕時：核心樞紐都在；世界、科技、招商、稅務、日報、常客先不出現", () => {
     const s = stateAt(0);
-    for (const h of ["operate", "guests", "develop", "finance"] as const) expect(hubVisible(s, h)).toBe(true);
-    expect(hubVisible(s, "world")).toBe(false);
-    expect(visibleTabs(s, "world")).toEqual([]);
+    for (const h of ["operate", "guests", "develop", "finance", "world"] as const) expect(hubVisible(s, h)).toBe(true); // 世界（名錄、榜單、團隊）一開始就能看
+    expect(visibleTabs(s, "world")).toContain("dir");
+    expect(visibleTabs(s, "world")).toContain("team");
     expect(visibleTabs(s, "develop")).toEqual(["workshop"]);
     expect(visibleTabs(s, "finance")).toEqual(["cash"]);
     expect(visibleTabs(s, "guests")).toEqual(["inbox", "walk"]);
     expect(visibleTabs(s, "operate")).toEqual(["hours", "supply", "promo", "facility"]);
   });
 
-  it("商場升級後解鎖：Lv.2 → 科技與世界；Lv.3 → 招商", () => {
+  it("商場升級後解鎖：Lv.2 → 科技；Lv.3 → 招商", () => {
     const l2 = stateAt(0, (s) => (s.level = 2));
     expect(visibleTabs(l2, "develop")).toContain("tech");
     expect(visibleTabs(l2, "develop")).not.toContain("leasing");
@@ -72,21 +72,18 @@ describe("漸進揭露", () => {
     const tech = idx.find((e) => e.id === "develop.tech")!;
     expect(tech.visible).toBe(false);
     expect(tech.hint).toContain("Lv.2");
-    const rivals = idx.find((e) => e.id === "world.rivals")!;
-    expect(rivals.visible).toBe(false); // 世界樞紐還沒開放
-    expect(rivals.hint).toContain("Lv.2");
     const hours = idx.find((e) => e.id === "operate.hours")!;
     expect(hours.visible).toBe(true);
     expect(hours.hint).toBe("");
     for (const e of idx) expect(e.visible || e.hint.length > 0, `${e.id} 沒開放卻沒有說明`).toBe(true);
   });
 
-  it("resolveTab：想開的分頁不可見時退回第一個可見分頁；樞紐不可見回傳 null", () => {
+  it("resolveTab：想開的分頁不可見時退回第一個可見分頁；樞紐不可見（目前所有樞紐都會顯示）時回傳 null", () => {
     const s = stateAt(0);
     expect(resolveTab(s, "develop", "leasing")).toBe("workshop");
     expect(resolveTab(s, "develop", "workshop")).toBe("workshop");
     expect(resolveTab(s, "develop")).toBe("workshop");
-    expect(resolveTab(s, "world", "team")).toBeNull();
+    expect(resolveTab(s, "world", "team")).toBe("team");
     expect(resolveTab(stateAt(0, (st) => (st.level = 3)), "develop", "leasing")).toBe("leasing");
   });
 

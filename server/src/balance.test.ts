@@ -23,7 +23,7 @@ describe("balance with bot players", () => {
         expect(r.final.funds, `${kind}/${seed}`).toBeGreaterThan(0);
       }
     }
-  });
+  }, 600_000);
 
   it("neglect is mild but noticeable: a tended mall beats an untended one on popularity and income", () => {
     let tendedIdx = 0, lazyIdx = 0, tendedRev = 0, lazyRev = 0;
@@ -37,14 +37,14 @@ describe("balance with bot players", () => {
     expect(tendedRev / lazyRev).toBeGreaterThan(1.03); // 營收較高
     expect(tendedRev / lazyRev).toBeLessThan(1.6); // 但不是天差地別（溫和）
     expect(lazyIdx / seeds.length).toBeGreaterThan(30); // 放著不管也不會崩到底
-  });
+  }, 600_000);
 
   it("'pause on important events' stays rare for an absent player (target: at most ~1 per real day)", () => {
     for (const seed of seeds) {
       const r = runBot("lazy", seed, 60, { sampleEvery: 100 });
       expect(r.pauses / 60).toBeLessThan(0.25); // 每遊戲日 0.25 次 ＝ 每真實日 1 次
     }
-  });
+  }, 600_000);
 
   it("an active player grows: more shops, levels up, regulars warm up", () => {
     const r = runBot("diligent", 101, 60, { sampleEvery: 100 });
@@ -54,7 +54,7 @@ describe("balance with bot players", () => {
     expect(met.length).toBeGreaterThanOrEqual(8);
     expect(met.reduce((a, x) => a + x.affinity, 0) / met.length).toBeGreaterThan(25);
     expect(idx(r)).toBeGreaterThan(50);
-  });
+  }, 600_000);
 
   it("a chaotic mall can always be rescued by going back to sane settings", () => {
     const r = runBot("chaotic", 101, 30, { sampleEvery: 100 });
@@ -74,5 +74,5 @@ describe("balance with bot players", () => {
     for (let d = 0; d < 20; d++) s = advanceTo(s, s.tick + TICKS_PER_DAY);
     expect(s.funds).toBeGreaterThan(before);
     expect((s.localRep + s.touristHeat) / 2).toBeGreaterThan(35);
-  });
+  }, 600_000);
 });

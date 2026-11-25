@@ -28,6 +28,9 @@ export function TopBar(props: {
   speeds: SpeedOption[];
   speed: number;
   onSpeed: (id: number) => void;
+  /** 目前流速檔位的名稱（標準／悠閒…）；有給就在暫停鈕旁多一顆「換檔」按鈕，點一下換下一檔 */
+  speedName?: string;
+  onCycleSpeed?: () => void;
   menuOpen: boolean;
   onMenu: () => void;
   attnOpen: boolean;
@@ -87,6 +90,11 @@ export function TopBar(props: {
             <Icon name={s.glyph} size={2} />
           </button>
         ))}
+        {props.onCycleSpeed && (
+          <button class="st-btn st-speed" title="換時間流速（標準→悠閒→慢活→極慢）" aria-label={`時間流速：${props.speedName ?? ""}，點一下換下一檔`} onClick={props.onCycleSpeed}>
+            {props.speedName}
+          </button>
+        )}
       </div>
       <button class={`st-btn sq st-bell ${props.attnOpen ? "on" : ""}`} aria-label={`待辦中心（${props.urgentCount}）`} onClick={props.onBell}>
         <Icon name="bell" size={2} />

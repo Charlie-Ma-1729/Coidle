@@ -947,6 +947,31 @@ describe("stage UI panels with real state", () => {
     expect(opened).toBe(true);
   });
 
+  it("設定視窗有團隊分頁：Lv.1 就能看到成員與邀請碼", async () => {
+    store.state.value = publicState(0);
+    store.mallInfo.value = { id: 1, name: "測試", inviteCode: "ABCD2345", members: [{ userId: 1, displayName: "我", role: "gm", isOwner: true, joinedAt: 0 }] };
+    store.mallId.value = 1;
+    const { MenuWindow } = await import("./ui/hubs/GameHubs");
+    await mount(<MenuWindow page="settings" onClose={() => {}} onOpenHub={() => {}} />);
+    const tab = Array.from(container.querySelectorAll(".st-tabs button")).find((b) => b.textContent === "團隊") as HTMLElement;
+    tab.click();
+    await tick();
+    expect(container.textContent).toContain("ABCD2345");
+    expect(container.textContent).toContain("邀請夥伴");
+  });
+
+  it("HUD 流速檔位按鈕：顯示目前檔位，點一下通知換檔", async () => {
+    const { TopBar } = await import("./ui/Hud");
+    let cycled = 0;
+    await mount(
+      <TopBar mallName="測試" level={1} stars={1} funds={1000} todayProfit={0} dateLabel="04/09" minuteOfDay={600} speeds={[{ id: 0, glyph: "pause", title: "暫停" }, { id: 1, glyph: "play", title: "繼續" }]} speed={1} onSpeed={() => {}} speedName="悠閒" onCycleSpeed={() => cycled++} menuOpen={false} onMenu={() => {}} attnOpen={false} onBell={() => {}} urgentCount={0} />,
+    );
+    const b = container.querySelector(".st-speed") as HTMLElement;
+    expect(b.textContent).toBe("悠閒");
+    b.click();
+    expect(cycled).toBe(1);
+  });
+
   it("設定視窗：遊戲時間與商場帳號兩個分頁", async () => {
     store.state.value = publicState(0);
     store.mallInfo.value = { id: 1, name: "測試", inviteCode: "ABCD2345", members: [{ userId: 1, displayName: "我", role: "gm", isOwner: true, joinedAt: 0 }] };

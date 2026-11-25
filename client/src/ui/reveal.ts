@@ -8,7 +8,7 @@ import { leaseEnabled, LEASE_MIN_LEVEL, type PublicMallState } from "@coidle/sha
 import type { HubId } from "../stage/model";
 
 export const TECH_MIN_LEVEL = 2;
-export const WORLD_MIN_LEVEL = 2;
+export const WORLD_MIN_LEVEL = 1; // 名錄與榜單（含 NPC 商場）一開始就能看；結盟、交易、商戰另有各自的條件
 
 export interface FeatureDef {
   /** 唯一 id：`hub` 或 `hub.tab` */

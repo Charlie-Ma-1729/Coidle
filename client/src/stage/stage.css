@@ -230,6 +230,7 @@
 
 /* ───── 情境提示 ───── */
 .st-hint-bar { position: absolute; z-index: 14; left: 50%; transform: translateX(-50%); bottom: calc(var(--st-dock-h) + 24px); width: min(560px, calc(100% - 20px)); display: flex; align-items: center; gap: 12px; padding: 10px 12px; }
+.st-seg .st-speed { width: auto; min-width: 46px; padding: 0 8px; font-size: 0.78rem; }
 .st-hint-bar.lift { bottom: calc(var(--st-dock-h) + 24px + 58px); }
 .st-hint-text { display: grid; gap: 2px; flex: 1; min-width: 0; font-size: 0.84rem; line-height: 1.45; }
 .st-hint-text b { font-size: 0.9rem; }
@@ -256,8 +257,7 @@
   .st-stat { min-width: 0; padding: 3px 8px 4px; }
   .st-stat b { font-size: 0.92rem; }
   .st-seg .st-btn { width: 32px; }
-  .st-seg .st-btn:nth-child(3) { display: none; }
-  .st-seg .st-btn:nth-child(2) { border-radius: 0 6px 6px 0; }
+  .st-seg .st-speed { width: auto; min-width: 38px; padding: 0 5px; font-size: 0.72rem; }
   .st-btn { height: 36px; }
   .st-btn.sq { width: 36px; }
   .st-dock { left: 0; right: 0; transform: none; bottom: 0; border-radius: 0; border-left: 0; border-right: 0; justify-content: space-around; padding: 4px 4px max(6px, env(safe-area-inset-bottom)); }

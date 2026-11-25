@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { isPaused } from "@coidle/shared";
+import { SPEED_PRESETS, isPaused, presetOfSpeed } from "@coidle/shared";
 import { ClockBanner } from "../components/ClockBanner";
 import { money } from "../format";
 import { AttentionCenter } from "../ui/AttentionCenter";
@@ -170,6 +170,12 @@ function StageGameInner() {
         speeds={SPEEDS}
         speed={paused ? 0 : 1}
         onSpeed={(id) => void setClock({ paused: id === 0 }, id === 0 ? "時間已暫停" : "時間繼續")}
+        speedName={presetOfSpeed(s.clock.speed).name}
+        onCycleSpeed={() => {
+          const cur = presetOfSpeed(s.clock.speed);
+          const next = SPEED_PRESETS[(SPEED_PRESETS.findIndex((p) => p.id === cur.id) + 1) % SPEED_PRESETS.length]!;
+          void setClock({ speed: next.id }, `時間流速：${next.name}（真實 ${next.realHoursPerDay} 小時＝1 天）`);
+        }}
         menuOpen={menuOpen}
         onMenu={() => {
           setMenuOpen((v) => !v);
