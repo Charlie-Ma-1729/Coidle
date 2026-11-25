@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import type { Weather } from "@coidle/shared";
 import { hubBadges } from "../ui/attention";
 import { AttentionCenter } from "../ui/AttentionCenter";
 import { Dock } from "../ui/Dock";
@@ -28,6 +29,7 @@ export function StageScreen(props: { model: StageModel }) {
   const [minute, setMinute] = useState(model.minuteOfDay);
   const [speed, setSpeed] = useState(1);
   const [toast, setToast] = useState<string | null>(null);
+  const [weather, setWeather] = useState<Weather>(model.weather);
 
   const floor = model.floors[floorIdx]!;
   const shop = useMemo(() => floor.lots.find((l) => l.slot === selected)?.shop ?? null, [floor, selected]);
@@ -38,6 +40,8 @@ export function StageScreen(props: { model: StageModel }) {
     selected,
     panelOpen: hasLot,
     minuteOfDay: minute,
+    weather,
+    cleaningLevel: model.cleaningLevel,
     openHour: model.openHour,
     closeHour: model.closeHour,
     onTap: (slot) => {
@@ -122,6 +126,7 @@ export function StageScreen(props: { model: StageModel }) {
           setSelected(null);
         }}
         urgentCount={urgentCount}
+        weather={weather}
       />
 
       <FloorSwitcher
@@ -136,6 +141,23 @@ export function StageScreen(props: { model: StageModel }) {
       <ZoomControls onIn={() => sceneRef.current?.zoomBy(1.25)} onOut={() => sceneRef.current?.zoomBy(0.8)} onFit={() => sceneRef.current?.fit()} />
 
       <p class="st-note">畫面上的人潮是示意動畫，實際營收與客數以帳本為準。拖曳平移、滾輪／雙指縮放、點店面操作。</p>
+      <div class="st-demo-weather st-panel" role="group" aria-label="示範：切換天氣">
+        <small>天氣</small>
+        {(
+          [
+            ["晴", { kind: "clear", temp: 24 }],
+            ["陰", { kind: "cloudy", temp: 18 }],
+            ["雨", { kind: "rain", temp: 19 }],
+            ["颱風", { kind: "storm", temp: 24 }],
+            ["酷暑", { kind: "clear", temp: 36 }],
+            ["寒流", { kind: "cloudy", temp: 2 }],
+          ] as [string, Weather][]
+        ).map(([label, w]) => (
+          <button key={label} class={`st-btn ${weather.kind === w.kind && weather.temp === w.temp ? "on" : ""}`} onClick={() => setWeather(w)}>
+            {label}
+          </button>
+        ))}
+      </div>
       <p class="st-demo-tag">Phase 0 示範・假資料</p>
 
       {menuOpen && (

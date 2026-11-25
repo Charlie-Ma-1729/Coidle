@@ -557,6 +557,29 @@ export function getBubbleTexture(icon: IconKey, tone?: "urgent" | "decision" | "
 
 // ───────── 小物 ─────────
 
+/** 雨傘（下雨天從街門進來的客人撐著）：三種顏色，錨點在傘柄底端 */
+const UMBRELLA_COLORS = [0xe05f5f, 0x4a8fd8, 0xf0c040];
+const umbrellaTex: Texture[] = [];
+export const UMBRELLA_H = 11;
+export function getUmbrellaTexture(variant: number): Texture {
+  const i = Math.abs(variant) % UMBRELLA_COLORS.length;
+  const hit = umbrellaTex[i];
+  if (hit) return hit;
+  const col = UMBRELLA_COLORS[i]!;
+  const { c, x } = makeCanvas(16, UMBRELLA_H);
+  // 傘面（半圓，下緣呈波浪）
+  for (const [y, x0, w] of [[0, 5, 6], [1, 3, 10], [2, 2, 12], [3, 1, 14]] as const) r(x, col, x0, y, w, 1);
+  r(x, lighten(col, 0.35), 5, 0, 3, 1);
+  r(x, lighten(col, 0.35), 3, 1, 3, 1);
+  for (let k = 1; k < 15; k += 4) r(x, darken(col, 0.3), k, 3, 2, 1);
+  // 傘柄
+  r(x, 0x4a2f1b, 7, 4, 2, 6);
+  r(x, 0x4a2f1b, 6, 9, 2, 1);
+  const t = toTexture(c);
+  umbrellaTex[i] = t;
+  return t;
+}
+
 /** 柔邊光暈（夜間的燈光）：白色放射漸層，用 tint 上色、add 混合疊在夜色上 */
 let glowTex: Texture | null = null;
 export function getGlowTexture(): Texture {

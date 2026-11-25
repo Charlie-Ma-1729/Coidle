@@ -4,7 +4,9 @@ import "pixi.js/unsafe-eval";
 import { Application, Container, Graphics, Sprite, Text } from "pixi.js";
 import { CrowdSim, makeRng, type Agent } from "./crowd";
 import { getFloorBackground } from "./background";
-import { CROWD_CAP, FPS_CAP, PerfGovernor, lampLevel, stageTint } from "./lighting";
+import { cleanCrewSize, type Weather } from "@coidle/shared";
+import { CROWD_CAP, FPS_CAP, PerfGovernor, lampWithWeather, stageTint } from "./lighting";
+import { WeatherFx } from "./weatherfx";
 import { TILE, layoutFloor, type FloorPlan, type RoomRect } from "./floorplan";
 import { isShopActive, lotSignature, planKey, type ShopFlag, type StageFloor, type StageShop } from "./model";
 import { FURNITURE } from "./furniture";
@@ -15,6 +17,8 @@ import {
   getEmptyLotTexture,
   getGlowTexture,
   getPersonTexture,
+  getUmbrellaTexture,
+  UMBRELLA_H,
   getRoomTextures,
   getScaffoldTexture,
   getSelectTexture,
@@ -61,6 +65,10 @@ export class StageScene {
   private selectSprite = new Sprite();
   private night = new Graphics();
   private lightLayer = new Container();
+  private fx = new WeatherFx();
+  private weather: Weather = { kind: "clear", temp: 20 };
+  private cleaningLevel: 0 | 1 | 2 = 1;
+  private umbrellaSprites = new Map<number, Sprite>();
   /** 夜間的燈：base 是全亮時的不透明度，實際值 = base × 燈光亮度 */
   private lights: { s: Sprite | Graphics; base: number }[] = [];
   private spritePool: Sprite[] = [];
@@ -125,7 +133,7 @@ export class StageScene {
     app.canvas.style.display = "block";
 
     this.peopleLayer.sortableChildren = true;
-    this.world.addChild(this.bg, this.baseLayer, this.peopleLayer, this.frontLayer, this.overlayLayer, this.night, this.lightLayer, this.selectSprite, this.markerLayer);
+    this.world.addChild(this.bg, this.baseLayer, this.peopleLayer, this.frontLayer, this.overlayLayer, this.night, this.lightLayer, this.fx.layer, this.selectSprite, this.markerLayer, this.fx.flashLayer);
     this.selectSprite.texture = getSelectTexture();
     this.selectSprite.visible = false;
     this.selectSprite.tint = 0xffe29a;
@@ -149,6 +157,7 @@ export class StageScene {
     );
     this.slotsKey = planKey(floor);
     this.crowd = new CrowdSim({ plan: this.plan, rng: makeRng(this.seed + floor.id.length * 7919), maxAgents: CROWD_CAP[this.perf.level] });
+    this.crowd.setWeather(this.weather);
     this.rebuild();
     this.fit();
   }
@@ -166,6 +175,19 @@ export class StageScene {
     if (lotSignature(floor) !== this.roomSig) return this.rebuild();
     this.syncShops();
     this.buildDynamic();
+  }
+
+  setCleaning(level: 0 | 1 | 2): void {
+    this.cleaningLevel = level;
+  }
+
+  /** 天氣變了（日期換天、事件強制天氣）：更新特效、天色、燈光與人潮疏密 */
+  setWeather(w: Weather): void {
+    if (w.kind === this.weather.kind && w.temp === this.weather.temp) return;
+    this.weather = w;
+    this.crowd?.setWeather(w);
+    this.fx.setWeather(w.kind);
+    this.updateNight();
   }
 
   setClock(minute: number, open: number, close: number): void {
@@ -256,7 +278,10 @@ export class StageScene {
     this.overlayLayer.removeChildren().forEach((c) => c.destroy());
     this.peopleLayer.removeChildren().forEach((c) => c.destroy());
     this.agentSprites.clear();
+    this.umbrellaSprites.clear();
     this.spritePool = [];
+    this.fx.setWeather(this.weather.kind);
+    this.fx.build(plan, !!this.floor.outdoor);
     this.syncShops();
 
     for (const room of plan.rooms) {
@@ -395,10 +420,11 @@ export class StageScene {
   private updateNight(): void {
     if (!this.plan) return;
     const { minute, open, close } = this.clock;
-    const tint = stageTint(minute, open, close);
+    const tint = stageTint(minute, open, close, this.weather.kind);
     this.night.clear();
     if (tint.alpha > 0.005) this.night.rect(0, 0, this.plan.width * TILE, this.plan.height * TILE).fill({ color: tint.color, alpha: tint.alpha });
-    const lamp = lampLevel(minute);
+    const lamp = lampWithWeather(minute, this.weather.kind);
+    this.fx.setLamp(lamp);
     this.lightLayer.visible = lamp > 0.01;
     for (const l of this.lights) l.s.alpha = l.base * lamp;
   }
@@ -465,6 +491,7 @@ export class StageScene {
     const level = this.perf.sample(fps);
     if (level === before) return;
     this.crowd?.setMax(CROWD_CAP[level]);
+    this.fx.setPerf(level);
     this.app.ticker.maxFPS = FPS_CAP[level];
   }
 
@@ -498,7 +525,8 @@ export class StageScene {
       this.coast(dt);
     }
     const { minute, open, close } = this.clock;
-    this.crowd.ensureCleaner(this.floorHasProblems());
+    this.fx.update(dt);
+    this.crowd.ensureCleaners(cleanCrewSize(this.cleaningLevel, this.weather, this.floorHasProblems()));
     this.crowd.update(Math.min(dt, 0.1), this.shops, minute, open, close);
     this.syncAgents(this.crowd.agents);
 
@@ -534,9 +562,27 @@ export class StageScene {
       sp.position.set(Math.round(a.x), Math.round(a.y));
       sp.scale.x = a.face;
       sp.zIndex = a.y + (a.phase === "dwell" && a.sitting ? 3 : 0);
+
+      // 下雨天從街門進來的人撐著傘，走進館內就收起來
+      let um = this.umbrellaSprites.get(a.id);
+      if (a.umbrella) {
+        if (!um) {
+          um = new Sprite(getUmbrellaTexture(a.variant));
+          um.anchor.set(0.5, 1);
+          this.peopleLayer.addChild(um);
+          this.umbrellaSprites.set(a.id, um);
+        }
+        um.position.set(Math.round(a.x) + (a.face === 1 ? 1 : -1), Math.round(a.y) - (UMBRELLA_H));
+        um.zIndex = a.y + 1;
+      } else if (um) {
+        um.destroy();
+        this.umbrellaSprites.delete(a.id);
+      }
     }
     for (const [id, sp] of this.agentSprites) {
       if (!alive.has(id)) {
+        this.umbrellaSprites.get(id)?.destroy();
+        this.umbrellaSprites.delete(id);
         sp.visible = false;
         this.spritePool.push(sp);
         this.agentSprites.delete(id);

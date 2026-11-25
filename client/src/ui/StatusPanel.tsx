@@ -1,7 +1,9 @@
-import { LEVELS } from "@coidle/shared";
+import { LEVELS, weatherSummary, type DayWeather, type Weather } from "@coidle/shared";
 import { Meter } from "../components/ui";
 import { pct } from "../format";
 import { state } from "../store";
+import { Icon } from "./Icon";
+import { forecastAdvice, forecastText, weatherGlyph, weatherLabel } from "./weatherUi";
 
 /** 口碑、觀光熱度、清潔、設備、升級進度。財務頁與 HUD 的狀態面板共用。 */
 export function StatusMeters() {
@@ -21,7 +23,32 @@ export function StatusMeters() {
 }
 
 /** 點 HUD 資金後展開的小面板 */
-export function StatusPopover(props: { onClose: () => void; onMore: () => void }) {
+/** 今天的天氣、對生意的影響，以及（有客流預測科技時）明日預報 */
+export function WeatherCard(props: { weather: Weather; tomorrow: DayWeather | null }) {
+  const advice = props.tomorrow ? forecastAdvice(props.tomorrow) : null;
+  return (
+    <div class="st-weather-card">
+      <div class="st-weather-now">
+        <Icon name={weatherGlyph(props.weather)} size={3} />
+        <div>
+          <b>{weatherLabel(props.weather)}</b>
+          <p class="small dim">{weatherSummary(props.weather)}</p>
+        </div>
+      </div>
+      {props.tomorrow ? (
+        <p class="small">
+          <b>明日預報：</b>
+          {forecastText(props.tomorrow)}
+          {advice && <span class="dim">　{advice}</span>}
+        </p>
+      ) : (
+        <p class="small dim">研發「客流預測」科技後，可以提前一天看到天氣預報。</p>
+      )}
+    </div>
+  );
+}
+
+export function StatusPopover(props: { onClose: () => void; onMore: () => void; weather?: Weather; tomorrow?: DayWeather | null }) {
   return (
     <div class="st-pop st-status st-panel" role="dialog" aria-label="商場狀態">
       <div class="st-pop-head">
@@ -31,6 +58,7 @@ export function StatusPopover(props: { onClose: () => void; onMore: () => void }
         </button>
       </div>
       <div class="st-pop-body">
+        {props.weather && <WeatherCard weather={props.weather} tomorrow={props.tomorrow ?? null} />}
         <StatusMeters />
         <button class="st-btn" style={{ justifyContent: "center" }} onClick={props.onMore}>
           看財務明細

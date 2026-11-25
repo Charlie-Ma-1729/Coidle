@@ -3,6 +3,7 @@
  * 不影響伺服器帳目——數字以伺服器為準，這裡只負責「看起來有人」。
  * 純邏輯、不依賴 Pixi，可單元測試（輸入 rng 即可確定性重現）。
  */
+import { isWet, weatherTrafficAverage, type Weather } from "@coidle/shared";
 import { FURNITURE } from "./furniture";
 import { TILE, patrolEnds, pickEntrance, routeTo, type FloorPlan, type RoomRect } from "./floorplan";
 import { isShopActive, type StageShop } from "./model";
@@ -47,7 +48,14 @@ export interface Agent {
   dwell: number;
   /** 停留結束後的離場路徑（進店時預先算好） */
   back: PxPt[];
+  /** 撐著傘（下雨天從街門進來的人，走進館內就收傘） */
+  umbrella: boolean;
+  /** 出現時的 x（像素）：離入口夠遠就收傘 */
+  originX: number;
 }
+
+/** 走離入口這麼遠（像素）就收傘 */
+export const UMBRELLA_RANGE = 56;
 
 /** 營業時間內的相對人潮（午餐與晚餐尖峰） */
 export function hourWeight(minuteOfDay: number): number {
@@ -85,6 +93,15 @@ export class CrowdSim {
   private nextId = 1;
   private acc = new Map<number, number>();
   private max: number;
+  private wet = false;
+  /** 天氣造成的人潮疏密（雨天變少、晴天略多）；與伺服器的客流規則同一份係數 */
+  private scale = 1;
+
+  /** 依天氣調整：人潮疏密、是否撐傘 */
+  setWeather(w: Weather): void {
+    this.wet = isWet(w);
+    this.scale = weatherTrafficAverage(w);
+  }
 
   constructor(private cfg: CrowdConfig) {
     this.max = cfg.maxAgents ?? 70;
@@ -95,30 +112,39 @@ export class CrowdSim {
     this.max = n;
   }
 
-  /** 清潔員：沿主走道來回走（有客訴時才出現） */
+  /** 清潔員：沿主走道來回走（有客訴、下雨時才出現） */
   ensureCleaner(on: boolean): void {
-    const has = this.agents.find((a) => a.kind === "cleaner");
-    if (on && !has) {
+    this.ensureCleaners(on ? 1 : 0);
+  }
+
+  /** 維持 n 位清潔員（有客訴 1 位；簽了清潔的話下雨、颱風天加派）。從走道兩端交錯出發、錯開行走線 */
+  ensureCleaners(n: number): void {
+    const have = this.agents.filter((a) => a.kind === "cleaner");
+    for (let i = have.length; i < n; i++) {
       const [a, b] = patrolEnds(this.cfg.plan).map(px) as [PxPt, PxPt];
+      const from = i % 2 === 0 ? a : b;
+      const to = i % 2 === 0 ? b : a;
+      const dy = 5 + (i % 3) * 5;
       this.agents.push({
         id: this.nextId++,
         kind: "cleaner",
         variant: 3,
-        x: a.x,
-        y: a.y + 6,
-        face: 1,
+        x: from.x,
+        y: from.y + dy,
+        face: from.x < to.x ? 1 : -1,
         phase: "walk",
         moving: true,
         sitting: false,
         slot: null,
-        path: [{ x: b.x, y: b.y + 6 }],
-        speed: 14,
+        path: [{ x: to.x, y: to.y + dy }],
+        speed: 14 + (i % 2) * 3,
         dwell: 0,
         back: [],
+        umbrella: false,
+        originX: from.x,
       });
-    } else if (!on && has) {
-      this.agents.splice(this.agents.indexOf(has), 1);
     }
+    for (let i = have.length - 1; i >= n; i--) this.agents.splice(this.agents.indexOf(have[i]!), 1);
   }
 
   update(dt: number, shops: Map<number, StageShop | null>, minuteOfDay: number, openHour: number, closeHour: number): void {
@@ -126,7 +152,7 @@ export class CrowdSim {
     // 生成
     for (const room of plan.rooms) {
       const shop = shops.get(room.slot);
-      const rate = spawnRatePerSec(shop, minuteOfDay, openHour, closeHour);
+      const rate = spawnRatePerSec(shop, minuteOfDay, openHour, closeHour) * this.scale;
       if (rate <= 0) continue;
       const acc = (this.acc.get(room.slot) ?? 0) + rate * dt;
       if (acc >= 1 && this.agents.length < this.max) {
@@ -148,6 +174,7 @@ export class CrowdSim {
         }
         continue;
       }
+      if (a.umbrella && Math.abs(a.x - a.originX) > UMBRELLA_RANGE) a.umbrella = false;
       if (a.phase === "walk") {
         let budget = a.speed * dt;
         a.moving = true;
@@ -174,7 +201,7 @@ export class CrowdSim {
             const [p, q] = patrolEnds(plan).map(px) as [PxPt, PxPt];
             const mid = (p.x + q.x) / 2;
             const t = a.x > mid ? p : q;
-            a.path = [{ x: t.x, y: t.y + 6 }];
+            a.path = [{ x: t.x, y: a.y }];
           } else if (a.back.length > 0 && a.slot !== null && a.dwell > 0) {
             a.phase = "dwell";
             a.moving = false;
@@ -227,6 +254,9 @@ export class CrowdSim {
       speed: 26 + rng() * 10,
       dwell: 7 + rng() * 14,
       back,
+      // 下雨天從街上走進來的人撐著傘，進了室內就收起來
+      umbrella: this.wet && entrance.kind === "street",
+      originX: start.x,
     });
   }
 }

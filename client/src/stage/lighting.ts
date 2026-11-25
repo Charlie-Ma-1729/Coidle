@@ -4,6 +4,7 @@
  *  - lampLevel：燈光亮度 0–1（白天 0、入夜 1），店面與走道的燈依這個亮起
  *  - PerfGovernor：量到幀率持續偏低時，降低人潮上限與幀率上限，保住手機的底線
  */
+import type { WeatherKind } from "@coidle/shared";
 import { isOpenAt } from "./crowd";
 import { mix } from "./color";
 
@@ -55,11 +56,61 @@ export function lampLevel(minute: number): number {
   return 1;
 }
 
-/** 整個畫面的色調：天色，加上商場打烊時的暗沉 */
-export function stageTint(minute: number, open: number, close: number): Tint {
-  const t = dayTint(minute);
+/** 天氣讓畫面多暗一點、偏灰藍（白天的雨天、颱風天要看得出來） */
+const WEATHER_DARK: Record<WeatherKind, number> = { clear: 0, cloudy: 0.04, rain: 0.1, storm: 0.22 };
+const OVERCAST = 0x1c2438;
+
+/** 整個畫面的色調：天色，加上天氣與商場打烊時的暗沉 */
+export function stageTint(minute: number, open: number, close: number, weather: WeatherKind = "clear"): Tint {
+  let t = dayTint(minute);
+  const extra = WEATHER_DARK[weather];
+  if (extra > 0) {
+    const total = t.alpha + extra;
+    t = { color: mix(t.color, OVERCAST, extra / Math.max(total, 0.01)), alpha: total };
+  }
   if (isOpenAt(minute, open, close)) return t;
   return { color: mix(t.color, NIGHT, 0.6), alpha: Math.max(t.alpha, 0.42) };
+}
+
+/** 燈光亮度：天暗的時候（陰雨、颱風）白天也會開燈 */
+export function lampWithWeather(minute: number, weather: WeatherKind = "clear"): number {
+  const floor: Record<WeatherKind, number> = { clear: 0, cloudy: 0.15, rain: 0.45, storm: 0.85 };
+  return Math.max(lampLevel(minute), floor[weather]);
+}
+
+// ───────── 天氣特效的參數 ─────────
+
+export interface FxConfig {
+  /** 雨絲數量（滿效能時） */
+  drops: number;
+  /** 雨絲下落速度（像素／秒）與斜度（水平速度／垂直速度） */
+  speed: number;
+  slant: number;
+  /** 中庭天窗／露天樓層上的色罩 */
+  sky: Tint;
+  /** 晴天的日光束 */
+  beams: boolean;
+  /** 閃電間隔（秒，最小與最大）；沒有閃電為 null */
+  flash: [number, number] | null;
+}
+
+export const FX: Record<WeatherKind, FxConfig> = {
+  clear: { drops: 0, speed: 0, slant: 0, sky: { color: 0xbfe4ff, alpha: 0 }, beams: true, flash: null },
+  cloudy: { drops: 0, speed: 0, slant: 0, sky: { color: 0x8a92a8, alpha: 0.16 }, beams: false, flash: null },
+  rain: { drops: 90, speed: 210, slant: 0.18, sky: { color: 0x5a6a8a, alpha: 0.26 }, beams: false, flash: null },
+  storm: { drops: 170, speed: 330, slant: 0.55, sky: { color: 0x2a3250, alpha: 0.42 }, beams: false, flash: [3, 8] },
+};
+
+/** 雨絲數量：效能降級時減少，露天樓層（整層都淋雨）要更多 */
+export function dropCount(kind: WeatherKind, perf: PerfLevel, outdoor: boolean): number {
+  const k = perf === 0 ? 1 : perf === 1 ? 0.6 : 0.35;
+  return Math.round(FX[kind].drops * k * (outdoor ? 2.2 : 1));
+}
+
+/** 下一次閃電的間隔（秒）；rnd 是 0–1 的亂數 */
+export function nextFlashDelay(kind: WeatherKind, rnd: number): number {
+  const f = FX[kind].flash;
+  return f ? f[0] + (f[1] - f[0]) * rnd : Infinity;
 }
 
 // ───────── 效能調節 ─────────

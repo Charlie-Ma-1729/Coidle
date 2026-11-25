@@ -16,7 +16,13 @@ import {
   presetOfSpeed,
   techFx,
   timeInfo,
+  WEATHER_NAMES,
+  dayWeather,
+  weatherAt,
+  weatherNow,
+  weatherTrafficAverage,
 } from "@coidle/shared";
+import { forecastAdvice, forecastText } from "../ui/weatherUi";
 import { DeviceCard } from "../components/DeviceCard";
 import { InspectionCard } from "../components/InspectionCard";
 import { Btn, Card, Chip, Field, Meter } from "../components/ui";
@@ -97,14 +103,22 @@ export function HoursCards() {
         <Card title="📈 客流預測（大數據分析）" right={<span class="small dim">接下來 12 個遊戲小時</span>}>
           <div class="bars">
             {Array.from({ length: 12 }, (_, i) => {
-              const h = (nowHour + i) % 24;
-              const wk = timeInfo(s.tick + i * 12).weekend;
-              const v = hourlyTraffic(wk)[h] ?? 0;
-              const mx = Math.max(...hourlyTraffic(wk));
-              return <div class="bar" key={i} title={`${h}:00　${Math.round((v / mx) * 100)}%`} style={{ height: `${Math.max(4, (v / mx) * 100)}%` }} />;
+              const ti = timeInfo(s.tick + i * 12);
+              const h = ti.hour;
+              const wk = ti.weekend;
+              // 天氣也算進去：下雨、颱風時整體人流會明顯變少（i = 0 是此刻，含事件強制的天氣）
+              const w = i === 0 ? weatherNow(s) : weatherAt(ti.day, h);
+              const v = (hourlyTraffic(wk)[h] ?? 0) * weatherTrafficAverage(w);
+              const mx = Math.max(...hourlyTraffic(wk)) * 1.1;
+              return <div class="bar" key={i} title={`${h}:00　${WEATHER_NAMES[w.kind]}　${Math.round((v / mx) * 100)}%`} style={{ height: `${Math.max(4, Math.min(100, (v / mx) * 100))}%` }} />;
             })}
           </div>
-          <p class="small dim">柱子越高人越多；尖峰前把庫存補好、人手排滿。</p>
+          <p class="small dim">柱子越高人越多（已含天氣）；尖峰前把庫存補好、人手排滿。</p>
+          <p class="small">
+            <b>明日預報：</b>
+            {forecastText(dayWeather(timeInfo(s.tick).day + 1))}
+            {forecastAdvice(dayWeather(timeInfo(s.tick).day + 1)) && <span class="dim">　{forecastAdvice(dayWeather(timeInfo(s.tick).day + 1))}</span>}
+          </p>
         </Card>
       )}
 

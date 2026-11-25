@@ -15,6 +15,10 @@ import {
   initialSupply,
   newClock,
   ZONE_BY_ID,
+  emptyWeatherTicks,
+  weatherDemand,
+  weatherNow,
+  weatherTraffic,
   type CategoryDef,
   type DayStats,
   type InspectionState,
@@ -69,6 +73,7 @@ export function newDayStats(day: number, idx: { localRep: number; touristHeat: n
     outTax: 0,
     inTax: 0,
     fixedCredit: 0,
+    wx: emptyWeatherTicks(),
   };
 }
 
@@ -224,7 +229,7 @@ export function demandMult(s: MallState, category: string, tick: number): number
   for (const mod of s.modifiers) {
     if (mod.kind === "demand" && mod.category === category && mod.endTick > tick) m *= mod.mult;
   }
-  return m;
+  return m * weatherDemand(weatherNow(s), category);
 }
 
 export function trafficMult(s: MallState, persona: PersonaId, tick: number): number {
@@ -232,7 +237,7 @@ export function trafficMult(s: MallState, persona: PersonaId, tick: number): num
   for (const mod of s.modifiers) {
     if (mod.kind === "traffic" && mod.endTick > tick && (mod.persona === "all" || mod.persona === persona)) m *= mod.mult;
   }
-  return m;
+  return m * weatherTraffic(weatherNow(s), persona);
 }
 
 /** 有效品質：等級決定上限，新鮮感過低會打折（新鮮感 20 時打 6 折）；菜單上的招牌與新品再加分 */

@@ -28,6 +28,11 @@ export function applyEffects(s: MallState, effects: EffectSpec[], rng: Rng): voi
   const t = s.tick;
   for (const e of effects) {
     switch (e.t) {
+      case "weather":
+        // 強制天氣：同時只留一個（新的蓋過舊的），避免一直堆疊
+        s.modifiers = s.modifiers.filter((m) => m.kind !== "weather");
+        pushModifier(s, { kind: "weather", weather: e.kind, temp: Math.round(clamp(e.temp, -10, 42)), endTick: t + clamp(e.ticks, 1, 288 * 3) });
+        break;
       case "traffic":
         pushModifier(s, { kind: "traffic", persona: e.persona, mult: clamp(e.mult, 0.2, 3), endTick: t + clamp(e.ticks, 1, 288 * 3) });
         break;

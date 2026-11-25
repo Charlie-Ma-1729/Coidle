@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { CrowdSim, hourWeight, isOpenAt, makeRng, spawnRatePerSec } from "./crowd";
+import type { Weather } from "@coidle/shared";
+import { CrowdSim, UMBRELLA_RANGE, hourWeight, isOpenAt, makeRng, spawnRatePerSec } from "./crowd";
 import { buildDemoModel } from "./fixtures";
 import { TILE, layoutFloor, roomOfSlot } from "./floorplan";
 import { isShopActive, type StageShop } from "./model";
@@ -126,5 +127,94 @@ describe("CrowdSim", () => {
     expect(sim.agents.filter((a) => a.kind === "cleaner")).toHaveLength(1);
     sim.ensureCleaner(false);
     expect(sim.agents.filter((a) => a.kind === "cleaner")).toHaveLength(0);
+  });
+});
+
+describe("清潔員人數", () => {
+  const plan = layoutFloor(f1.lots.map((l) => l.slot), { ground: true });
+
+  it("可以同時有好幾位，從走道兩端交錯出發、行走線錯開；減少時從最後一位開始撤", () => {
+    const sim = new CrowdSim({ plan, rng: makeRng(5) });
+    sim.ensureCleaners(3);
+    const cs = sim.agents.filter((a) => a.kind === "cleaner");
+    expect(cs).toHaveLength(3);
+    expect(new Set(cs.map((c) => Math.round(c.y))).size).toBe(3); // 不會疊在同一條線上
+    expect(cs[0]!.x).not.toBe(cs[1]!.x); // 兩端交錯
+    sim.ensureCleaners(1);
+    expect(sim.agents.filter((a) => a.kind === "cleaner")).toHaveLength(1);
+    sim.ensureCleaners(0);
+    expect(sim.agents.filter((a) => a.kind === "cleaner")).toHaveLength(0);
+  });
+
+  it("人數不變時不重複生成；跑一陣子後還是同樣人數，而且一直在主走道上來回走", () => {
+    const sim = new CrowdSim({ plan, rng: makeRng(5) });
+    const lane = plan.corridors[plan.mainCorridor]!.laneY * TILE;
+    for (let t = 0; t < 60; t += 0.05) {
+      sim.ensureCleaners(2);
+      sim.update(0.05, new Map(), 13 * 60, 10, 22);
+    }
+    const cs = sim.agents.filter((a) => a.kind === "cleaner");
+    expect(cs).toHaveLength(2);
+    for (const c of cs) expect(Math.abs(c.y - lane)).toBeLessThan(20);
+  });
+});
+
+describe("天氣對人潮的影響", () => {
+  const rain: Weather = { kind: "rain", temp: 19 };
+  const clear: Weather = { kind: "clear", temp: 24 };
+  const storm: Weather = { kind: "storm", temp: 24 };
+
+  const count = (w: Weather, ground: boolean) => {
+    const plan = layoutFloor(f1.lots.map((l) => l.slot), { ground });
+    const sim = new CrowdSim({ plan, rng: makeRng(21), maxAgents: 500 });
+    sim.setWeather(w);
+    const seen = new Set<number>();
+    const umbrellas = new Set<number>();
+    const shops = shopsOf(f1.lots);
+    for (let t = 0; t < 240; t += 0.05) {
+      sim.update(0.05, shops, 13 * 60, 10, 22);
+      for (const a of sim.agents) {
+        if (a.kind !== "customer" || seen.has(a.id)) continue;
+        seen.add(a.id);
+        if (a.umbrella) umbrellas.add(a.id);
+      }
+    }
+    return { spawned: seen.size, umbrellas: umbrellas.size };
+  };
+
+  it("雨天人變少、颱風天更少（與伺服器的客流係數一致）", () => {
+    const c = count(clear, true).spawned;
+    const r = count(rain, true).spawned;
+    const s = count(storm, true).spawned;
+    expect(r).toBeLessThan(c);
+    expect(s).toBeLessThan(r * 0.7);
+  });
+
+  it("下雨天從街門進來的人撐傘；沒有街門的樓層沒有人撐傘；晴天沒有", () => {
+    expect(count(rain, true).umbrellas).toBeGreaterThan(0);
+    expect(count(rain, false).umbrellas).toBe(0);
+    expect(count(clear, true).umbrellas).toBe(0);
+  });
+
+  it("走進館內就收傘", () => {
+    const plan = layoutFloor(f1.lots.map((l) => l.slot), { ground: true });
+    const sim = new CrowdSim({ plan, rng: makeRng(5) });
+    sim.setWeather(rain);
+    const shops = shopsOf(f1.lots);
+    let opened = 0;
+    let closed = 0;
+    for (let t = 0; t < 90; t += 0.05) {
+      sim.update(0.05, shops, 13 * 60, 10, 22);
+      for (const a of sim.agents) {
+        if (a.kind !== "customer") continue;
+        const away = Math.abs(a.x - a.originX);
+        if (a.umbrella) {
+          opened++;
+          expect(away).toBeLessThanOrEqual(UMBRELLA_RANGE + 4);
+        } else if (away > UMBRELLA_RANGE + 40) closed++;
+      }
+    }
+    expect(opened).toBeGreaterThan(0);
+    expect(closed).toBeGreaterThan(0);
   });
 });

@@ -33,6 +33,7 @@ import { HUBS } from "../Dock";
 import { Icon } from "../Icon";
 import { featureIndex, resolveTab, visibleTabs } from "../reveal";
 import { Window } from "../Window";
+import { reportWeatherText } from "../weatherUi";
 import { hubSummary } from "./summary";
 
 interface TabDef {
@@ -241,6 +242,7 @@ export function ReportPopup(props: { onClose: () => void; onOpenReports: () => v
         </div>
         <div class="st-news-body">
           <h3>{r.headline}</h3>
+          {r.weather && <p class="st-hint">{reportWeatherText(r.weather)}</p>}
           <ul>
             {r.notes.slice(0, 5).map((n, i) => (
               <li key={i}>{n}</li>

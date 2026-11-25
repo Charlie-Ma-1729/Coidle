@@ -165,6 +165,31 @@ describe("toStageModel", () => {
     expect(m.floors.filter((f) => f.ground).map((f) => f.label)).toEqual(["1F"]);
   });
 
+  it("天氣：模型帶出此刻的天氣，事件強制的天氣優先", () => {
+    expect(["clear", "cloudy", "rain", "storm"]).toContain(toStageModel(stateAt(0)).weather.kind);
+    const forced = toStageModel(
+      stateAt(0, (s) => {
+        s.modifiers.push({ kind: "weather", weather: "storm", temp: 24, endTick: s.tick + 100 });
+      }),
+    );
+    expect(forced.weather).toEqual({ kind: "storm", temp: 24 });
+  });
+
+  it("沒有「客流預測」科技看不到明日預報；研發後才有", () => {
+    expect(toStageModel(stateAt(0)).tomorrow).toBeNull();
+    const m = toStageModel(
+      stateAt(0, (s) => {
+        s.tech.done.push("t_data");
+      }),
+    );
+    expect(m.tomorrow).not.toBeNull();
+  });
+
+  it("只有屋頂廣場是露天樓層", () => {
+    const m = toStageModel(stateAt(0));
+    expect(m.floors.filter((f) => f.outdoor).map((f) => f.zoneId)).toEqual(["plaza"]);
+  });
+
   it("locateShop／floorIndexOfSlot", () => {
     const s = stateAt(0);
     const m = toStageModel(s);

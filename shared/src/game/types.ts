@@ -139,6 +139,7 @@ export interface BuildTask {
 
 /** 白名單效果：事件只能使用這些，並且數值會被夾限。 */
 export type EffectSpec =
+  | { t: "weather"; kind: WeatherKind; temp: number; ticks: number }
   | { t: "traffic"; persona: PersonaId | "all"; mult: number; ticks: number }
   | { t: "supply"; mult: number; ticks: number }
   | { t: "demand"; category: CategoryId; mult: number; ticks: number }
@@ -200,7 +201,12 @@ export interface EventDef {
   choice?: { deadlineTicks: number; defaultOption: string; options: EventOption[] };
 }
 
+/** 天氣：晴、陰、雨、暴風雨（颱風）。氣溫另外記（熱、冷也會影響客流與需求） */
+export type WeatherKind = "clear" | "cloudy" | "rain" | "storm";
+
 export type Modifier =
+  /** 事件強制的天氣（例如連日大雨、颱風、寒流、酷暑）：期間內蓋過依日期決定的天氣 */
+  | { kind: "weather"; weather: WeatherKind; temp: number; endTick: number }
   | { kind: "traffic"; persona: PersonaId | "all"; mult: number; endTick: number }
   | { kind: "supply"; mult: number; endTick: number }
   | { kind: "demand"; category: CategoryId; mult: number; endTick: number };
@@ -248,6 +254,9 @@ export interface DayStats {
   inTax: number;
   /** 今天營運支出中可扣抵進項稅的部分（水電、清潔維護） */
   fixedCredit: number;
+  /** 今天各種天氣各出現幾個 tick、最近一次的氣溫（舊存檔沒有這個欄位） */
+  wx?: Record<WeatherKind, number>;
+  temp?: number;
 }
 
 export interface DailyReport {
@@ -270,6 +279,15 @@ export interface DailyReport {
   headline: string;
   notes: string[];
   guest?: { complaints: number; reviews: number; avgStars: number | null };
+  /** 當天的天氣（舊日報沒有） */
+  weather?: WeatherSummary;
+}
+
+/** 日報記錄的天氣：整天的主要天氣、氣溫，以及各種天氣各幾小時 */
+export interface WeatherSummary {
+  kind: WeatherKind;
+  temp: number;
+  hours: Record<WeatherKind, number>;
 }
 
 /** 傳給玩家的狀態：不含亂數種子與內部冷卻／累積表 */

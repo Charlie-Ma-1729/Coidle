@@ -4,6 +4,7 @@ import { Card, Chip, Empty, Meter } from "../components/ui";
 import { money, moneyShort, num, signed } from "../format";
 import { categoryIcon, PERSONA_ICONS } from "../icons";
 import { state } from "../store";
+import { WEATHER_EMOJI, reportWeatherText } from "../ui/weatherUi";
 
 export function Reports() {
   const s = state.value;
@@ -33,7 +34,7 @@ export function Reports() {
               key={x.day}
               class={`bar ${x.profit < 0 ? "neg" : ""} ${i === idx ? "sel" : ""}`}
               style={{ height: `${Math.max(3, (Math.abs(x.profit) / max) * 100)}%`, cursor: "pointer" }}
-              title={`${x.date} ${moneyShort(x.profit)}`}
+              title={`${x.date} ${x.weather ? WEATHER_EMOJI[x.weather.kind] + " " : ""}${moneyShort(x.profit)}`}
               onClick={() => setSel(i)}
             />
           ))}
@@ -42,7 +43,12 @@ export function Reports() {
 
       <Card
         title={`${r.date}（${WEEKDAY_NAMES[dow] ?? weekday}）`}
-        right={<Chip tone={r.profit >= 0 ? "green" : "red"}>{r.profit >= 0 ? "盈" : "虧"} {moneyShort(r.profit)}</Chip>}
+        right={
+          <span class="row">
+            {r.weather && <Chip tone={r.weather.kind === "storm" ? "red" : r.weather.kind === "rain" ? "cyan" : "amber"}>{reportWeatherText(r.weather)}</Chip>}
+            <Chip tone={r.profit >= 0 ? "green" : "red"}>{r.profit >= 0 ? "盈" : "虧"} {moneyShort(r.profit)}</Chip>
+          </span>
+        }
       >
         <div class="stack">
           <div class="news">

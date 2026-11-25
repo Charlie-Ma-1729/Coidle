@@ -1,3 +1,4 @@
+import type { DayWeather, Weather } from "@coidle/shared";
 import type { FloorLinkKind } from "./floorplan";
 import type { GlyphKey } from "./glyphs";
 
@@ -57,6 +58,8 @@ export interface StageFloor {
   lots: StageLot[];
   /** 地面層（1F）：主走道兩端是對外街道門；其他樓層客人只能搭電扶梯／電梯 */
   ground?: boolean;
+  /** 露天樓層（屋頂廣場）：風雨直接打在整層上 */
+  outdoor?: boolean;
   /** 非地面層另外連通的外部出入口（車站連通道、停車場） */
   links?: FloorLinkKind[];
   /** 這個樓層對應的區域 id（真實資料才有） */
@@ -113,6 +116,12 @@ export interface StageModel {
   minuteOfDay: number;
   dateLabel: string;
   weekend: boolean;
+  /** 清潔等級（0 不做、1 標準、2 加強）：決定下雨天會不會加派清潔員 */
+  cleaningLevel: 0 | 1 | 2;
+  /** 此刻的天氣（含事件強制的天氣） */
+  weather: Weather;
+  /** 明日預報；沒有「客流預測」科技時為 null */
+  tomorrow: DayWeather | null;
   openHour: number;
   closeHour: number;
   attention: AttentionItem[];

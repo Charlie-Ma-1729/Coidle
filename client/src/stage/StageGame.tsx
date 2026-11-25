@@ -91,6 +91,8 @@ function StageGameInner() {
     selected,
     panelOpen,
     minuteOfDay: model.minuteOfDay,
+    weather: model.weather,
+    cleaningLevel: model.cleaningLevel,
     openHour: model.openHour,
     closeHour: model.closeHour,
     onTap: (slot) => {
@@ -176,6 +178,7 @@ function StageGameInner() {
           setStatusOpen(next);
         }}
         fundsOpen={statusOpen}
+        weather={model.weather}
       />
 
       <div class="st-banners">
@@ -266,6 +269,8 @@ function StageGameInner() {
         <StatusPopover
           onClose={() => setStatusOpen(false)}
           onMore={() => openHub("finance", "cash")}
+          weather={model.weather}
+          tomorrow={model.tomorrow}
         />
       )}
 

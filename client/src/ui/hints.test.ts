@@ -77,7 +77,14 @@ describe("pickHint", () => {
   it("有空地而且付得起才提示開店；日報出爐後提示日報", () => {
     expect(pickHint(ctx(stateAt(0), ["h_tap_shop", "h_dock", "h_bell", "h_time"], true))!.id).toBe("h_build");
     expect(pickHint(ctx(stateAt(0, (s) => (s.funds = 1000)), ["h_tap_shop", "h_dock", "h_bell", "h_time"], true))).toBeNull();
-    expect(pickHint(ctx(stateAt(2)))!.id).toBe("h_report");
+    // 模擬兩天後有沒有客訴、缺貨要看運氣（天氣也會影響），所以把這類狀況清掉，只留「日報出爐」
+    const quiet = stateAt(2, (s) => {
+      s.inbox = [];
+      s.pending = [];
+      s.inspections.pending = [];
+      for (const sh of s.shops) sh.stock = Math.max(sh.stock, 50);
+    });
+    expect(pickHint(ctx(quiet))!.id).toBe("h_report");
   });
 
   it("每則提示都有標題與內文、id 唯一", () => {

@@ -122,6 +122,29 @@ describe("screens render with real simulated state", () => {
     expect(container.querySelectorAll(".bars .bar").length).toBeGreaterThanOrEqual(3);
   });
 
+  it("日報記錄當天的天氣；舊日報（沒有天氣）也能正常顯示", async () => {
+    store.state.value = publicState(4);
+    const s = store.state.value!;
+    const last = s.reports[s.reports.length - 1]!;
+    expect(last.weather).toBeDefined();
+    const { Reports } = await import("./screens/Reports");
+    await mount(<Reports />);
+    expect(container.textContent).toContain(`${last.weather!.temp}°`);
+
+    // 強制一份下雨的日報：晶片與條形圖提示都要出現
+    last.weather = { kind: "rain", temp: 19, hours: { clear: 0, cloudy: 15, rain: 9, storm: 0 } };
+    store.state.value = { ...s };
+    await mount(<Reports />);
+    expect(container.textContent).toContain("☔ 雨・19°（下雨約 9 小時）");
+
+    // 舊存檔的日報沒有 weather 欄位
+    delete last.weather;
+    store.state.value = { ...s };
+    await mount(<Reports />);
+    expect(container.textContent).toContain("每日利潤");
+    expect(container.textContent).not.toContain("下雨約");
+  });
+
   it("Workshop shows the research bench with known ingredients, and a tasting card", async () => {
     store.state.value = publicState(1, (s) => {
       const shop = s.shops[0]!;
@@ -918,6 +941,7 @@ describe("stage UI panels with real state", () => {
     await mount(<ReportPopup onClose={() => {}} onOpenReports={() => (opened = true)} />);
     expect(container.textContent).toContain(last.headline);
     expect(container.textContent).toContain(last.date);
+    expect(container.textContent).toContain(`${last.weather!.temp}°`); // 快訊也帶天氣
     const btn = Array.from(container.querySelectorAll("button")).find((b) => b.textContent === "看完整日報") as HTMLElement;
     btn.click();
     expect(opened).toBe(true);

@@ -3,7 +3,7 @@
  * 場景只認 StageModel；真實資料與示範資料（fixtures）走同一條路。
  * 純函式、不依賴 DOM／Pixi。
  */
-import { CATEGORY_BY_ID, ZONES, expandInfo, isZoneUnlocked, mallStars, timeInfo, type CategoryDef, type PublicMallState, type Shop } from "@coidle/shared";
+import { CATEGORY_BY_ID, ZONES, dayWeather, expandInfo, isZoneUnlocked, mallStars, techFx, timeInfo, weatherNow, type CategoryDef, type PublicMallState, type Shop } from "@coidle/shared";
 import { dateText } from "../format";
 import { buildAttention, shopFlagsFrom } from "../ui/attention";
 import type { FloorLinkKind } from "./floorplan";
@@ -14,6 +14,9 @@ export const FLOOR_LABELS: Record<string, string> = { b1: "B1", f1: "1F", ent: "
 
 /** 只有地面層（1F）有對外的街道門；其他樓層客人只能搭電扶梯或電梯 */
 export const GROUND_ZONE = "f1";
+
+/** 露天樓層：屋頂廣場（展望台、餐車、市集），風雨直接打在整層上 */
+export const OUTDOOR_ZONE = "plaza";
 
 /** 例外：B1 是「連通車站的地下美食街」（區域設定），多一條車站連通道。停車場是 1F 的業態，已在地面層。 */
 export const FLOOR_LINKS: Record<string, FloorLinkKind[]> = { b1: ["rail"] };
@@ -119,6 +122,7 @@ export function toStageModel(s: PublicMallState, userId?: string | number | null
       description: z.description,
       lots,
       ground: z.id === GROUND_ZONE,
+      outdoor: z.id === OUTDOOR_ZONE,
       links: FLOOR_LINKS[z.id] ?? [],
       lockedLevel: unlocked ? null : z.unlockLevel,
       expand: info && info.n < info.max ? { n: info.n, max: info.max, cost: info.cost, canBuy: info.canBuy, reason: info.reason } : null,
@@ -143,6 +147,10 @@ export function toStageModel(s: PublicMallState, userId?: string | number | null
     minuteOfDay: t.hour * 60 + t.minute,
     dateLabel: dateText(s.tick),
     weekend: t.weekend,
+    cleaningLevel: s.cleaningLevel,
+    weather: weatherNow(s),
+    // 「客流預測」科技才看得到明日預報；事件強制的天氣預報不到
+    tomorrow: techFx(s.tech.done).forecast ? dayWeather(t.day + 1) : null,
     openHour: s.hours.open,
     closeHour: s.hours.close,
     attention,

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { CROWD_CAP, FPS_CAP, PerfGovernor, dayTint, lampLevel, stageTint } from "./lighting";
+import { CROWD_CAP, FPS_CAP, FX, PerfGovernor, dayTint, dropCount, lampLevel, lampWithWeather, nextFlashDelay, stageTint } from "./lighting";
 
 const at = (h: number, m = 0) => h * 60 + m;
 
@@ -58,6 +58,54 @@ describe("stageTint：商場打烊時更暗", () => {
 
   it("夜晚打烊後不比營業中亮", () => {
     expect(stageTint(at(23), 10, 22).alpha).toBeGreaterThanOrEqual(dayTint(at(23)).alpha);
+  });
+});
+
+describe("天氣對天色與燈光", () => {
+  it("同一個中午：陰、雨、颱風依序更暗；晴天不變", () => {
+    const a = (k: "clear" | "cloudy" | "rain" | "storm") => stageTint(at(12), 10, 22, k).alpha;
+    expect(a("clear")).toBe(0);
+    expect(a("cloudy")).toBeGreaterThan(0);
+    expect(a("rain")).toBeGreaterThan(a("cloudy"));
+    expect(a("storm")).toBeGreaterThan(a("rain"));
+    expect(a("storm")).toBeLessThan(0.5); // 白天再暗也還看得到
+  });
+
+  it("陰雨天白天也會開燈；颱風天幾乎全亮；晴天白天不開；夜裡不會被天氣變暗", () => {
+    expect(lampWithWeather(at(12), "clear")).toBe(0);
+    expect(lampWithWeather(at(12), "rain")).toBeGreaterThan(0.3);
+    expect(lampWithWeather(at(12), "storm")).toBeGreaterThan(0.8);
+    expect(lampWithWeather(at(23), "clear")).toBe(1);
+  });
+});
+
+describe("天氣特效參數", () => {
+  it("雨與颱風有雨絲，颱風更多更快更斜、有閃電；晴陰沒有雨絲", () => {
+    expect(FX.clear.drops).toBe(0);
+    expect(FX.cloudy.drops).toBe(0);
+    expect(FX.storm.drops).toBeGreaterThan(FX.rain.drops);
+    expect(FX.storm.speed).toBeGreaterThan(FX.rain.speed);
+    expect(FX.storm.slant).toBeGreaterThan(FX.rain.slant);
+    expect(FX.storm.flash).not.toBeNull();
+    expect(FX.rain.flash).toBeNull();
+    expect(FX.clear.beams).toBe(true);
+  });
+
+  it("雨絲數量：效能降級時減少；露天樓層（整層淋雨）更多；沒下雨是 0", () => {
+    expect(dropCount("clear", 0, false)).toBe(0);
+    expect(dropCount("rain", 1, false)).toBeLessThan(dropCount("rain", 0, false));
+    expect(dropCount("rain", 2, false)).toBeLessThan(dropCount("rain", 1, false));
+    expect(dropCount("rain", 0, true)).toBeGreaterThan(dropCount("rain", 0, false));
+  });
+
+  it("閃電間隔落在設定範圍內；沒有閃電的天氣是 Infinity", () => {
+    const [lo, hi] = FX.storm.flash!;
+    for (const r of [0, 0.5, 0.999]) {
+      const d = nextFlashDelay("storm", r);
+      expect(d).toBeGreaterThanOrEqual(lo);
+      expect(d).toBeLessThanOrEqual(hi);
+    }
+    expect(nextFlashDelay("rain", 0.5)).toBe(Infinity);
   });
 });
 

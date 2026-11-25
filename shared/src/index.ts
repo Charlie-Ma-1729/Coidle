@@ -16,6 +16,7 @@ export * from "./game/lease";
 export * from "./game/expansion";
 export * from "./game/world";
 export * from "./game/meta";
+export * from "./game/weather";
 
 export interface HealthResponse {
   ok: true;

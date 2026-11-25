@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
+import type { Weather } from "@coidle/shared";
 import type { StageFloor } from "./model";
 import type { StageScene } from "./scene";
 
@@ -10,6 +11,10 @@ export interface UseStageOptions {
   /** 有側邊／底部面板蓋住場景時為 true */
   panelOpen: boolean;
   minuteOfDay: number;
+  /** 此刻的天氣（特效、天色、人潮疏密） */
+  weather: Weather;
+  /** 清潔等級：下雨天加派清潔員的依據 */
+  cleaningLevel: 0 | 1 | 2;
   openHour: number;
   closeHour: number;
   /** 點到店面格（slot）或空白處（null） */
@@ -71,6 +76,14 @@ export function useStage(host: { current: HTMLElement | null }, o: UseStageOptio
       sc.setFloor(o.floor);
     } else sc.updateFloor(o.floor);
   }, [ready, o.floor]);
+
+  useEffect(() => {
+    sceneRef.current?.setCleaning(o.cleaningLevel);
+  }, [ready, o.cleaningLevel]);
+
+  useEffect(() => {
+    sceneRef.current?.setWeather(o.weather);
+  }, [ready, o.weather.kind, o.weather.temp]);
 
   useEffect(() => {
     sceneRef.current?.setClock(o.minuteOfDay, o.openHour, o.closeHour);

@@ -308,18 +308,14 @@ export const EVENTS: EventDef[] = [
     weight: 3,
     cooldownTicks: 288 * 4,
     when: { months: [6, 7] },
-    effects: [
-      { t: "traffic", persona: "family", mult: 0.6, ticks: 144 },
-      { t: "traffic", persona: "tourist", mult: 0.8, ticks: 144 },
-      { t: "traffic", persona: "commuter", mult: 0.85, ticks: 144 },
-      { t: "traffic", persona: "local", mult: 1.1, ticks: 144 },
-    ],
+    // 家庭／觀光客變少、在地客變多等影響，已經由天氣規則（shared/game/weather.ts）統一計算
+    effects: [{ t: "weather", kind: "rain", temp: 21, ticks: 360 }],
   },
   {
     id: "typhoon_warning",
     category: "weather",
     title: "颱風接近",
-    text: "氣象局發布警報，大風雨預計傍晚登陸。要提早閉館，還是照常營業？",
+    text: "氣象局發布警報，颱風預計傍晚登陸，風雨可能持續將近兩天。要提早閉館，還是照常營業？",
     weight: 2,
     cooldownTicks: 288 * 6,
     when: { months: [8, 9, 10] },
@@ -330,12 +326,13 @@ export const EVENTS: EventDef[] = [
       deadlineTicks: 24,
       defaultOption: "close",
       options: [
-        { id: "close", label: "提早閉館，保障安全", effects: [{ t: "close", ticks: 144 }, { t: "index", which: "localRep", amount: 1 }] },
+        { id: "close", label: "提早閉館，保障安全", effects: [{ t: "weather", kind: "storm", temp: 24, ticks: 456 }, { t: "close", ticks: 144 }, { t: "index", which: "localRep", amount: 1 }] },
         {
           id: "open",
           label: "照常營業，賭一把",
           effects: [
-            { t: "traffic", persona: "all", mult: 0.35, ticks: 96 },
+            // 暴風雨的客流大減（約三到五成）由天氣規則計算
+            { t: "weather", kind: "storm", temp: 24, ticks: 456 },
             { t: "equipment", amount: -8 },
             { t: "index", which: "localRep", amount: -1 },
           ],
@@ -351,12 +348,8 @@ export const EVENTS: EventDef[] = [
     weight: 2,
     cooldownTicks: 288 * 5,
     when: { months: [12, 1, 2] },
-    effects: [
-      { t: "demand", category: "ramen", mult: 1.5, ticks: 144 },
-      { t: "demand", category: "udon", mult: 1.5, ticks: 144 },
-      { t: "demand", category: "hotpot", mult: 1.6, ticks: 144 },
-      { t: "demand", category: "bubble_tea", mult: 0.7, ticks: 144 },
-    ],
+    // 熱湯熱賣、冷飲冷清，由天氣規則依氣溫計算
+    effects: [{ t: "weather", kind: "cloudy", temp: 2, ticks: 144 }],
   },
   {
     id: "heat_wave",
@@ -366,12 +359,8 @@ export const EVENTS: EventDef[] = [
     weight: 2,
     cooldownTicks: 288 * 5,
     when: { months: [7, 8] },
-    effects: [
-      { t: "demand", category: "bubble_tea", mult: 1.6, ticks: 144 },
-      { t: "demand", category: "sweets", mult: 1.3, ticks: 144 },
-      { t: "traffic", persona: "all", mult: 1.1, ticks: 144 },
-      { t: "equipment", amount: -6 },
-    ],
+    // 冷飲熱賣、往有冷氣的商場躲，由天氣規則依氣溫計算
+    effects: [{ t: "weather", kind: "clear", temp: 36, ticks: 144 }, { t: "equipment", amount: -6 }],
   },
   {
     id: "team_win",

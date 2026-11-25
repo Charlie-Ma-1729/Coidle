@@ -4,6 +4,12 @@ import {
   CONSUMPTION_STANDARD,
   techFx,
   techTrafficMult,
+  cleaningCrew,
+  extraCleaningCostPerTick,
+  weatherNow,
+  weatherZoneFactor,
+  emptyWeatherTicks,
+  wetDirt,
   ROYALTY_CATEGORIES,
   consumptionRate,
   purchaseRate,
@@ -114,6 +120,7 @@ export function stepTick(s: MallState, ctx: StepContext = { nobodyPresent: false
   if (t % 6 === 0) autoRestock(s);
   if (t % TICKS_PER_HOUR === 0) syncWorkshop(s);
 
+  noteWeather(s);
   for (const shop of s.shops) shop.served = 0;
   const units = isOpen(s, time) ? runCustomers(s, time, rng) : 0;
   upkeep(s, units, rng);
@@ -262,11 +269,23 @@ function runCustomers(s: MallState, time: TimeInfo, rng: Rng): number {
   return units;
 }
 
+/** 店面所在的樓層（區域）：同一個 tick 內只建一次對照表 */
+const zoneCache = new WeakMap<MallState, { tick: number; n: number; map: Map<number, string> }>();
+function zoneOfSlot(s: MallState, slot: number): string | undefined {
+  let c = zoneCache.get(s);
+  if (!c || c.tick !== s.tick || c.n !== s.slots.length) {
+    c = { tick: s.tick, n: s.slots.length, map: new Map(s.slots.map((x) => [x.id, x.zone])) };
+    zoneCache.set(s, c);
+  }
+  return c.map.get(slot);
+}
+
 function pickShop(s: MallState, rng: Rng, p: PersonaDef, shops: Shop[], withOutside: boolean): Shop | null {
+  const weather = weatherNow(s);
   const weights = shops.map((shop) => {
     const cat = CATEGORY_BY_ID[shop.category];
     if (!cat) return 0;
-    const d = (cat.demand[p.id] ?? 0) * demandMult(s, cat.id, s.tick);
+    const d = (cat.demand[p.id] ?? 0) * demandMult(s, cat.id, s.tick) * weatherZoneFactor(weather, zoneOfSlot(s, shop.slot) ?? "");
     if (d <= 0) return 0;
     const priceF = clamp(Math.exp(p.sensitivity * (1 - effectivePrice(s, shop) / cat.refPrice)), 0.15, 1.6);
     const qualityF = 0.6 + 0.8 * shopQuality(shop) * supplierQualityFactor(s, shop.category);
@@ -396,6 +415,14 @@ function nudgeIndex(s: MallState, which: IndexId, target: number, alpha: number)
   else s.peakTourist = Math.max(s.peakTourist, next);
 }
 
+/** 記下今天各種天氣各出現幾個 tick（日報用） */
+function noteWeather(s: MallState): void {
+  const w = weatherNow(s);
+  const wx = (s.today.wx ??= emptyWeatherTicks());
+  wx[w.kind]++;
+  s.today.temp = w.temp;
+}
+
 // ───────── 維運、固定成本、故障 ─────────
 function dailyFixedCost(s: MallState): number {
   let c = dailyOverhead(s) + dailyWages(s);
@@ -411,7 +438,21 @@ function upkeep(s: MallState, units: number, rng: Rng): void {
 
   const scale = facilityScale(s);
   const fx = techFx(s.tech.done);
-  s.cleanliness = clamp(s.cleanliness + CLEANING_RESTORE_PER_TICK[s.cleaningLevel] * scale * fx.cleaningRestoreMult - units * 0.009, 0, 100);
+  // 雨天館內更髒（泥水、滲漏）；有簽清潔就加派清潔員，打掃更快但要付加班費
+  const weather = weatherNow(s);
+  const dirt = wetDirt(weather);
+  const crew = cleaningCrew(s.cleaningLevel, weather);
+  const extra = extraCleaningCostPerTick(s.cleaningLevel, weather);
+  if (extra > 0) {
+    s.funds -= extra;
+    s.today.fixed += extra;
+    s.today.fixedCredit += taxPortion(extra, CONSUMPTION_STANDARD);
+  }
+  s.cleanliness = clamp(
+    s.cleanliness + CLEANING_RESTORE_PER_TICK[s.cleaningLevel] * scale * fx.cleaningRestoreMult * crew.restoreMult - units * 0.009 * (1 + dirt.tracked) - dirt.leak * scale,
+    0,
+    100,
+  );
   s.equipment = clamp(s.equipment + MAINTENANCE_RESTORE_PER_TICK[s.maintenanceLevel] * scale * fx.equipmentRestoreMult - units * 0.007, 0, 100);
 
   const breakdownP = (s.equipment < 10 ? 0.012 : s.equipment < 30 ? 0.004 : 0) * fx.breakdownMult;

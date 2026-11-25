@@ -1,4 +1,4 @@
-import { CURRENCY, PERSONA_IDS, type DailyReport, type MallState, type PersonaId } from "@coidle/shared";
+import { CURRENCY, PERSONA_IDS, summarizeWeatherDay, weatherReportNote, type DailyReport, type MallState, type PersonaId } from "@coidle/shared";
 import { flavor, type FlavorMood } from "./flavor";
 import { hash32 } from "./rng";
 
@@ -31,6 +31,10 @@ export function buildReport(s: MallState): DailyReport {
   }));
 
   const notes: string[] = [];
+  // 天氣放在最前面：解釋今天客流為什麼特別多或少
+  const weather = summarizeWeatherDay(d.wx, d.temp);
+  const weatherNote = weather ? weatherReportNote(weather, s.cleaningLevel) : null;
+  if (weatherNote) notes.push(weatherNote);
   const best = shops.slice().sort((a, b) => b.revenue - a.revenue)[0];
   if (best && best.revenue > 0) notes.push(`「${best.name}」是今日冠軍店，賣了 ${fmt(best.revenue)}。`);
   for (const sh of shops) {
@@ -81,5 +85,6 @@ export function buildReport(s: MallState): DailyReport {
     headline,
     notes,
     guest: { complaints: d.complaints, reviews: d.reviews, avgStars: d.reviews > 0 ? d.starsSum / d.reviews : null },
+    weather,
   };
 }

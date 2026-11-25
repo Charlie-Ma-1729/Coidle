@@ -1,6 +1,8 @@
 import { moneyShort } from "../format";
 import type { GlyphKey } from "../stage/glyphs";
 import { Icon } from "./Icon";
+import { weatherGlyph, weatherLabel } from "./weatherUi";
+import type { Weather } from "@coidle/shared";
 
 export interface SpeedOption {
   id: number;
@@ -34,6 +36,8 @@ export function TopBar(props: {
   /** 點資金展開狀態面板（選填） */
   onFunds?: () => void;
   fundsOpen?: boolean;
+  /** 此刻的天氣；點了展開狀態面板（含預報） */
+  weather?: Weather;
 }) {
   const pos = props.todayProfit >= 0;
   return (
@@ -67,6 +71,12 @@ export function TopBar(props: {
           {moneyShort(props.todayProfit)}
         </b>
       </div>
+      {props.weather && (
+        <button class="st-stat st-panel st-stat-btn st-weather" onClick={props.onFunds} title={weatherLabel(props.weather)} aria-label={`天氣：${weatherLabel(props.weather)}`}>
+          <Icon name={weatherGlyph(props.weather)} size={2} />
+          <b>{props.weather.temp}°</b>
+        </button>
+      )}
       <div class="st-stat st-clock st-panel">
         <small>{props.dateLabel}</small>
         <b>{hhmm(props.minuteOfDay)}</b>
