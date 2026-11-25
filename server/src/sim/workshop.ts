@@ -22,6 +22,7 @@ import {
   WORKSHOP_INFO,
   comboKey,
   dishFitsCategory,
+  ingredientFitsCategory,
   menuSlots,
   rndCostOf,
   type CategoryGroup,
@@ -111,18 +112,34 @@ function recipeRelevant(s: MallState, r: RecipeData): boolean {
 }
 
 function toInfo(d: IngredientData): IngredientInfo {
-  return { id: d.id, group: d.group, slot: d.slot, name: d.name, icon: d.icon, cost: d.cost, desc: d.desc };
+  return { id: d.id, group: d.group, slot: d.slot, name: d.name, icon: d.icon, cost: d.cost, desc: d.desc, ...(d.categories ? { categories: d.categories } : {}) };
 }
+
+/** 一次認識超過這個數量的新素材，就合併成一則訊息（例如舊存檔第一次依業態重整素材） */
+const NEW_INGREDIENT_BATCH = 3;
 
 /** 把達成條件的素材與線索加進玩家的筆記（只增不減，可重複呼叫） */
 export function syncWorkshop(s: MallState): void {
   const ws = s.workshop;
   const silent = ws.ingredients.length === 0;
   const known = new Set(ws.ingredients.map((x) => x.id));
+  // 舊存檔的素材沒有「給哪些業態用」：依目前的素材表回填（冪等）
+  for (const info of ws.ingredients) {
+    const want = INGREDIENT_BY_ID[info.id]?.categories;
+    if (want && JSON.stringify(info.categories) !== JSON.stringify(want)) info.categories = want;
+  }
+  const fresh: IngredientData[] = [];
   for (const d of INGREDIENTS) {
     if (known.has(d.id) || !unlocked(s, d.unlock)) continue;
     ws.ingredients.push(toInfo(d));
-    if (!silent) {
+    // 起始素材本來就一開始會有，不特別通知
+    if (!silent && d.unlock.t !== "start") fresh.push(d);
+  }
+  if (fresh.length > NEW_INGREDIENT_BATCH) {
+    addLog(s, "info", `🧪 工坊新增了 ${fresh.length} 種素材，之後研發會依店面業態只列出合用的。`);
+    note(s, `工坊新增了 ${fresh.length} 種素材`);
+  } else {
+    for (const d of fresh) {
       addLog(s, "info", `🧪 認識了新素材：${d.icon}「${d.name}」（${WORKSHOP_INFO[d.group].name}）`);
       note(s, `認識了新素材「${d.name}」`);
     }
@@ -269,7 +286,7 @@ export function evaluate(category: string, picks: Picks, skill: number, rng: Rng
 
 // ───────── 研發 ─────────
 
-function pickData(s: MallState, group: CategoryGroup, picks: Picks): { ok: true; list: IngredientData[] } | { ok: false; error: string } {
+function pickData(s: MallState, category: string, group: CategoryGroup, picks: Picks): { ok: true; list: IngredientData[] } | { ok: false; error: string } {
   const known = new Set(s.workshop.ingredients.map((x) => x.id));
   const list: IngredientData[] = [];
   for (const k of SLOT_KINDS) {
@@ -280,6 +297,7 @@ function pickData(s: MallState, group: CategoryGroup, picks: Picks): { ok: true;
     }
     const d = INGREDIENT_BY_ID[id];
     if (!d || !known.has(id) || d.slot !== k || d.group !== group) return { ok: false, error: "素材無效或你還不認識它" };
+    if (!ingredientFitsCategory(d, category)) return { ok: false, error: "這個素材不適合這種店" };
     list.push(d);
   }
   return { ok: true, list };
@@ -291,7 +309,7 @@ export function startRnd(s: MallState, shopId: string, picks: Picks): GuestResul
   if (!shop || !cat) return { ok: false, error: "找不到這間店" };
   if (shop.mode !== "direct") return { ok: false, error: "出租的店由租戶自己研發" };
   if (s.workshop.jobs.some((j) => j.shopId === shopId)) return { ok: false, error: "這間店正在研發，等完成再開始下一件" };
-  const pd = pickData(s, cat.group, picks);
+  const pd = pickData(s, shop.category, cat.group, picks);
   if (!pd.ok) return pd;
   const sig = comboKey(shop.category, picks);
   const prev = s.workshop.tried[sig];

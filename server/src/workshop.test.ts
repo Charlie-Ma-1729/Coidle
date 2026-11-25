@@ -5,6 +5,7 @@ import {
   RND_TICKS,
   SLOT_KINDS,
   TAG_BY_ID,
+  ingredientFitsCategory,
   menuQualityBonus,
   menuSlots,
   type MallState,
@@ -62,32 +63,12 @@ describe("workshop data", () => {
     }
   });
 
-  it("every hidden recipe can actually be made with some combination of ingredients", () => {
-    for (const r of RECIPES) {
-      const pool = (slot: SlotKind) => INGREDIENTS.filter((i) => i.group === r.group && i.slot === slot).map((i) => i.id);
-      let found = false;
-      for (const b of pool("base")) {
-        for (const se of pool("season")) {
-          for (const m of pool("method")) {
-            for (const sp of [undefined, ...pool("special")]) {
-              const picks = { base: b, season: se, method: m, special: sp };
-              const t = tagTotals(picks);
-              const okNeed = Object.entries(r.need).every(([k, v]) => (t[k] ?? 0) >= v);
-              const okAvoid = Object.entries(r.avoid ?? {}).every(([k, v]) => (t[k] ?? 0) <= v);
-              const okMethod = !r.method || r.method.includes(m);
-              if (okNeed && okAvoid && okMethod) found = true;
-            }
-          }
-        }
-      }
-      expect(found, r.id).toBe(true);
-    }
-  });
+  // 「每個隱藏配方在它的業態裡做得出來」改由 workshopPools.test.ts 以各業態自己的素材池檢查。
 
   it("random experiments rarely stumble onto a signature (but it can happen)", () => {
     let hits = 0;
     let n = 0;
-    const food = (slot: SlotKind) => INGREDIENTS.filter((i) => i.group === "food" && i.slot === slot);
+    const food = (slot: SlotKind) => INGREDIENTS.filter((i) => ingredientFitsCategory(i, "kushikatsu") && i.slot === slot);
     for (const b of food("base")) for (const se of food("season")) for (const m of food("method")) {
       n++;
       if (evaluate("kushikatsu", { base: b.id, season: se.id, method: m.id }, 1, sure, []).outcome === "signature") hits++;
@@ -238,6 +219,33 @@ describe("unlocking and migration", () => {
     const s1 = levelUp(s0, 2);
     expect(s1.workshop.ingredients.some((i) => i.id === "f_citrus")).toBe(true);
     expect(s1.workshop.ingredients.length).toBeGreaterThan(n0);
+  });
+
+  it("research only accepts ingredients that suit the shop's category", () => {
+    const s0 = levelUp(mk(), 2);
+    const shop = shopOf(s0, "kushikatsu");
+    // 手搖飲的茶葉、咖啡的豆子不是串炸店的素材
+    expect(fails(s0, { type: "startRnd", shopId: shop.id, picks: { base: "f_blacktea", season: "f_citrus", method: "f_fry" } })).toContain("不適合");
+    expect(fails(s0, { type: "startRnd", shopId: shop.id, picks: { base: "f_pork", season: "f_citrus", method: "f_pourover" } })).toContain("不適合");
+    // 自己業態的素材可以
+    expect(fails(s0, { type: "startRnd", shopId: shop.id, picks: ZESTY })).toBeNull();
+  });
+
+  it("every public ingredient carries the categories it suits, and old saves are backfilled without log spam", () => {
+    const s = levelUp(mk(), 3);
+    expect(s.workshop.ingredients.every((i) => (i.categories?.length ?? 0) > 0)).toBe(true);
+    // 模擬舊存檔：素材沒有 categories
+    const old = structuredClone(s);
+    for (const i of old.workshop.ingredients) delete i.categories;
+    const logs = old.log.length;
+    syncWorkshop(old);
+    expect(old.workshop.ingredients.every((i) => (i.categories?.length ?? 0) > 0)).toBe(true);
+    expect(old.workshop.ingredients.length).toBe(s.workshop.ingredients.length);
+    expect(old.log.length - logs).toBeLessThanOrEqual(1);
+    // 再同步一次不再有變化
+    const again = structuredClone(old);
+    syncWorkshop(again);
+    expect(again.workshop).toEqual(old.workshop);
   });
 
   it("the state sent to players never contains hidden tags or recipes", () => {

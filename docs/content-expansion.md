@@ -30,5 +30,12 @@
 - 常客 +12（橋本大叔、花婆婆、莉奈、武志、綾子、里歐、俊、賢、紀子、馬可、由奈、空），各有兩段故事。
 - 品牌名組合：前綴 60 × 後綴 6–12（依類型），再加上 AI 內容池的品牌名（見 `docs/ai-content.md`）。
 
+## 研發素材依業態分池
+- 每個業態（84 種）各自一組素材：手搖飲看到茶、鮮乳、水果，拉麵看到麵與湯頭，書店看到紙與裝幀。研發工坊與伺服器的 `startRnd` 都依 `ingredientFitsCategory`（`shared/src/game/workshop.ts`）過濾；公開的 `IngredientInfo.categories` 就是「這個素材給哪些業態用」，不含隱藏特性。
+- 資料在 `server/src/sim/`：`ingredientPools.ts`（業態**家族**，如 `noodle`＝拉麵／烏龍麵／蕎麥麵；以及既有素材各給哪些家族）、`ingredientsExtra.ts`（約 200 種家族／業態專屬素材）、`ingredientKit.ts`（型別與建構器）、`recipes.ts`（既有素材、配方，最後合併並展開成 `categories`）。
+- 新增業態時：把它放進某個家族（`FAMILIES`），再補素材；`server/src/workshopPools.test.ts` 會檢查每個業態的主料／調味／手法各 ≥ 3 個（至少 1 個一開始就有）、特色 ≥ 1、沒有兩個業態的素材池完全一樣，而且既有配方在它指定的業態裡做得出來。
+- 舊存檔：`syncWorkshop` 會回填已認識素材的 `categories`；新增的起始素材靜默加入，其他來源一次超過 3 個就合併成一則通知。
+- 工坊畫面按樓層分頁（`client/src/screens/Workshop.tsx`）：先選樓層，再選那一層的店；筆記的素材圖鑑也只列所選樓層的業態。
+
 ## 平衡
 擴充後以機器人重跑：勤勞策略 160 天約 ¥195M、無破產、Lv.6；放著不管的策略仍穩定緩慢賺錢。（擴建與更多店面把後期現金多吃掉一些。）

@@ -1,5 +1,5 @@
 import { CATEGORY_BY_ID } from "./data";
-import type { CategoryGroup, CategoryId, Dish, MenuEntry, PersonaId, Shop, SlotKind } from "./types";
+import type { CategoryGroup, CategoryId, Dish, IngredientInfo, MenuEntry, PersonaId, Shop, SlotKind } from "./types";
 
 // 研發工坊的「公開」部分：標籤名稱、槽位名稱、常數與純函式。
 // 素材的特性、隱藏配方、線索全部只存在伺服器端——玩家只會看到已經認識／發現的內容。
@@ -153,6 +153,12 @@ export function menuAppeal(shop: Pick<Shop, "menu">, persona: PersonaId): number
   let best = 0;
   for (const e of shop.menu ?? []) best = Math.max(best, (e.appeal[persona] ?? 0) * entryFreshFactor(e));
   return best;
+}
+
+/** 這個素材這個業態用不用得到（群組要對，而且素材有指定業態的話要包含這個業態） */
+export function ingredientFitsCategory(i: Pick<IngredientInfo, "group" | "categories">, category: CategoryId): boolean {
+  if (groupOfCategory(category) !== i.group) return false;
+  return !i.categories || i.categories.includes(category);
 }
 
 /** 試過的組合的鍵：同業態、同一組素材（順序無關） */

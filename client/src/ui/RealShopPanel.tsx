@@ -1,6 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { CATEGORY_BY_ID, MAX_SHOP_LEVEL, PRICE_TOLERANCE, REFRESH_COST, UPGRADE_BASE_COST, categoryHasStock, currentUnitCost, leaseEnabled } from "@coidle/shared";
 import { money, num, realDuration } from "../format";
+import { workshopFocus } from "../screens/Workshop";
 import type { HubId, StageFloor } from "../stage/model";
 import { busy, run, state } from "../store";
 
@@ -144,7 +145,13 @@ export function RealShopPanel(props: {
               <button class="st-btn" disabled={busy.value || s.funds < refreshCost} onClick={() => run({ type: "refreshShop", shopId: shop.id }, "推出新菜單！")}>
                 換新菜單（{money(refreshCost)}）
               </button>
-              <button class="st-btn" onClick={() => props.openHub("develop", "workshop")}>
+              <button
+                class="st-btn"
+                onClick={() => {
+                  workshopFocus.value = shop.id;
+                  props.openHub("develop", "workshop");
+                }}
+              >
                 去工坊研發
               </button>
             </div>

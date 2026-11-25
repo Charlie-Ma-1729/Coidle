@@ -1,4 +1,4 @@
-import { CATEGORIES, CATEGORY_BY_ID, PROMOS, ZONES, expandInfo, isCategoryAvailable, TEAM_EVENT_BY_ID, TECHS, TICKS_PER_DAY, isZoneUnlocked, techBlocker, techSlots, type MallState, type SlotKind } from "@coidle/shared";
+import { CATEGORIES, CATEGORY_BY_ID, PROMOS, ZONES, expandInfo, ingredientFitsCategory, isCategoryAvailable, TEAM_EVENT_BY_ID, TECHS, TICKS_PER_DAY, isZoneUnlocked, techBlocker, techSlots, type MallState, type SlotKind } from "@coidle/shared";
 import { advanceTo, applyCommand, createInitialState, createRng, type Command } from "../sim";
 import { resolveInbox } from "../sim/guests";
 
@@ -110,9 +110,8 @@ function diligentDay(s0: MallState, rnd: () => number, f: Features = ALL): MallS
   // 研發：沒有進行中的就試一個（只用認識的素材）
   for (const shop of f.research ? s.shops : []) {
     if (shop.mode !== "direct" || s.workshop.jobs.some((j) => j.shopId === shop.id) || s.funds < 800_000 || Math.floor(s.tick / TICKS_PER_DAY) % 3 !== 0) continue;
-    const g = CATEGORY_BY_ID[shop.category]?.group;
     const pick = (k: SlotKind) => {
-      const pool = s.workshop.ingredients.filter((i) => i.group === g && i.slot === k);
+      const pool = s.workshop.ingredients.filter((i) => ingredientFitsCategory(i, shop.category) && i.slot === k);
       return pool.length ? pool[Math.floor(rnd() * pool.length)]!.id : undefined;
     };
     s = tryApply(s, { type: "startRnd", shopId: shop.id, picks: { base: pick("base"), season: pick("season"), method: pick("method"), special: rnd() < 0.4 ? pick("special") : undefined } });

@@ -1,55 +1,18 @@
-import type { CategoryGroup, IngredientInfo, PersonaId, SlotKind } from "@coidle/shared";
+import type { CategoryGroup, PersonaId } from "@coidle/shared";
+import { DISC, L, REG, RIV, S, SUP, ing, type IngredientData, type Unlock } from "./ingredientKit";
+import { EXTRA_INGREDIENTS } from "./ingredientsExtra";
+import { EXISTING_FOR, expandFam } from "./ingredientPools";
 
 // 研發工坊的「隱藏」資料：素材的特性、配方、線索。
 // 這個檔案只在伺服器端——玩家看不到清單，只能透過試做、線索與事件慢慢摸索。
 // 名稱全部虛構；口味與氛圍只留含蓄的線索。
+//
+// 素材依「業態」分池：每個素材用 `fam`（業態家族或業態 id）指定給哪些業態用，
+// 建好之後展開成公開的 `categories`。見 ingredientPools.ts。
 
-export type Unlock =
-  | { t: "start" }
-  /** 商場等級達到 */
-  | { t: "level"; level: number }
-  /** 這家供應商已經認識（含隱藏的新供應商），而且關係值達到 rel */
-  | { t: "supplier"; id: string; rel?: number }
-  /** 這位常客的故事解鎖到第幾段 */
-  | { t: "regular"; id: string; stage: number }
-  /** 對這家對手刺探過情報 */
-  | { t: "rival"; id: string }
-  /** 已經發現的配方達到幾道 */
-  | { t: "discoveries"; n: number };
+export type { IngredientData, Unlock };
 
-export interface IngredientData extends IngredientInfo {
-  /** 自動命名時用的簡短詞 */
-  word: string;
-  /** 1–3：越高級，做出來的原創品質越好 */
-  grade: 1 | 2 | 3;
-  /** 隱藏特性：標籤 id → 強度 1–3 */
-  tags: Record<string, number>;
-  unlock: Unlock;
-}
-
-type Tags = Record<string, number>;
-const ing = (
-  group: CategoryGroup,
-  slot: SlotKind,
-  id: string,
-  name: string,
-  icon: string,
-  cost: number,
-  grade: 1 | 2 | 3,
-  tags: Tags,
-  unlock: Unlock,
-  desc: string,
-  word = name,
-): IngredientData => ({ id, group, slot, name, icon, cost, grade, tags, unlock, desc, word });
-
-const S: Unlock = { t: "start" };
-const L = (level: number): Unlock => ({ t: "level", level });
-const SUP = (id: string, rel?: number): Unlock => ({ t: "supplier", id, rel });
-const REG = (id: string, stage: number): Unlock => ({ t: "regular", id, stage });
-const RIV = (id: string): Unlock => ({ t: "rival", id });
-const DISC = (n: number): Unlock => ({ t: "discoveries", n });
-
-export const INGREDIENTS: IngredientData[] = [
+const BASE_INGREDIENTS: IngredientData[] = [
   // ───────── 餐飲：主料
   ing("food", "base", "f_pork", "豬里肌", "🥩", 3000, 1, { umami: 2, rich: 1 }, S, "肉鋪今早送來的，油花不多不少。"),
   ing("food", "base", "f_chicken", "雞腿肉", "🍗", 3000, 1, { umami: 2, light: 1 }, S, "皮薄肉嫩，最基本的好選擇。"),
@@ -225,6 +188,13 @@ export const INGREDIENTS: IngredientData[] = [
   ing("service", "special", "v_photo", "專屬修圖", "📸", 2500, 1, { personal: 1, quick: 1, luxury: 1 }, L(3), "離開前就能拿到修好的照片。", "修圖"),
 ];
 
+/** 所有素材。每個素材的 `categories` 由 `fam`（新素材自帶，既有素材查 EXISTING_FOR）展開而來 */
+export const INGREDIENTS: IngredientData[] = [...BASE_INGREDIENTS, ...EXTRA_INGREDIENTS].map((d) => {
+  const fam = d.fam ?? (EXISTING_FOR[d.id] ? EXISTING_FOR[d.id]!.split(" ") : undefined);
+  if (!fam) return d;
+  return { ...d, categories: expandFam(fam, d.group) };
+});
+
 export const INGREDIENT_BY_ID: Record<string, IngredientData> = Object.fromEntries(INGREDIENTS.map((x) => [x.id, x]));
 
 // ───────── 隱藏配方 ─────────
@@ -362,7 +332,7 @@ export const RECIPES: RecipeData[] = [
   R("rc_soba_cold", "手打冷蕎麥", "🥢", "food", ["soba"], { aroma: 3, light: 3, umami: 2 }, 82, { local: 0.7, tourist: 0.7, commuter: 0.6 }, "蕎麥的香氣在鼻腔裡慢慢散開，蘸一點清爽的湯汁，夏天最對味。",
     [reg("hana", 30, "花婆婆說：「蕎麥麵啊，要的是香氣，不是調味。」")], { method: ["f_steam"] }),
   R("rc_taiyaki_custard", "薄皮卡士達鯛魚燒", "🐟", "food", ["taiyaki", "sweets"], { sweet: 3, crisp: 2, rich: 1 }, 79, { student: 0.8, family: 0.7, tourist: 0.7 }, "薄薄的酥皮、滿滿的內餡，一路甜到尾巴，是放學後的小幸福。",
-    [lvl(2, "小朋友拉著媽媽的衣角：「要那個尾巴也有餡的！」")], { avoid: { salty: 2 }, method: ["f_fry"] }),
+    [lvl(2, "小朋友拉著媽媽的衣角：「要那個尾巴也有餡的！」")], { avoid: { salty: 2 }, method: ["f_fry", "f_bake"] }),
   R("rc_bakery_butter", "發酵奶油麵包", "🥐", "food", ["bakery"], { aroma: 3, rich: 2, warm: 2 }, 80, { local: 0.8, family: 0.7, couple: 0.6 }, "出爐的瞬間整條街都是麥香，奶油在熱麵包裡慢慢化開。",
     [sup("sweet_dairy", 30, "乳製品協同的業務說：「我們的發酵奶油抹在剛烤好的麵包上，你試試看。」")], { method: ["f_grill"] }),
   R("rc_karaage_ginger", "薑汁唐揚", "🍗", "food", ["karaage", "fastfood"], { crisp: 3, umami: 2, aroma: 2 }, 78, { student: 0.9, commuter: 0.7, family: 0.7 }, "外皮炸得金黃酥脆，咬開是滿滿的肉汁與薑香，便當裡最先被搶光的一塊。",

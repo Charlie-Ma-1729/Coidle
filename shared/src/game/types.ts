@@ -710,6 +710,8 @@ export interface IngredientInfo {
   icon: string;
   cost: number;
   desc: string;
+  /** 只有這些業態用得到；省略＝同類型（group）的業態都能用 */
+  categories?: CategoryId[];
 }
 
 /** 食譜本裡的一道菜（餐飲）／商品／企劃／療程 */

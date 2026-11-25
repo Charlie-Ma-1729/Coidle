@@ -217,6 +217,48 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).toContain("素材圖鑑");
   });
 
+  it("Workshop groups shops by floor: only the chosen floor's shops and ingredients are listed", async () => {
+    store.state.value = publicState(1, (s) => {
+      const slot = s.slots.find((x) => x.zone === "f1" && !x.shopId)!;
+      const fashion = { ...structuredClone(s.shops[0]!), id: "sx1", name: "測試服飾", category: "fashion", slot: slot.id };
+      slot.shopId = fashion.id;
+      s.shops.push(fashion);
+    });
+    const { Workshop } = await import("./screens/Workshop");
+    await mount(<Workshop />);
+    const floorTabs = () => Array.from(container.querySelectorAll('nav[aria-label="選擇樓層"] button')) as HTMLButtonElement[];
+    const shopTabs = () => Array.from(container.querySelectorAll('nav[aria-label="選擇店面"] button')).map((b) => b.textContent ?? "");
+    expect(floorTabs().map((b) => b.textContent)).toEqual([expect.stringContaining("B1"), expect.stringContaining("1F")]);
+    // 預設在第一層（B1）：只有美食街的店，素材是餐飲的
+    expect(shopTabs().some((t) => t.includes("測試服飾"))).toBe(false);
+    expect(shopTabs().some((t) => t.includes("串八"))).toBe(true);
+    expect(container.textContent).toContain("豬里肌");
+    expect(container.textContent).not.toContain("棉布");
+    // 切到 1F：只剩 1F 的店，素材換成選品工作室的
+    floorTabs().find((b) => b.textContent?.includes("1F"))!.click();
+    await tick();
+    expect(shopTabs().some((t) => t.includes("測試服飾"))).toBe(true);
+    expect(shopTabs().some((t) => t.includes("串八"))).toBe(false);
+    expect(container.textContent).toContain("選品工作室");
+    expect(container.textContent).toContain("棉布");
+    expect(container.textContent).not.toContain("豬里肌");
+  });
+
+  it("Workshop opens on the shop it was pointed at (from the shop panel)", async () => {
+    store.state.value = publicState(1, (s) => {
+      const slot = s.slots.find((x) => x.zone === "f1" && !x.shopId)!;
+      const fashion = { ...structuredClone(s.shops[0]!), id: "sx1", name: "測試服飾", category: "fashion", slot: slot.id };
+      slot.shopId = fashion.id;
+      s.shops.push(fashion);
+    });
+    const { Workshop, workshopFocus } = await import("./screens/Workshop");
+    workshopFocus.value = "sx1";
+    await mount(<Workshop />);
+    await tick();
+    expect(container.textContent).toContain("選品工作室");
+    expect(workshopFocus.value).toBeNull();
+  });
+
   it("DeviceCard explains install and notifications, and degrades when push is unsupported", async () => {
     store.state.value = publicState(0);
     const { DeviceCard } = await import("./components/DeviceCard");
@@ -1069,6 +1111,24 @@ describe("stage UI panels with real state", () => {
     expect(call.body.command.type).toBe("setPrice");
     expect(call.body.command.shopId).toBe(shop.id);
     expect(call.body.command.price).toBeGreaterThan(shop.price);
+  });
+
+  it("RealShopPanel has no price cap: a price far above the reference can still be raised", async () => {
+    const { CATEGORY_BY_ID } = await import("@coidle/shared");
+    store.state.value = publicState(0, (s) => {
+      const sh = s.shops.find((x) => x.category === "grocery")!;
+      sh.price = CATEGORY_BY_ID.grocery!.refPrice * 10;
+    });
+    stubFetch(() => store.state.value);
+    const shop = store.state.value!.shops.find((x) => x.category === "grocery")!;
+    const { RealShopPanel } = await import("./ui/RealShopPanel");
+    await mount(<RealShopPanel slot={shop.slot} floor={await floorOf()} onClose={() => {}} openHub={() => {}} openSheet={() => {}} />);
+    const plus = container.querySelector('button[aria-label="漲價"]') as HTMLButtonElement;
+    expect(plus.disabled).toBe(false);
+    plus.click();
+    await tick();
+    const apply = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.trim() === "套用") as HTMLButtonElement;
+    expect(apply.disabled).toBe(false);
   });
 
   it("RealShopPanel offers an order button when out of stock, and sends orderStock", async () => {

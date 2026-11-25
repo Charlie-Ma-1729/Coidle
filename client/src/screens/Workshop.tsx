@@ -1,4 +1,5 @@
-import { useState } from "preact/hooks";
+import { signal } from "@preact/signals";
+import { useEffect, useState } from "preact/hooks";
 import {
   CATEGORY_BY_ID,
   PERSONA_BY_ID,
@@ -8,8 +9,10 @@ import {
   SLOT_KINDS,
   TAG_BY_ID,
   WORKSHOP_INFO,
+  ZONES,
   comboKey,
   dishFitsCategory,
+  ingredientFitsCategory,
   menuSlots,
   rndCostOf,
   type Dish,
@@ -23,7 +26,11 @@ import {
 import { Btn, Card, Chip, Empty, Meter } from "../components/ui";
 import { clockText, dateText, money, realDuration } from "../format";
 import { PERSONA_ICONS } from "../icons";
+import { FLOOR_LABELS } from "../stage/adapter";
 import { run, state } from "../store";
+
+/** 從別處（例如店面面板的「去工坊研發」）指定要先看哪一間店；工坊讀過就清掉 */
+export const workshopFocus = signal<string | null>(null);
 
 type Sub = "rnd" | "menu" | "book" | "notes";
 const SUBS: { id: Sub; label: string }[] = [
@@ -43,6 +50,22 @@ const OUTCOME: Record<RndOutcome, { label: string; tone: "green" | "cyan" | "red
 
 function directShops(s: PublicMallState): Shop[] {
   return s.shops.filter((x) => x.mode === "direct");
+}
+
+/** 店面在哪一層（區域）：先看實際蓋在哪個店面格，找不到就用業態預設的區域 */
+function zoneOfShop(s: PublicMallState, shop: Shop): string {
+  return s.slots.find((x) => x.id === shop.slot)?.zone ?? CATEGORY_BY_ID[shop.category]?.zone ?? "";
+}
+
+function floorTitle(zoneId: string): string {
+  const z = ZONES.find((x) => x.id === zoneId);
+  return `${FLOOR_LABELS[zoneId] ?? zoneId} ${(z?.name ?? "").replace(/^(?:B1|\d+F)\s/, "")}`.trim();
+}
+
+/** 有直營店的樓層（照樓層順序） */
+function floorsWithShops(s: PublicMallState, shops: Shop[]): string[] {
+  const have = new Set(shops.map((x) => zoneOfShop(s, x)));
+  return ZONES.map((z) => z.id).filter((id) => have.has(id));
 }
 
 function ingName(s: PublicMallState, id: string | undefined): string {
@@ -149,7 +172,7 @@ function Research({ s, shop }: { s: PublicMallState; shop: Shop }) {
   const info = WORKSHOP_INFO[cat.group];
   const [picks, setPicks] = useState<Partial<Record<SlotKind, string>>>({});
   const job = s.workshop.jobs.find((j) => j.shopId === shop.id);
-  const pool = (k: SlotKind) => s.workshop.ingredients.filter((i) => i.group === cat.group && i.slot === k);
+  const pool = (k: SlotKind) => s.workshop.ingredients.filter((i) => ingredientFitsCategory(i, shop.category) && i.slot === k);
   const chosen = SLOT_KINDS.map((k) => s.workshop.ingredients.find((i) => i.id === picks[k])).filter((x): x is IngredientInfo => !!x);
   const cost = rndCostOf(cat.group, chosen.map((c) => c.cost));
   const ready = !!picks.base && !!picks.season && !!picks.method;
@@ -310,7 +333,9 @@ function Book({ s }: { s: PublicMallState }) {
   );
 }
 
-function Notes({ s }: { s: PublicMallState }) {
+function Notes({ s, floor }: { s: PublicMallState; floor: string | undefined }) {
+  // 素材圖鑑：只列所選樓層的業態，每個業態各自一組
+  const cats = [...new Set(directShops(s).filter((x) => zoneOfShop(s, x) === floor).map((x) => x.category))].filter((c) => CATEGORY_BY_ID[c]);
   const clues = s.workshop.clues.slice().sort((a, b) => Number(a.solved) - Number(b.solved) || b.tick - a.tick);
   return (
     <>
@@ -355,26 +380,31 @@ function Notes({ s }: { s: PublicMallState }) {
           </div>
         )}
       </Card>
-      <Card title="🥬 素材圖鑑" right={<span class="small dim">{s.workshop.ingredients.length} 種</span>}>
-        <div class="stack">
-          {(Object.keys(WORKSHOP_INFO) as (keyof typeof WORKSHOP_INFO)[]).map((g) => {
-            const list = s.workshop.ingredients.filter((i) => i.group === g);
-            if (!s.shops.some((x) => CATEGORY_BY_ID[x.category]?.group === g)) return null;
-            return (
-              <div key={g}>
-                <b class="small">
-                  {WORKSHOP_INFO[g].icon} {WORKSHOP_INFO[g].name}
-                </b>
-                {list.map((i) => (
-                  <p class="small" key={i.id}>
-                    {i.icon} {i.name}（{WORKSHOP_INFO[g].slots[i.slot]}）— <span class="dim">{i.desc}</span>{" "}
-                    {(s.workshop.learned[i.id] ?? []).length > 0 ? <TagChips group={g} tags={s.workshop.learned[i.id]!} /> : <span class="dim">特性未知</span>}
-                  </p>
-                ))}
-              </div>
-            );
-          })}
-        </div>
+      <Card title="🥬 素材圖鑑" right={<span class="small dim">{floor ? floorTitle(floor) : ""}</span>}>
+        {cats.length === 0 ? (
+          <Empty>這一層還沒有直營的店。</Empty>
+        ) : (
+          <div class="stack">
+            {cats.map((c) => {
+              const cat = CATEGORY_BY_ID[c]!;
+              const g = cat.group;
+              const list = s.workshop.ingredients.filter((i) => ingredientFitsCategory(i, c));
+              return (
+                <div key={c}>
+                  <b class="small">
+                    {WORKSHOP_INFO[g].icon} {cat.name}　<span class="dim">{list.length} 種</span>
+                  </b>
+                  {list.map((i) => (
+                    <p class="small" key={i.id}>
+                      {i.icon} {i.name}（{WORKSHOP_INFO[g].slots[i.slot]}）— <span class="dim">{i.desc}</span>{" "}
+                      {(s.workshop.learned[i.id] ?? []).length > 0 ? <TagChips group={g} tags={s.workshop.learned[i.id]!} /> : <span class="dim">特性未知</span>}
+                    </p>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </Card>
     </>
   );
@@ -383,10 +413,37 @@ function Notes({ s }: { s: PublicMallState }) {
 export function Workshop() {
   const s = state.value;
   const [sub, setSub] = useState<Sub>("rnd");
-  const [shopId, setShopId] = useState<string | null>(null);
+  const [floorId, setFloorId] = useState<string | null>(null);
+  /** 每一層各自記得上次選的店 */
+  const [shopByFloor, setShopByFloor] = useState<Record<string, string>>({});
+
+  // 別處指定要看的店：切到它那一層、選到它，然後清掉
+  const focus = workshopFocus.value;
+  useEffect(() => {
+    const cur = state.value;
+    if (!focus || !cur) return;
+    const target = directShops(cur).find((x) => x.id === focus);
+    if (target) {
+      const z = zoneOfShop(cur, target);
+      setFloorId(z);
+      setShopByFloor((m) => ({ ...m, [z]: target.id }));
+      setSub("rnd");
+    }
+    workshopFocus.value = null;
+  }, [focus]);
+
   if (!s) return null;
-  const shops = directShops(s);
-  const shop = shops.find((x) => x.id === shopId) ?? shops[0];
+  const allShops = directShops(s);
+  const floors = floorsWithShops(s, allShops);
+  const floor = floorId && floors.includes(floorId) ? floorId : floors[0];
+  const shops = allShops.filter((x) => zoneOfShop(s, x) === floor);
+  const shop = shops.find((x) => x.id === shopByFloor[floor ?? ""]) ?? shops[0];
+  const floorBadge = (z: string): string => {
+    const here = allShops.filter((x) => zoneOfShop(s, x) === z);
+    const working = here.some((x) => s.workshop.jobs.some((j) => j.shopId === x.id));
+    const tasting = here.some((x) => s.workshop.tastings.some((t) => t.shopId === x.id));
+    return `${working ? " ⏳" : ""}${tasting ? " 🍴" : ""}`;
+  };
 
   return (
     <>
@@ -400,12 +457,23 @@ export function Workshop() {
           </button>
         ))}
       </nav>
+      {sub !== "book" && floors.length > 0 && (
+        <nav class="zones" aria-label="選擇樓層">
+          {floors.map((z) => (
+            <button key={z} class={`zone-tab ${floor === z ? "active" : ""}`} onClick={() => setFloorId(z)}>
+              {floorTitle(z)}
+              {floorBadge(z)}
+            </button>
+          ))}
+        </nav>
+      )}
       {(sub === "rnd" || sub === "menu") && (
         <nav class="zones" aria-label="選擇店面">
           {shops.map((x) => (
-            <button key={x.id} class={`zone-tab ${shop?.id === x.id ? "active" : ""}`} onClick={() => setShopId(x.id)}>
+            <button key={x.id} class={`zone-tab ${shop?.id === x.id ? "active" : ""}`} onClick={() => setShopByFloor({ ...shopByFloor, [floor ?? ""]: x.id })}>
               {WORKSHOP_INFO[CATEGORY_BY_ID[x.category]!.group].icon} {x.name}
               {s.workshop.jobs.some((j) => j.shopId === x.id) ? " ⏳" : ""}
+              {s.workshop.tastings.some((t) => t.shopId === x.id) ? " 🍴" : ""}
             </button>
           ))}
         </nav>
@@ -413,7 +481,7 @@ export function Workshop() {
       {sub === "rnd" && (shop ? <Research key={shop.id} s={s} shop={shop} /> : <Empty>還沒有直營的店。</Empty>)}
       {sub === "menu" && (shop ? <MenuView key={shop.id} s={s} shop={shop} /> : <Empty>還沒有直營的店。</Empty>)}
       {sub === "book" && <Book s={s} />}
-      {sub === "notes" && <Notes s={s} />}
+      {sub === "notes" && <Notes s={s} floor={floor} />}
     </>
   );
 }
