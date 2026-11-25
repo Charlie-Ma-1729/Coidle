@@ -376,6 +376,7 @@ describe("screens render with real simulated state", () => {
       ],
     });
     adminApi.get = (async (url: string) => {
+      if (url === "/events") return { events: [], catalog: [{ id: "built_in_1", title: "內建事件甲", category: "crowd", hasChoice: true, source: "builtin" }] };
       if (url === "/npc") return { settings: { auto: true, activity: 1, baseProbPerHour: 1 / 72 }, npcs: [{ id: "harbor", publicKey: "m:9000", baseName: "潮見廣場", entry: { name: "潮見廣場", level: 2, stars: 3, score: 40, localRep: 50, touristHeat: 50, revenue30: 12_000_000, shops: 20, stockouts: 0 }, override: null, expiresAt: 0, pending: [], actions24h: 0, recent: [] }] };
       return { actions: [] };
     }) as typeof adminApi.get;
@@ -405,6 +406,35 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).toContain("NPC 自動出手");
     expect(container.textContent).toContain("潮見廣場");
     expect(container.textContent).toContain("調整與手動出手");
+
+    tab("事件").click();
+    await tick();
+    await tick();
+    expect(container.textContent).toContain("寫一個隨機事件");
+    expect(container.textContent).toContain("調整天氣");
+    expect(container.textContent).toContain("[內建] 內建事件甲");
+    const sent: { url: string; body: unknown }[] = [];
+    adminApi.post = (async (url: string, body: unknown) => {
+      sent.push({ url, body });
+      return { ok: true };
+    }) as typeof adminApi.post;
+    const typeInto = async (el: HTMLInputElement | HTMLTextAreaElement, v: string) => {
+      el.value = v;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      await tick();
+    };
+    await typeInto(container.querySelector('input[placeholder^="標題"]') as HTMLInputElement, "老街夏日祭典");
+    await typeInto(container.querySelector("textarea") as HTMLTextAreaElement, "老街這個週末辦夏日祭典，攤販把人潮一路帶進商場，大家都忙得很開心。");
+    const labels = Array.from(container.querySelectorAll('input[placeholder$="的文字（4–30 字）"]')) as HTMLInputElement[];
+    await typeInto(labels[0]!, "加開夜市攤位，歡迎來玩");
+    await typeInto(labels[1]!, "維持原樣，專心做生意");
+    (Array.from(container.querySelectorAll("button")).find((b) => b.textContent === "上線") as HTMLButtonElement).click();
+    await tick();
+    expect(sent[0]!.url).toBe("/events");
+    expect((sent[0]!.body as { event: { title: string; category: string; options: { label: string; effects: unknown[] }[] } }).event).toMatchObject({ title: "老街夏日祭典", category: "festival", options: [{ label: "加開夜市攤位，歡迎來玩", effects: [{ t: "funds", amount: 0 }] }, { label: "維持原樣，專心做生意" }] });
+    (Array.from(container.querySelectorAll("button")).find((b) => b.textContent === "套用") as HTMLButtonElement).click();
+    await tick();
+    expect(sent[1]).toMatchObject({ url: "/weather", body: { kind: "rain", temp: 22, hours: 12, malls: "all" } });
 
     tab("使用者").click();
     await tick();

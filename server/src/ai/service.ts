@@ -160,7 +160,7 @@ export class ContentService {
 
   /** 玩家端需要知道的事件定義（含已下架的，因為還可能有進行中的待決事件） */
   publicEvents(): EventDef[] {
-    return EVENTS.filter((e) => e.id.startsWith("ai_"));
+    return EVENTS.filter((e) => e.id.startsWith("ai_") || e.id.startsWith("ov_"));
   }
 
   /** 玩家端需要知道的新常客（名字、簡介與故事） */
@@ -354,6 +354,26 @@ export class ContentService {
     if (row.status === "pending") this.repo.setContentStatus(id, "rejected");
     else if (row.status === "active" && row.kind === "event") this.repo.setContentStatus(id, "retired");
     else return false;
+    this.reload();
+    return true;
+  }
+
+  /** Overseer 親手寫的事件：驗證後直接上線（不需要核准） */
+  addManualEvent(raw: unknown): { id: number; def: EventDef } {
+    const c = checkEvent(raw, { trusted: true });
+    if (!c.ok) throw new Error(c.reason);
+    const ok = this.repo.addContent("event", "active", hashOf("event", c.value.title + c.value.text), c.value, "overseer", this.now());
+    if (!ok) throw new Error("已經有一模一樣的事件了（標題與內文相同）");
+    this.reload();
+    const row = this.repo.contentList("event", "active", 5).find((r) => (r.payload as EventDef).id === c.value.id);
+    return { id: row?.id ?? 0, def: c.value };
+  }
+
+  /** 下架（active→retired）的事件重新上線 */
+  activateEvent(id: number): boolean {
+    const row = this.repo.contentList("event", null, 500).find((r) => r.id === id);
+    if (!row || row.status !== "retired") return false;
+    this.repo.setContentStatus(id, "active");
     this.reload();
     return true;
   }

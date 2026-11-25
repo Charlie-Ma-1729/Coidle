@@ -2,18 +2,20 @@ import { useEffect, useState } from "preact/hooks";
 import { adminApi, type Overview } from "./adminApi";
 import { AiTab } from "./AiTab";
 import { AuditTab } from "./AuditTab";
+import { EventsTab } from "./EventsTab";
 import { LiveTab } from "./LiveTab";
 import { MallsTab } from "./MallsTab";
 import { NpcTab } from "./NpcTab";
 import { UsersTab } from "./UsersTab";
 import { errMsg, logout, myMalls, openMall, toast, user } from "../store";
 
-type Tab = "live" | "malls" | "users" | "npc" | "ai" | "audit";
+type Tab = "live" | "malls" | "users" | "npc" | "events" | "ai" | "audit";
 const TABS: { id: Tab; label: string }[] = [
   { id: "live", label: "📊 即時數據" },
   { id: "malls", label: "🏬 商場" },
   { id: "users", label: "👤 使用者" },
   { id: "npc", label: "🏢 NPC 商場" },
+  { id: "events", label: "🎲 事件與天氣" },
   { id: "ai", label: "🤖 AI 內容" },
   { id: "audit", label: "📜 稽核" },
 ];
@@ -66,6 +68,7 @@ export function Console() {
           {tab === "malls" && (ov ? <MallsTab ov={ov} mineIds={mine.map((m) => m.id)} reload={reload} /> : <p class="small dim">載入中…</p>)}
           {tab === "users" && (ov ? <UsersTab ov={ov} reload={reload} /> : <p class="small dim">載入中…</p>)}
           {tab === "npc" && (ov ? <NpcTab ov={ov} reload={reload} /> : <p class="small dim">載入中…</p>)}
+          {tab === "events" && (ov ? <EventsTab ov={ov} /> : <p class="small dim">載入中…</p>)}
           {tab === "ai" && <AiTab />}
           {tab === "audit" && <AuditTab />}
         </main>

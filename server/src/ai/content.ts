@@ -98,7 +98,12 @@ function effectScore(e: EffectSpec): number {
   }
 }
 
-export function checkEvent(raw: unknown): Checked<EventDef> {
+export interface EventCheckOpts {
+  /** Overseer 親手寫的事件：不強迫「要有取捨」，可以只有好處（節慶）或沒有選項；仍然只收白名單效果並夾限數值 */
+  trusted?: boolean;
+}
+
+export function checkEvent(raw: unknown, opts: EventCheckOpts = {}): Checked<EventDef> {
   if (!isObj(raw)) return { ok: false, reason: "格式錯誤" };
   const title = typeof raw.title === "string" ? tidy(raw.title) : "";
   const text = typeof raw.text === "string" ? tidy(raw.text) : "";
@@ -107,10 +112,11 @@ export function checkEvent(raw: unknown): Checked<EventDef> {
   const t2 = checkText(text, { min: 20, max: 130 });
   if (t2) return { ok: false, reason: `描述：${t2}` };
   if (!CATEGORIES.includes(raw.category as EventCategory)) return { ok: false, reason: "category 無效" };
-  if (!Array.isArray(raw.options) || raw.options.length < 2 || raw.options.length > 3) return { ok: false, reason: "選項要 2–3 個" };
+  const noChoice = opts.trusted === true && (!Array.isArray(raw.options) || raw.options.length === 0);
+  if (!noChoice && (!Array.isArray(raw.options) || raw.options.length < 2 || raw.options.length > 3)) return { ok: false, reason: "選項要 2–3 個" };
 
   const options: { id: string; label: string; effects: EffectSpec[]; score: number }[] = [];
-  for (const [i, o] of (raw.options as unknown[]).entries()) {
+  for (const [i, o] of ((noChoice ? [] : raw.options) as unknown[]).entries()) {
     if (!isObj(o)) return { ok: false, reason: "選項格式錯誤" };
     const label = typeof o.label === "string" ? tidy(o.label) : "";
     const bad = checkText(label, { min: 4, max: 30 });
@@ -120,6 +126,13 @@ export function checkEvent(raw: unknown): Checked<EventDef> {
     const list = effects as EffectSpec[];
     options.push({ id: `o${i + 1}`, label, effects: list, score: list.reduce((a, e) => a + effectScore(e), 0) });
   }
+  // 沒有選項的事件（Overseer 的公告型事件）：效果直接套用
+  let direct: EffectSpec[] = [];
+  if (noChoice) {
+    const list = (Array.isArray(raw.effects) ? raw.effects : []).map(normalizeEffect);
+    if (list.length === 0 || list.length > 3 || list.some((e) => e === null)) return { ok: false, reason: "沒有選項的事件要有 1–3 個白名單內的效果" };
+    direct = list as EffectSpec[];
+  } else if (!opts.trusted) {
   // 不能有「全面碾壓」的選項（每項都不比別人差、且至少一項嚴格更好又沒有代價）：至少要有取捨
   const best = options.reduce((a, b) => (b.score > a.score ? b : a));
   const worst = options.reduce((a, b) => (b.score < a.score ? b : a));
@@ -129,19 +142,24 @@ export function checkEvent(raw: unknown): Checked<EventDef> {
   const pureCost = (o: { effects: EffectSpec[] }) => o.effects.every((e) => effectScore(e) <= 0) && o.effects.some((e) => effectScore(e) < 0);
   const pureGain = (o: { effects: EffectSpec[] }) => o.effects.every((e) => effectScore(e) >= 0) && o.effects.some((e) => effectScore(e) > 0);
   if (options.some(pureCost) && options.some(pureGain)) return { ok: false, reason: "有選項只有花費沒有回報，另一個卻只有好處（沒有取捨）" };
+  }
   // 沒人處理時走最保守的：分數最接近 0 的選項
-  const def = options.reduce((a, b) => (Math.abs(b.score) < Math.abs(a.score) ? b : a));
-  const id = "ai_" + createHash("sha1").update(title + text).digest("hex").slice(0, 10);
+  const def = noChoice ? null : options.reduce((a, b) => (Math.abs(b.score) < Math.abs(a.score) ? b : a));
+  const trusted = opts.trusted === true;
+  const id = (trusted ? "ov_" : "ai_") + createHash("sha1").update(title + text).digest("hex").slice(0, 10);
+  const weight = trusted && typeof raw.weight === "number" && Number.isFinite(raw.weight) ? clamp(raw.weight, 0, 3) : 0.8;
+  const cooldownDays = trusted && typeof raw.cooldownDays === "number" && Number.isFinite(raw.cooldownDays) ? clamp(raw.cooldownDays, 1, 60) : 8;
+  const deadlineHours = trusted && typeof raw.deadlineHours === "number" && Number.isFinite(raw.deadlineHours) ? clamp(raw.deadlineHours, 1, 72) : 24;
   const value: EventDef = {
     id,
     category: raw.category as EventCategory,
     title,
     text,
-    weight: 0.8,
-    cooldownTicks: 288 * 8,
-    attention: "auto", // AI 事件永遠不會讓時鐘暫停
-    effects: [],
-    choice: { deadlineTicks: 288, defaultOption: def.id, options: options.map(({ id: oid, label, effects }) => ({ id: oid, label, effects })) },
+    weight,
+    cooldownTicks: Math.round(288 * cooldownDays),
+    attention: trusted && raw.attention === "pause" ? "pause" : "auto", // AI 事件永遠不會讓時鐘暫停；Overseer 的事件可以選
+    effects: direct,
+    ...(def ? { choice: { deadlineTicks: Math.round(12 * deadlineHours), defaultOption: def.id, options: options.map(({ id: oid, label, effects }) => ({ id: oid, label, effects })) } } : {}),
   };
   return { ok: true, value };
 }

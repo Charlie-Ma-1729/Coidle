@@ -1,5 +1,5 @@
-import { ALLIANCE_MAX_ACTIVE, JOINT_PROMO_MULT, JOINT_PROMO_TICKS, TICKS_PER_DAY, type MallState } from "@coidle/shared";
-import { applyEffects, applyIndexDelta } from "./events";
+import { ALLIANCE_MAX_ACTIVE, EVENT_BY_ID, JOINT_PROMO_MULT, JOINT_PROMO_TICKS, TICKS_PER_DAY, WEATHER_NAMES, type MallState } from "@coidle/shared";
+import { applyEffects, applyIndexDelta, spawnEvent } from "./events";
 import { createRng, hash32 } from "./rng";
 import { addLog } from "./state";
 
@@ -43,6 +43,25 @@ export function applyMail(s: MallState, mail: Mail): void {
     case "notice":
       notice(s, str(p.text));
       break;
+    // Overseer 調整天氣：用現有的 weather 效果（會取代原本的天氣修飾值）
+    case "admin_weather": {
+      const kind = str(p.kind, 10);
+      if (!["clear", "cloudy", "rain", "storm"].includes(kind)) break;
+      const temp = Math.round(num(p.temp, -10, 42));
+      const ticks = Math.round(num(p.ticks, 12, 864));
+      const rng = createRng(hash32(s.seed ^ 0x57ea, s.tick));
+      applyEffects(s, [{ t: "weather", kind: kind as never, temp, ticks }], rng);
+      notice(s, `天氣有了變化：${WEATHER_NAMES[kind as never] ?? kind}，氣溫約 ${temp}°C，預計持續 ${Math.round(ticks / 12)} 小時。`);
+      break;
+    }
+    // Overseer 觸發一個事件（內建、AI 或手寫的都可以）
+    case "admin_event": {
+      const def = EVENT_BY_ID[str(p.eventId, 60)];
+      if (!def) break;
+      const rng = createRng(hash32(s.seed ^ 0x3e11, s.tick));
+      spawnEvent(s, def, rng);
+      break;
+    }
     case "poach_hit":
     case "poach_gain": {
       const persona = str(p.persona, 12);

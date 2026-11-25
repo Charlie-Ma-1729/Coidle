@@ -723,6 +723,17 @@ export class MallService {
     this.announceMembers(mallId);
   }
 
+  /** 管理用：替一批商場寄一封信（天氣、事件…）並立刻交給商場；回傳實際寄出的商場數。"all" 不含測試商場 */
+  adminBroadcast(malls: "all" | number[], kind: string, payload: Record<string, unknown>): number {
+    const ids = malls === "all" ? this.repo.allMalls().filter((m) => !m.sandbox).map((m) => m.id) : malls.filter((id) => this.repo.mallById(id));
+    const t = this.now();
+    for (const id of ids) {
+      this.repo.addMail(id, kind, payload, t, t);
+      this.sync(id);
+    }
+    return ids.length;
+  }
+
   /** 寄一則通知給商場（出現在待辦與日誌裡） */
   adminNotice(mallId: number, text: string): void {
     if (!this.repo.mallById(mallId)) throw new ServiceError(404, "找不到這座商場");

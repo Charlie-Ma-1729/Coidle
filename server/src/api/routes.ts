@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { FastifyInstance } from "fastify";
-import { NPC_BY_ID, NPC_MALLS, ROLE_IDS, publicKey, speedPreset, type MeResponse, type RoleId } from "@coidle/shared";
+import { EVENTS, NPC_BY_ID, NPC_MALLS, ROLE_IDS, WEATHER_NAMES, publicKey, speedPreset, type MeResponse, type RoleId } from "@coidle/shared";
 import type { ContentService, ContentKind } from "../ai/service";
 import { hashPassword, hashToken, newInviteCode, newSessionToken, verifyPassword } from "../auth/password";
 import type { Config } from "../config";
@@ -652,6 +652,58 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     note(req, "mall.owner", `${mallLabel(id)} → ${userLabel(uid)}`);
     service.adminSetOwner(id, uid);
     return { ok: true };
+  });
+
+  // ── 隨機事件：Overseer 手寫、上下架、對商場觸發
+  const targetsOf = (v: unknown): "all" | number[] => {
+    if (v === "all") return "all";
+    if (Array.isArray(v) && v.length > 0 && v.length <= 200 && v.every((x) => Number.isInteger(x) && x > 0)) return v as number[];
+    throw new ServiceError(400, "請選擇要套用的商場（全部，或指定幾座）");
+  };
+  app.get("/api/admin/events", async () => ({
+    events: repo.contentList("event", null, 500).map((r) => ({ id: r.id, status: r.status, model: r.model, createdAt: r.created_at, def: r.payload })),
+    catalog: EVENTS.map((e) => ({ id: e.id, title: e.title, category: e.category, hasChoice: !!e.choice, source: e.id.startsWith("ov_") ? "overseer" : e.id.startsWith("ai_") ? "ai" : "builtin" })),
+  }));
+  app.post("/api/admin/events", async (req) => {
+    const b = body(req);
+    note(req, "event.create", String((b.event as { title?: unknown } | undefined)?.title ?? ""));
+    try {
+      return content.addManualEvent(b.event);
+    } catch (e) {
+      throw new ServiceError(400, e instanceof Error ? e.message : "事件格式不正確");
+    }
+  });
+  app.post("/api/admin/events/:id/retire", async (req) => {
+    const id = idParam(req);
+    note(req, "event.retire", `content#${id}`);
+    if (!content.rejectEvent(id)) throw new ServiceError(400, "找不到這個事件，或狀態不允許這個操作");
+    return { ok: true };
+  });
+  app.post("/api/admin/events/:id/activate", async (req) => {
+    const id = idParam(req);
+    note(req, "event.activate", `content#${id}`);
+    if (!content.activateEvent(id)) throw new ServiceError(400, "只有已下架的事件可以重新上線");
+    return { ok: true };
+  });
+  app.post("/api/admin/events/trigger", async (req) => {
+    const b = body(req);
+    const eventId = str(b.eventId, "事件", 3, 60);
+    if (!EVENTS.some((e) => e.id === eventId)) throw new ServiceError(404, "找不到這個事件");
+    const malls = targetsOf(b.malls);
+    note(req, "event.trigger", eventId, { malls });
+    return { sent: service.adminBroadcast(malls, "admin_event", { eventId }) };
+  });
+
+  // ── 天氣：對全部（不含測試商場）或指定商場套用一段天氣
+  app.post("/api/admin/weather", async (req) => {
+    const b = body(req);
+    const kind = typeof b.kind === "string" && b.kind in WEATHER_NAMES ? b.kind : null;
+    if (!kind) throw new ServiceError(400, "天氣種類不正確");
+    const temp = typeof b.temp === "number" && Number.isFinite(b.temp) ? Math.round(Math.min(42, Math.max(-10, b.temp))) : 22;
+    const hours = typeof b.hours === "number" && Number.isFinite(b.hours) ? Math.min(72, Math.max(1, b.hours)) : 12;
+    const malls = targetsOf(b.malls);
+    note(req, "weather.set", malls === "all" ? "all" : `malls:${malls.join(",")}`, { kind, temp, hours });
+    return { sent: service.adminBroadcast(malls, "admin_weather", { kind, temp, ticks: Math.round(hours * 12) }) };
   });
 
   // ── NPC 商場：調整、自動出手設定、手動出手
