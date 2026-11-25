@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 更新到最新版：備份、拉程式碼、裝套件、重新打包前端、重啟服務。
 # 用法：cd /opt/coidle && sudo bash deploy/update.sh
-# 以 root（sudo）執行；程式碼、套件、備份用 coidle 使用者做，只有重啟服務用 root。
+# 以 root（sudo）執行；程式碼、套件、備份用「這個資料夾的擁有者」做（coidle 或你自己的帳號都行），只有重啟服務用 root。
 set -euo pipefail
 
 if [ "$(id -u)" != "0" ]; then
@@ -10,7 +10,9 @@ if [ "$(id -u)" != "0" ]; then
 fi
 cd "$(dirname "$0")/.."
 export PATH=/usr/local/bin:$PATH
-run() { runuser -u coidle -- env PATH="$PATH" HOME=/home/coidle "$@"; }
+OWNER=$(stat -c %U .)
+OWNER_HOME=$(getent passwd "$OWNER" | cut -d: -f6)
+run() { runuser -u "$OWNER" -- env PATH="$PATH" HOME="$OWNER_HOME" "$@"; }
 
 echo "== 備份資料庫"
 run node deploy/backup.mjs || true
