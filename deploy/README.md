@@ -71,7 +71,7 @@ ls /opt/coidle/client/dist
 最後一行要看到 `index.html`。
 
 ## 5. 產生 `.env`（金鑰、密語都只放這裡）
-一個指令自動填好：`NODE_ENV=production`、註冊密語、隨機的 `ADMIN_TOKEN`、推播金鑰、權限 600。
+一個指令自動填好：`NODE_ENV=production`、註冊密語、推播金鑰、權限 600。
 把 `註冊密語` 換成你自己想的（只告訴你的朋友，至少 6 字元），信箱換成你的：
 ```bash
 cd /opt/coidle
@@ -152,7 +152,26 @@ sudo systemctl start coidle
 ```
 ↑ 檔名要改。還原後商場會依「真實時間」補算離線期間（最多 14 個標準日），不會漏賺。
 
-## 11. 第一次使用
+## 11. 建立 Overseer（世界管理者）與測試商場
+Overseer 用金鑰登入（沒有密碼），進管理室；可以旁觀所有商場、管帳號與商場、寫事件、調天氣、操控 NPC、看營運數據與稽核。細節見 `docs/overseer.md`。
+```bash
+cd /opt/coidle
+sudo -u coidle npm run admin -- create-overseer
+```
+↑ 印出的金鑰**只會顯示一次**，請存到密碼管理器。到網站登入頁底下的「管理者金鑰登入」貼上。換金鑰：`sudo -u coidle npm run admin -- rotate-overseer-key`。
+
+測試商場（最高等級、全區域、全科技，**獨立於世界之外**：不進排行、不能聯名貿易搶客、NPC 不會動它），創辦人是 Overseer：
+```bash
+sudo -u coidle npm run admin -- sandbox-mall overseer
+```
+（要把已經存在的商場轉成測試商場：最後加商場編號，例如 `sandbox-mall overseer 12`；其他成員會被移除。）
+
+所有管理操作都會寫進稽核紀錄，同時印在伺服器的 terminal：
+```bash
+journalctl -u coidle -f
+```
+
+## 12. 第一次使用
 1. 打開 <https://coidle.imatw.org>，用註冊密語註冊第一個帳號 → 建立商場 → 把邀請碼給朋友。
 2. 手機：Chrome 選單「安裝應用程式」；iPhone 用 Safari「分享 → 加入主畫面」（iPhone 要先安裝到主畫面才能收推播）。
 3. 進遊戲，☰ 選單 → 設定 → 商場與帳號，找到「這台裝置」按「開啟通知」。商場因重要事件暫停時就會收到通知。

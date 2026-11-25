@@ -79,7 +79,7 @@ async function main() {
         case 5: {
           // 被搶客後反擊：打回最近一次搶自己客人的那座商場，同一個客群
           const n = service.sync(id).world.notices.find((x) => x.from);
-          if (n?.from) attempt("反擊", () => service.compete.attack(id, n.from!, n.persona ?? "tourist"));
+          if (n?.from) attempt("反擊", () => service.compete.attack(id, service.world.resolve(n.from!), n.persona ?? "tourist"));
           break;
         }
         case 6:

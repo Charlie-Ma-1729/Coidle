@@ -7,18 +7,18 @@
 - 商場擁有者可以：移交擁有權、踢出成員、重新命名商場。任何成員都可以離開（擁有者要先移交）。
 - 忘記密碼目前沒有信箱可寄，請站長用管理指令重設（見下）。
 
-## 管理後台（站長）
-網址加上 `#admin`（例如 `https://你的網域/#admin`），輸入伺服器 `.env` 的 `ADMIN_TOKEN`（只存在這個分頁的 sessionStorage）。四個分頁：
-- **概況**：使用者與商場數量、AI 預算。
-- **AI 內容**：預算與內容池、立即生成（快訊／評價／事件／品牌名／商品名／常客）、待審事件與新常客的核准或拒絕、已上線內容的移除。
-- **商場**：成員數、等級、資金、天數；區域與功能旗標（強制開放／關閉）；解散商場。
-- **使用者**：重設密碼（產生臨時密碼，只顯示一次，並登出該使用者所有裝置）、刪除使用者。
+## 管理室（Overseer）
+管理由 **Overseer**（世界管理者）負責：用金鑰登入（沒有密碼），進的是管理室，不是商場。數據、商場、使用者、NPC、隨機事件與天氣、AI 內容、稽核紀錄都在那裡，詳見 `docs/overseer.md`。`.env` 的 `ADMIN_TOKEN` 已經停用。
 
-沒有網頁時也可以用指令列：
+伺服器上的指令列（所有會改動資料的指令都會寫稽核紀錄）：
 ```bash
 npm run admin -- users
 npm run admin -- malls
+npm run admin -- create-overseer              # 建立 Overseer 並印出金鑰（只顯示一次）
+npm run admin -- rotate-overseer-key          # 換金鑰
 npm run admin -- reset-password <帳號>
+npm run admin -- test-mall <帳號> [名稱]       # 全開測試商場
+npm run admin -- sandbox-mall overseer [商場編號]   # 把商場轉成獨立測試商場並轉給 Overseer
 npm run admin -- delete-user <帳號>
 ```
 
