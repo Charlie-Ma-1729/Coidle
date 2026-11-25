@@ -4,20 +4,80 @@
     {
       "name": "server",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "start"],
+      "runtimeArgs": [
+        "run",
+        "start"
+      ],
       "port": 2330
     },
     {
       "name": "server-fastforward",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "start"],
+      "runtimeArgs": [
+        "run",
+        "start"
+      ],
       "port": 2330,
-      "env": { "DEV_CLOCK_OFFSET_HOURS": "30" }
+      "env": {
+        "DEV_CLOCK_OFFSET_HOURS": "30"
+      }
+    },
+    {
+      "name": "stage-server",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "start"
+      ],
+      "port": 2330,
+      "env": {
+        "DB_PATH": "data/stage-test.db",
+        "SIGNUP_SECRET": "",
+        "OPENROUTER_API_KEY": "",
+        "AI_BUDGET_USD": "0",
+        "AI_DAILY_CALL_CAP": "0",
+        "NODE_ENV": "development"
+      }
+    },
+    {
+      "name": "stage-server-ff",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "start"
+      ],
+      "port": 2330,
+      "env": {
+        "DB_PATH": "data/stage-test.db",
+        "SIGNUP_SECRET": "",
+        "OPENROUTER_API_KEY": "",
+        "AI_BUDGET_USD": "0",
+        "AI_DAILY_CALL_CAP": "0",
+        "NODE_ENV": "development",
+        "DEV_CLOCK_OFFSET_HOURS": "30"
+      }
+    },
+    {
+      "name": "stage-demo",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:client",
+        "--",
+        "--host"
+      ],
+      "port": 5173,
+      "env": {
+        "VITE_POLL": "1"
+      }
     },
     {
       "name": "client",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:client"],
+      "runtimeArgs": [
+        "run",
+        "dev:client"
+      ],
       "port": 5173
     }
   ]

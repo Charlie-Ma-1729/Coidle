@@ -1,8 +1,15 @@
 // Coidle Service Worker：App Shell 快取＋Web Push。
 // 原則：API 與 WebSocket 永遠走網路（遊戲狀態不能是舊的）；只快取畫面本身，讓離線時仍能開啟 App 並顯示「連線中斷」。
-const VERSION = "v1";
+// v2：畫面版（Pixi）上線，主程式與延遲載入的場景區塊變大；舊版快取在 activate 時清掉。
+const VERSION = "v2";
 const SHELL = `coidle-shell-${VERSION}`;
 const ASSETS = `coidle-assets-${VERSION}`;
+// 雜湊檔名每次部署都會換，舊檔不會再被用到；超過這個數量就從最舊的開始刪（一次部署約 10 個檔案）
+const MAX_ASSETS = 60;
+
+function trimAssets(cache) {
+  return cache.keys().then((keys) => Promise.all(keys.slice(0, Math.max(0, keys.length - MAX_ASSETS)).map((k) => cache.delete(k))));
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(SHELL).then((c) => c.addAll(["/", "/manifest.webmanifest", "/icons/icon-192.png"])).then(() => self.skipWaiting()));
@@ -46,7 +53,8 @@ self.addEventListener("fetch", (event) => {
           (hit) =>
             hit ||
             fetch(req).then((res) => {
-              if (res.ok) cache.put(req, res.clone());
+              // 延遲載入的區塊（場景／Pixi）第一次用到時才會抓；存起來，之後離線也能開
+              if (res.ok) cache.put(req, res.clone()).then(() => trimAssets(cache));
               return res;
             }),
         ),

@@ -54,7 +54,7 @@ function Stars({ n }: { n: number }) {
   );
 }
 
-function WalkCard({ s }: { s: PublicMallState }) {
+export function WalkCard({ s }: { s: PublicMallState }) {
   const t = timeInfo(s.tick);
   const open = t.hour >= s.hours.open && t.hour < s.hours.close;
   const cooldown = s.walk.nextTick - s.tick;
@@ -186,7 +186,7 @@ function ReviewCard({ s, item }: { s: PublicMallState; item: InboxItem }) {
   );
 }
 
-function TodoCard({ s }: { s: PublicMallState }) {
+export function TodoCard({ s }: { s: PublicMallState }) {
   const guestEvents = s.pending.filter((p) => EVENT_BY_ID[p.defId]?.category === "guest");
   const complaints = s.inbox.filter((i) => i.kind === "complaint");
   const reviews = s.inbox.filter((i) => i.kind === "review");
@@ -212,7 +212,7 @@ function TodoCard({ s }: { s: PublicMallState }) {
   );
 }
 
-function ReviewLog({ s }: { s: PublicMallState }) {
+export function ReviewLog({ s }: { s: PublicMallState }) {
   return (
     <Card title="⭐ 近期評價">
       {s.reviewLog.length === 0 ? (
@@ -236,7 +236,7 @@ function ReviewLog({ s }: { s: PublicMallState }) {
   );
 }
 
-function Prefs({ s }: { s: PublicMallState }) {
+export function GuestPrefs({ s }: { s: PublicMallState }) {
   return (
     <Card title="⚙️ 離線時的處理偏好">
       <div class="stack">
@@ -268,7 +268,7 @@ export function Guests() {
       <Regulars />
       <div class="grid two">
         <ReviewLog s={s} />
-        <Prefs s={s} />
+        <GuestPrefs s={s} />
       </div>
     </>
   );

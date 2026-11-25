@@ -200,7 +200,7 @@ export function ShopSheet({ shopId, onClose }: { shopId: string; onClose: () => 
       {shop.tenant && !shop.tenant.own && (
         <Card title={`🤝 租戶：${shop.tenant.brand}`}>
           <p class="small">
-            滿意度 {Math.round(shop.tenant.satisfaction)}・品質 {Math.round(shop.tenant.quality * 100)}・知名度 {shop.tenant.fame}・每日租金 {money(shop.tenant.rent)} ＋ 抽成 {Math.round(shop.tenant.commission * 100)}%。到「更多 → 招商」可以續約或解約。
+            滿意度 {Math.round(shop.tenant.satisfaction)}・品質 {Math.round(shop.tenant.quality * 100)}・知名度 {shop.tenant.fame}・每日租金 {money(shop.tenant.rent)} ＋ 抽成 {Math.round(shop.tenant.commission * 100)}%。到「開發 → 招商」可以續約或解約。
           </p>
         </Card>
       )}

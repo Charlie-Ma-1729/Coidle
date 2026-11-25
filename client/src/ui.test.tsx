@@ -43,107 +43,6 @@ async function mount(node: preact.ComponentChild) {
 }
 
 describe("screens render with real simulated state", () => {
-  it("Overview shows key numbers", async () => {
-    store.state.value = publicState(3);
-    const { Overview } = await import("./screens/Overview");
-    await mount(<Overview />);
-    expect(container.textContent).toContain("資金");
-    expect(container.textContent).toContain("在地口碑");
-    expect(container.textContent).toContain("商場快訊");
-  });
-
-  it("an AI-generated event registered at runtime renders as a normal pending event card", async () => {
-    const { registerEvents } = await import("@coidle/shared");
-    registerEvents([
-      {
-        id: "ai_testevent1",
-        category: "crowd",
-        title: "老街聯名小攤",
-        text: "對面老街的老店老闆說，今天想請商場一起辦個小攤位活動。",
-        weight: 0.8,
-        cooldownTicks: 2000,
-        attention: "auto",
-        effects: [],
-        choice: { deadlineTicks: 288, defaultOption: "o1", options: [{ id: "o1", label: "出資佈置攤位", effects: [{ t: "funds", amount: -20000 }] }, { id: "o2", label: "婉拒", effects: [] }] },
-      },
-    ]);
-    store.state.value = publicState(0, (s) => {
-      s.pending.push({ uid: "ev77", defId: "ai_testevent1", deadlineTick: s.tick + 500 });
-    });
-    const { Overview } = await import("./screens/Overview");
-    await mount(<Overview />);
-    expect(container.textContent).toContain("老街聯名小攤");
-    expect(container.textContent).toContain("出資佈置攤位");
-  });
-
-  it("Overview shows pending event choices with a countdown", async () => {
-    const { EVENT_BY_ID } = await import("@coidle/shared");
-    store.state.value = publicState(0, (s) => {
-      s.pending.push({ uid: "ev99", defId: "rival_sale", deadlineTick: s.tick + 500 });
-    });
-    const { Overview } = await import("./screens/Overview");
-    await mount(<Overview />);
-    expect(container.textContent).toContain(EVENT_BY_ID.rival_sale!.title);
-    expect(container.textContent).toContain("跟進促銷");
-    expect(container.textContent).toContain("沒人回應就會");
-  });
-
-  it("Floor lists shops, locked zones and opens shop/build sheets", async () => {
-    store.state.value = publicState(2);
-    const { Floor } = await import("./screens/Floor");
-    await mount(<Floor />);
-    expect(container.textContent).toContain("串八");
-    expect(container.textContent).toContain("空店面");
-
-    // 開啟店鋪詳情
-    const shopTile = Array.from(container.querySelectorAll("button.slot")).find((b) => b.textContent?.includes("串八")) as HTMLElement;
-    shopTile.click();
-    await tick();
-    expect(document.body.textContent).toContain("定價");
-    expect(document.body.textContent).toContain("庫存與自動補貨");
-    expect(document.body.textContent).toContain("新鮮感");
-    (document.querySelector(".sheet .icon-btn") as HTMLElement).click();
-    await tick();
-    expect(document.querySelector(".sheet")).toBeNull();
-
-    // 開啟開店清單
-    (container.querySelector("button.empty-slot") as HTMLElement).click();
-    await tick();
-    expect(document.body.textContent).toContain("招商開店");
-    expect(document.body.textContent).toContain("烏龍麵");
-    (document.querySelector(".sheet .icon-btn") as HTMLElement).click();
-    await tick();
-
-    // 未解鎖的區域顯示鎖頭
-    const f1Tab = Array.from(container.querySelectorAll(".zone-tab")).find((b) => b.textContent?.includes("1F")) as HTMLElement;
-    f1Tab.click();
-    await tick();
-    expect(container.textContent).toContain("Lv.2");
-    expect(container.textContent).toContain("後開放");
-  });
-
-  it("Floor shows an unlocked zone when its flag is on", async () => {
-    store.state.value = publicState(1, (s) => {
-      s.flags["zone:f1"] = true;
-    });
-    const { Floor } = await import("./screens/Floor");
-    await mount(<Floor />);
-    const f1Tab = Array.from(container.querySelectorAll(".zone-tab")).find((b) => b.textContent?.includes("1F")) as HTMLElement;
-    f1Tab.click();
-    await tick();
-    expect(container.querySelectorAll("button.empty-slot").length).toBe(10);
-  });
-
-  it("Floor offers zone expansion and every category has an icon", async () => {
-    store.state.value = publicState(1);
-    const { Floor } = await import("./screens/Floor");
-    await mount(<Floor />);
-    expect(container.textContent).toContain("擴建店面");
-    const { CATEGORIES } = await import("@coidle/shared");
-    const { categoryIcon } = await import("./icons");
-    for (const c of CATEGORIES) expect(categoryIcon(c.id), c.id).not.toBe("🏬");
-  });
-
   it("World shows the leaderboard with NPC malls, my mall and the season", async () => {
     store.state.value = publicState(2);
     store.mallId.value = 5;
@@ -285,15 +184,6 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).toContain("許認可");
   });
 
-  it("Overview warns when cash cannot cover the bills due within 30 days", async () => {
-    store.state.value = publicState(1, (s) => {
-      s.tax.bills.push({ uid: "tx1", kind: "social", label: "測試社會保險", amount: 99_000_000, createdTick: s.tick, dueTick: s.tick + 1000, paid: 0, lateFee: 0 });
-    });
-    const { Overview } = await import("./screens/Overview");
-    await mount(<Overview />);
-    expect(container.textContent).toContain("30 天內要繳");
-  });
-
   it("Tech screen lists branches, shows research progress and what is blocking each tech", async () => {
     store.state.value = publicState(1, (s) => {
       s.level = 2;
@@ -349,38 +239,6 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).toContain("開幕大吉");
     expect(container.textContent).toContain("？？？");
     expect(container.textContent).not.toContain("我知道這是哪裡");
-  });
-
-  it("Overview shows the star rating chip", async () => {
-    store.state.value = publicState(1);
-    const { Overview } = await import("./screens/Overview");
-    await mount(<Overview />);
-    expect(container.textContent).toMatch(/★/);
-  });
-
-  it("Tutorial walks through the slides and finishes", async () => {
-    const { Tutorial } = await import("./components/Tutorial");
-    let done = 0;
-    await mount(<Tutorial onDone={() => done++} />);
-    expect(container.textContent).toContain("歡迎來到你的商場");
-    const next = () => Array.from(container.querySelectorAll("button")).find((b) => b.textContent === "下一頁" || b.textContent === "開始經營！") as HTMLButtonElement;
-    for (let i = 0; i < 6; i++) {
-      next().click();
-      await tick();
-    }
-    expect(container.textContent).toContain("從新手任務開始");
-    next().click();
-    expect(done).toBe(1);
-  });
-
-  it("Tutorial is shown once per user and mall, and can be skipped", async () => {
-    const { shouldShowTour, markTourSeen } = await import("./components/Tutorial");
-    localStorage.clear();
-    expect(shouldShowTour(5, 9)).toBe(true);
-    markTourSeen(5, 9);
-    expect(shouldShowTour(5, 9)).toBe(false);
-    expect(shouldShowTour(5, 10)).toBe(true);
-    expect(shouldShowTour(6, 9)).toBe(true);
   });
 
   it("Help shows starter quests with progress, the FAQ and the glossary", async () => {
@@ -534,18 +392,6 @@ describe("screens render with real simulated state", () => {
     expect(switchBtns.length).toBeGreaterThan(0);
   });
 
-  it("Overview warns when a main supplier is in trouble", async () => {
-    store.state.value = publicState(0, (s) => {
-      const m = s.supply.suppliers.find((x) => x.id === "sea_naniwa")!;
-      m.status = "shortage";
-      m.statusUntil = s.tick + 100;
-    });
-    const { Overview } = await import("./screens/Overview");
-    await mount(<Overview />);
-    expect(container.textContent).toContain("浪花水產");
-    expect(container.textContent).toContain("出貨吃緊");
-  });
-
   it("Rivals shows the ranking with you in it, the market table, stance, rivals and news", async () => {
     store.mallInfo.value = { id: 1, name: "新街商場", members: [] };
     store.state.value = publicState(0, (s) => {
@@ -580,19 +426,6 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).toContain("已被反制削弱");
     const counter = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("反制")) as HTMLButtonElement;
     expect(counter.disabled).toBe(true); // 已經反制過
-  });
-
-  it("More now offers five sections", async () => {
-    store.state.value = publicState(0);
-    const { More } = await import("./screens/More");
-    const nav = await import("./nav");
-    nav.moreSub.value = "rivals";
-    await mount(<More />);
-    for (const label of ["營運", "行銷", "供應商", "商戰", "團隊"]) expect(container.textContent).toContain(label);
-    expect(container.textContent).toContain("商場評鑑榜");
-    nav.moreSub.value = "suppliers";
-    await tick();
-    expect(container.textContent).toContain("供應商與進貨");
   });
 
   it("Marketing lists the catalog, active and scheduled promos, fatigue and history", async () => {
@@ -678,28 +511,6 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).toContain("罰款 ¥80,000");
   });
 
-  it("Overview shows inspection notices at the top", async () => {
-    store.state.value = publicState(0, (s) => {
-      s.inspections.pending.push({ uid: "ins3", kind: "hygiene", notifiedTick: s.tick, inspectTick: s.tick + 60, prep: null });
-    });
-    const { Overview } = await import("./screens/Overview");
-    await mount(<Overview />);
-    expect(container.textContent).toContain("衛生單位預告");
-  });
-
-  it("More offers ops, marketing and team", async () => {
-    store.state.value = publicState(0);
-    store.user.value = { id: 1, username: "u", displayName: "我" };
-    store.mallId.value = 1;
-    store.mallInfo.value = { id: 1, name: "測試", inviteCode: "ABCD2345", members: [{ userId: 1, displayName: "我", role: "gm", isOwner: true, joinedAt: 0 }] };
-    const { More } = await import("./screens/More");
-    const nav = await import("./nav");
-    nav.moreSub.value = "marketing";
-    await mount(<More />);
-    expect(container.textContent).toContain("📣 行銷");
-    expect(container.textContent).toContain("活動目錄");
-  });
-
   it("nextTickAt finds the next occurrence of an hour, and the next weekend", async () => {
     const f = await import("./format");
     const { timeInfo } = await import("@coidle/shared");
@@ -782,32 +593,6 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).toContain("請大家喝冰麥茶");
   });
 
-  it("Overview points to the Guests tab instead of listing guest events", async () => {
-    store.state.value = publicState(0, (s) => {
-      s.pending.push({ uid: "ev61", defId: "lost_child", deadlineTick: s.tick + 100 });
-      s.inbox.push({ uid: "in3", kind: "review", createdTick: s.tick, deadlineTick: s.tick + 100, shopId: null, persona: "local", text: "ok", stars: 4 });
-    });
-    const { Overview } = await import("./screens/Overview");
-    await mount(<Overview />);
-    expect(container.textContent).toContain("客人那邊有 2 件事等你");
-    expect(container.textContent).not.toContain("走失的小朋友");
-  });
-
-  it("More switches between ops and team", async () => {
-    store.state.value = publicState(0);
-    store.user.value = { id: 1, username: "u", displayName: "我" };
-    store.mallId.value = 1;
-    store.mallInfo.value = { id: 1, name: "測試", inviteCode: "ABCD2345", members: [{ userId: 1, displayName: "我", role: "gm", isOwner: true, joinedAt: 0 }] };
-    const { More } = await import("./screens/More");
-    const nav = await import("./nav");
-    nav.moreSub.value = "ops";
-    await mount(<More />);
-    expect(container.textContent).toContain("時間流速");
-    nav.moreSub.value = "team";
-    await tick();
-    expect(container.textContent).toContain("ABCD2345");
-  });
-
   it("Team shows members and the invite code for owners", async () => {
     store.state.value = publicState(0);
     store.user.value = { id: 1, username: "u", displayName: "我" };
@@ -826,6 +611,151 @@ describe("screens render with real simulated state", () => {
   });
 });
 
+describe("舊總覽／樓層的行為，在新位置的等價驗證", () => {
+  beforeEach(() => {
+    store.mallId.value = 1;
+    store.user.value = { id: 1, username: "u", displayName: "我" };
+  });
+
+  it("AI 事件在執行期註冊後，會以一般待決事件卡的樣子出現在事件視窗", async () => {
+    const { registerEvents } = await import("@coidle/shared");
+    registerEvents([
+      {
+        id: "ai_testevent1",
+        category: "crowd",
+        title: "老街聯名小攤",
+        text: "對面老街的老店老闆說，今天想請商場一起辦個小攤位活動。",
+        weight: 0.8,
+        cooldownTicks: 2000,
+        attention: "auto",
+        effects: [],
+        choice: { deadlineTicks: 288, defaultOption: "o1", options: [{ id: "o1", label: "出資佈置攤位", effects: [{ t: "funds", amount: -20000 }] }, { id: "o2", label: "婉拒", effects: [] }] },
+      },
+    ]);
+    store.state.value = publicState(0, (s) => {
+      s.pending.push({ uid: "ev77", defId: "ai_testevent1", deadlineTick: s.tick + 500 });
+    });
+    const { PendingWindow } = await import("./ui/hubs/GameHubs");
+    await mount(<PendingWindow kind="event" uid="ev77" onClose={() => {}} />);
+    expect(container.textContent).toContain("老街聯名小攤");
+    expect(container.textContent).toContain("出資佈置攤位");
+  });
+
+  it("待決事件視窗顯示選項與「沒人回應就會…」", async () => {
+    const { EVENT_BY_ID } = await import("@coidle/shared");
+    store.state.value = publicState(0, (s) => {
+      s.pending.push({ uid: "ev99", defId: "rival_sale", deadlineTick: s.tick + 500 });
+    });
+    const { PendingWindow } = await import("./ui/hubs/GameHubs");
+    await mount(<PendingWindow kind="event" uid="ev99" onClose={() => {}} />);
+    expect(container.textContent).toContain(EVENT_BY_ID.rival_sale!.title);
+    expect(container.textContent).toContain("跟進促銷");
+    expect(container.textContent).toContain("沒人回應就會");
+  });
+
+  it("已經處理掉的事件，視窗會說明而不是壞掉", async () => {
+    store.state.value = publicState(0);
+    const { PendingWindow } = await import("./ui/hubs/GameHubs");
+    await mount(<PendingWindow kind="event" uid="gone" onClose={() => {}} />);
+    expect(container.textContent).toContain("已經處理完了");
+  });
+
+  it("稽查預告出現在待辦中心與稽查視窗", async () => {
+    store.state.value = publicState(0, (s) => {
+      s.inspections.pending.push({ uid: "ins3", kind: "hygiene", notifiedTick: s.tick, inspectTick: s.tick + 60, prep: null });
+    });
+    const { buildAttention } = await import("./ui/attention");
+    const item = buildAttention(store.state.value!, 1).find((i) => i.id === "inspection:ins3")!;
+    expect(item.title).toContain("衛生單位預告");
+    expect(item.target).toEqual({ kind: "inspection", uid: "ins3" });
+    const { PendingWindow } = await import("./ui/hubs/GameHubs");
+    await mount(<PendingWindow kind="inspection" uid="ins3" onClose={() => {}} />);
+    expect(container.textContent).toContain("衛生單位預告");
+  });
+
+  it("主力供應商出狀況會進待辦中心，並說明是哪一家、什麼狀況", async () => {
+    store.state.value = publicState(0, (s) => {
+      const m = s.supply.suppliers.find((x) => x.id === "sea_naniwa")!;
+      m.status = "shortage";
+      m.statusUntil = s.tick + 100;
+    });
+    const { buildAttention } = await import("./ui/attention");
+    const it = buildAttention(store.state.value!, 1).find((i) => i.id.startsWith("supplier:"))!;
+    expect(it.title).toContain("浪花水產");
+    expect(it.title).toContain("出貨吃緊");
+    expect(it.target).toEqual({ kind: "hub", hub: "operate", tab: "supply" });
+  });
+
+  it("客人事件與評價歸在「客人」樞紐，不混進其他提醒", async () => {
+    store.state.value = publicState(0, (s) => {
+      s.pending.push({ uid: "ev61", defId: "lost_child", deadlineTick: s.tick + 100 });
+      s.inbox.push({ uid: "in3", kind: "review", createdTick: s.tick, deadlineTick: s.tick + 100, shopId: null, persona: "local", text: "ok", stars: 4 });
+    });
+    const { buildAttention, hubBadges, hubOfItem } = await import("./ui/attention");
+    const items = buildAttention(store.state.value!, 1);
+    const ev = items.find((i) => i.id === "event:ev61")!;
+    expect(hubOfItem(ev)).toBe("guests");
+    expect(hubOfItem(items.find((i) => i.id === "inbox:in3")!)).toBe("guests");
+    expect(hubBadges(items).guests).toBe(1); // 只有需要決定的事件算徽章；評價只是機會
+  });
+
+  it("財務總覽顯示星級評鑑", async () => {
+    store.state.value = publicState(1);
+    const { FinanceSummary } = await import("./screens/FinanceSummary");
+    await mount(<FinanceSummary />);
+    expect(container.textContent).toMatch(/★/);
+  });
+
+  it("ShopSheet 顯示定價、庫存與自動補貨、新鮮感、升級", async () => {
+    store.state.value = publicState(2);
+    const shop = store.state.value!.shops.find((x) => x.name === "串八")!;
+    const { ShopSheet } = await import("./screens/ShopSheet");
+    await mount(<ShopSheet shopId={shop.id} onClose={() => {}} />);
+    for (const t of ["定價", "庫存與自動補貨", "新鮮感", "翻新升級"]) expect(document.body.textContent).toContain(t);
+  });
+
+  it("BuildSheet 列出該區域的業態與價格", async () => {
+    store.state.value = publicState(2);
+    const free = store.state.value!.slots.find((x) => x.zone === "b1" && !x.shopId)!;
+    const { BuildSheet } = await import("./screens/BuildSheet");
+    await mount(<BuildSheet slotId={free.id} onClose={() => {}} />);
+    expect(document.body.textContent).toContain("招商開店");
+    expect(document.body.textContent).toContain("烏龍麵");
+  });
+
+  it("旗標強制開放的區域：該層有 10 個空店面格，不再鎖定", async () => {
+    store.state.value = publicState(1, (s) => {
+      s.flags["zone:f1"] = true;
+    });
+    const { toStageModel } = await import("./stage/adapter");
+    const f1 = toStageModel(store.state.value!).floors.find((f) => f.id === "f1")!;
+    expect(f1.lockedLevel).toBeNull();
+    expect(f1.lots).toHaveLength(10);
+    expect(f1.lots.every((l) => l.shop === null)).toBe(true);
+  });
+
+  it("每個業態都有圖示", async () => {
+    const { CATEGORIES } = await import("@coidle/shared");
+    const { categoryIcon } = await import("./icons");
+    for (const c of CATEGORIES) expect(categoryIcon(c.id), c.id).not.toBe("🏬");
+  });
+
+  it("說明頁的「重看新手提示」會重置提示並通知", async () => {
+    store.state.value = publicState(0);
+    store.toasts.value = [];
+    const { markSeen, loadSeen } = await import("./ui/hints");
+    markSeen(1, 1, "h_dock");
+    expect(loadSeen(1, 1).has("h_dock")).toBe(true);
+    const { Help } = await import("./screens/Help");
+    await mount(<Help />);
+    const btn = Array.from(container.querySelectorAll("button")).find((b) => b.textContent === "重看新手提示") as HTMLElement;
+    btn.click();
+    await tick();
+    expect(loadSeen(1, 1).has("h_dock")).toBe(false);
+    expect(store.toasts.value.some((t) => t.text.includes("提示已重置"))).toBe(true);
+  });
+});
+
 describe("format helpers", () => {
   it("formats money and real durations", async () => {
     const f = await import("./format");
@@ -834,5 +764,203 @@ describe("format helpers", () => {
     expect(f.moneyShort(-250_000)).toBe("-¥250k");
     expect(f.realDuration(144)).toBe("約 3 小時"); // 144 ticks = 12 遊戲小時 = 3 真實小時
     expect(f.realDuration(12)).toBe("約 15 分鐘");
+  });
+});
+
+describe("stage UI panels with real state", () => {
+  const originalFetch = globalThis.fetch;
+  let calls: { url: string; body: any }[] = [];
+
+  /** 把 fetch 換掉：記下送出的指令，並回傳指定的狀態 */
+  function stubFetch(reply: () => unknown) {
+    calls = [];
+    globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+      calls.push({ url: String(url), body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      return new Response(JSON.stringify(reply()), { status: 200 });
+    }) as typeof fetch;
+  }
+
+  beforeEach(() => {
+    store.mallId.value = 1;
+    store.user.value = { id: 1, username: "u", displayName: "我" };
+  });
+  afterAll(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  async function floorOf(zoneIndex = 0) {
+    const { toStageModel } = await import("./stage/adapter");
+    return toStageModel(store.state.value!, 1).floors[zoneIndex]!;
+  }
+
+  it("RealShopPanel shows the real shop and sends setPrice to the server", async () => {
+    store.state.value = publicState(0);
+    stubFetch(() => store.state.value);
+    const shop = store.state.value!.shops.find((x) => x.mode === "direct")!;
+    const { RealShopPanel } = await import("./ui/RealShopPanel");
+    await mount(<RealShopPanel slot={shop.slot} floor={await floorOf()} onClose={() => {}} openHub={() => {}} openSheet={() => {}} />);
+    expect(container.textContent).toContain(shop.name);
+    expect(container.textContent).toContain("售價");
+    expect(container.textContent).toContain("升級到 Lv.2");
+
+    const plus = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.trim() === "＋") as HTMLElement;
+    plus.click();
+    await tick();
+    const apply = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.trim() === "套用") as HTMLButtonElement;
+    expect(apply.disabled).toBe(false);
+    apply.click();
+    await tick();
+    await tick();
+    const call = calls.find((c) => c.url.endsWith("/commands"))!;
+    expect(call.body.command.type).toBe("setPrice");
+    expect(call.body.command.shopId).toBe(shop.id);
+    expect(call.body.command.price).toBeGreaterThan(shop.price);
+  });
+
+  it("RealShopPanel offers an order button when out of stock, and sends orderStock", async () => {
+    const { CATEGORY_BY_ID, categoryHasStock } = await import("@coidle/shared");
+    store.state.value = publicState(0, (s) => {
+      const sh = s.shops.find((x) => x.mode === "direct" && categoryHasStock(CATEGORY_BY_ID[x.category]!))!;
+      sh.stock = 0;
+      sh.incoming = [];
+    });
+    stubFetch(() => store.state.value);
+    const shop = store.state.value!.shops.find((x) => x.stock === 0)!;
+    const { RealShopPanel } = await import("./ui/RealShopPanel");
+    await mount(<RealShopPanel slot={shop.slot} floor={await floorOf()} onClose={() => {}} openHub={() => {}} openSheet={() => {}} />);
+    expect(container.textContent).toContain("缺貨中");
+    const order = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("補 50 份")) as HTMLElement;
+    order.click();
+    await tick();
+    await tick();
+    const call = calls.find((c) => c.url.endsWith("/commands"))!;
+    expect(call.body.command).toMatchObject({ type: "orderStock", shopId: shop.id, qty: 50 });
+  });
+
+  it("RealShopPanel: locked floors explain the unlock level; building lots show progress", async () => {
+    store.state.value = publicState(0, (s) => {
+      const free = s.slots.find((x) => x.zone === "b1" && !x.shopId)!;
+      s.builds.push({ id: "bx", kind: "open", slot: free.id, category: "ramen", completeTick: s.tick + 40, cost: 1 });
+    });
+    const { RealShopPanel } = await import("./ui/RealShopPanel");
+    const locked = await floorOf(1);
+    await mount(<RealShopPanel slot={locked.lots[0]!.slot} floor={locked} onClose={() => {}} openHub={() => {}} openSheet={() => {}} />);
+    expect(container.textContent).toContain("尚未解鎖");
+    expect(container.textContent).toContain(`Lv.${locked.lockedLevel}`);
+
+    const b1 = await floorOf(0);
+    const building = b1.lots.find((l) => l.shop?.state === "building")!;
+    await mount(<RealShopPanel slot={building.slot} floor={b1} onClose={() => {}} openHub={() => {}} openSheet={() => {}} />);
+    expect(container.textContent).toContain("施工進度");
+  });
+
+  it("GameHub: 營運有 4 個分頁、摘要與徽章；指定分頁會直接打開", async () => {
+    store.state.value = publicState(0);
+    const { GameHub } = await import("./ui/hubs/GameHubs");
+    await mount(<GameHub hub="operate" tab="facility" badges={{ facility: 2 }} onClose={() => {}} />);
+    const tabs = Array.from(container.querySelectorAll(".st-tabs button")).map((b) => b.textContent);
+    expect(tabs).toEqual(["營業時間", "補貨與供應", "行銷", "設備與稽查 (2)"]);
+    expect(container.querySelector(".st-tabs button.on")?.textContent).toContain("設備與稽查");
+    expect(container.textContent).toContain("清潔等級");
+    expect(container.querySelector(".st-win-sum")?.textContent).toContain("營業");
+  });
+
+  it("GameHub: 還沒開放的分頁先隱藏，升級後出現；樞紐內只剩一個分頁時不顯示分頁列", async () => {
+    const { GameHub } = await import("./ui/hubs/GameHubs");
+    store.state.value = publicState(0);
+    await mount(<GameHub key="d1" hub="develop" badges={{}} onClose={() => {}} />);
+    expect(container.querySelector(".st-tabs")).toBeNull(); // 只有研發工坊
+    expect(container.textContent).toContain("選好素材就能開始試做新菜"); // 工坊的內容
+
+    store.state.value = publicState(0, (s) => (s.level = 3));
+    await mount(<GameHub key="d3" hub="develop" badges={{}} onClose={() => {}} />);
+    expect(Array.from(container.querySelectorAll(".st-tabs button")).map((b) => b.textContent)).toEqual(["研發工坊", "科技", "招商"]);
+  });
+
+  it("GameHub: 想開的分頁還沒開放時退回第一個可見分頁", async () => {
+    store.state.value = publicState(0);
+    const { GameHub } = await import("./ui/hubs/GameHubs");
+    await mount(<GameHub key="f1" hub="finance" tab="tax" badges={{}} onClose={() => {}} />);
+    expect(container.querySelector(".st-tabs")).toBeNull(); // 資金與損益是唯一可見分頁
+    expect(container.textContent).toContain("口碑與狀態");
+  });
+
+  it("全部功能：列出所有分頁，沒開放的附解鎖說明，開放的可以開啟", async () => {
+    store.state.value = publicState(0);
+    const { MenuWindow } = await import("./ui/hubs/GameHubs");
+    const opened: string[] = [];
+    await mount(<MenuWindow page="all" onClose={() => {}} onOpenHub={(h, t) => opened.push(`${h}.${t}`)} />);
+    expect(container.textContent).toContain("科技");
+    expect(container.textContent).toContain("Lv.2 開放");
+    expect(container.textContent).toContain("稅務與帳單");
+    const open = Array.from(container.querySelectorAll("button")).filter((b) => b.textContent === "開啟");
+    expect(open.length).toBeGreaterThan(3);
+    (open[0] as HTMLElement).click();
+    expect(opened).toHaveLength(1);
+  });
+
+  it("財務總覽只有數字與狀態，不重複提醒卡", async () => {
+    store.state.value = publicState(2);
+    const { FinanceSummary } = await import("./screens/FinanceSummary");
+    await mount(<FinanceSummary />);
+    expect(container.textContent).toContain("資金");
+    expect(container.textContent).toContain("累計營收");
+    expect(container.textContent).toContain("在地口碑");
+    expect(container.textContent).not.toContain("新手任務");
+    expect(container.querySelector(".alert")).toBeNull();
+  });
+
+  it("每日快訊彈窗顯示最新日報的標題與重點", async () => {
+    store.state.value = publicState(2);
+    const last = store.state.value!.reports[store.state.value!.reports.length - 1]!;
+    const { ReportPopup } = await import("./ui/hubs/GameHubs");
+    let opened = false;
+    await mount(<ReportPopup onClose={() => {}} onOpenReports={() => (opened = true)} />);
+    expect(container.textContent).toContain(last.headline);
+    expect(container.textContent).toContain(last.date);
+    const btn = Array.from(container.querySelectorAll("button")).find((b) => b.textContent === "看完整日報") as HTMLElement;
+    btn.click();
+    expect(opened).toBe(true);
+  });
+
+  it("設定視窗：遊戲時間與商場帳號兩個分頁", async () => {
+    store.state.value = publicState(0);
+    store.mallInfo.value = { id: 1, name: "測試", inviteCode: "ABCD2345", members: [{ userId: 1, displayName: "我", role: "gm", isOwner: true, joinedAt: 0 }] };
+    const { MenuWindow } = await import("./ui/hubs/GameHubs");
+    await mount(<MenuWindow page="settings" onClose={() => {}} onOpenHub={() => {}} />);
+    expect(container.textContent).toContain("時間流速");
+    const tab = Array.from(container.querySelectorAll(".st-tabs button")).find((b) => b.textContent === "商場與帳號") as HTMLElement;
+    tab.click();
+    await tick();
+    expect(container.textContent).toContain("登出");
+    expect(container.textContent).toContain("切換商場");
+  });
+
+  it("AttentionCenter renders real items grouped by severity and reports the clicked item", async () => {
+    store.state.value = publicState(0, (s) => {
+      s.funds = -500;
+    });
+    const { buildAttention } = await import("./ui/attention");
+    const { AttentionCenter } = await import("./ui/AttentionCenter");
+    const items = buildAttention(store.state.value!, 1);
+    let got: string | null = null;
+    await mount(<AttentionCenter items={items} onClose={() => {}} onAct={(it) => (got = it.id)} />);
+    expect(container.textContent).toContain("緊急");
+    expect(container.textContent).toContain("帳上資金為負");
+    (container.querySelector(".st-item.urgent button") as HTMLElement).click();
+    expect(got).toBe("funds-negative");
+  });
+
+  it("Dock shows hub badges from the attention list", async () => {
+    store.state.value = publicState(0, (s) => {
+      s.cleanliness = 10;
+    });
+    const { buildAttention, hubBadges } = await import("./ui/attention");
+    const { Dock } = await import("./ui/Dock");
+    const badges = hubBadges(buildAttention(store.state.value!, 1));
+    await mount(<Dock active={null} badges={badges} onPick={() => {}} />);
+    const operate = container.querySelectorAll(".st-dock button")[0]!;
+    expect(operate.textContent).toContain("營運");
+    expect(operate.querySelector(".st-badge")?.textContent).toBe(String(badges.operate));
   });
 });

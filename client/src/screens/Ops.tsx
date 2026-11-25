@@ -25,7 +25,54 @@ import { run, setClock, state } from "../store";
 
 const LEVEL_NAMES = ["不做", "標準", "加強"] as const;
 
-export function Ops() {
+
+/** 時間流速與自動暫停設定（HUD 只放暫停／繼續，其餘進階項目收在設定視窗） */
+export function TimeSettings() {
+  const s = state.value;
+  if (!s) return null;
+  const clock = s.clock;
+  const manualPaused = clock.holds.manual;
+  const activePreset = presetOfSpeed(clock.speed);
+  return (
+        <Card title="⏱ 時間流速" right={<Chip tone={isPaused(clock) ? "amber" : "green"}>{isPaused(clock) ? "⏸ 已暫停" : `${activePreset.name}・${activePreset.realHoursPerDay} 小時＝1 日`}</Chip>}>
+          <div class="stack">
+            <div class="seg five">
+              {SPEED_PRESETS.map((p) => (
+                <button key={p.id} class={!manualPaused && activePreset.id === p.id ? "active" : ""} onClick={() => setClock({ speed: p.id }, `時間流速：${p.name}`)}>
+                  <b>{p.name}</b>
+                  <small>{p.realHoursPerDay} 小時/日</small>
+                </button>
+              ))}
+              <button class={manualPaused ? "active pause" : "pause"} onClick={() => setClock({ paused: !manualPaused }, manualPaused ? "時間繼續" : "時間已暫停")}>
+                <b>{manualPaused ? "▶ 恢復" : "⏸ 暫停"}</b>
+                <small>{manualPaused ? "繼續走" : "時間靜止"}</small>
+              </button>
+            </div>
+            <p class="small dim">
+              最快就是「標準」。調慢會讓營收、升級、事件、建造<b>一起變慢</b>；暫停時間完全靜止——不營業、不扣成本、不發生事件，什麼都不會流失。任何隊員都可以調整，不用等別人同意。
+            </p>
+            <label class="row">
+              <input type="checkbox" checked={clock.pauseOnEvents} onChange={(e) => setClock({ pauseOnEvents: (e.target as HTMLInputElement).checked })} />
+              <span>沒人在場時，遇到重要事件自動暫停並通知</span>
+            </label>
+            <p class="small dim">例如颱風要不要閉館。只有「放著會吃大虧」的事件才會暫停，一般事件照常營運；有人在線時不會暫停。</p>
+            <Field label="全員連續幾天沒上線就自動暫停（保底）">
+              <select value={clock.idlePauseDays ?? ""} onChange={(e) => setClock({ idlePauseDays: (e.target as HTMLSelectElement).value === "" ? null : Number((e.target as HTMLSelectElement).value) })}>
+                <option value="">關閉（離線期間照常營運）</option>
+                {[1, 2, 3, 5, 7, 14].map((d) => (
+                  <option key={d} value={d}>
+                    {d} 天
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+        </Card>
+  );
+}
+
+/** 營業時間（含客流預測）。 */
+export function HoursCards() {
   const s = state.value;
   const [open, setOpen] = useState(s?.hours.open ?? 10);
   const [close, setClose] = useState(s?.hours.close ?? 22);
@@ -44,19 +91,8 @@ export function Ops() {
   const total = traffic.reduce((a, b) => a + b, 0);
   const captured = traffic.reduce((a, v, h) => (h >= open && h < close ? a + v : a), 0);
   const nowHour = timeInfo(s.tick).hour;
-
-  let wages = 0;
-  for (const sh of s.shops) if (sh.mode === "direct") wages += (CATEGORY_BY_ID[sh.category]?.wage ?? 0) * sh.level;
-  const reservedSeats = s.regulars.filter((r) => r.reserved).length * RESERVE_UPKEEP_PER_DAY;
-  const fixed = UTILITIES_PER_DAY + (CLEANING_COST_PER_DAY[s.cleaningLevel] + MAINTENANCE_COST_PER_DAY[s.maintenanceLevel]) * facilityScale(s) + wages * laborCostFactor(s.hours.open, s.hours.close) + reservedSeats;
-
-  const clock = s.clock;
-  const manualPaused = clock.holds.manual;
-  const activePreset = presetOfSpeed(clock.speed);
-
   return (
     <>
-      <DeviceCard />
       {techFx(s.tech.done).forecast && (
         <Card title="📈 客流預測（大數據分析）" right={<span class="small dim">接下來 12 個遊戲小時</span>}>
           <div class="bars">
@@ -71,40 +107,6 @@ export function Ops() {
           <p class="small dim">柱子越高人越多；尖峰前把庫存補好、人手排滿。</p>
         </Card>
       )}
-      <Card title="⏱ 時間流速" right={<Chip tone={isPaused(clock) ? "amber" : "green"}>{isPaused(clock) ? "⏸ 已暫停" : `${activePreset.name}・${activePreset.realHoursPerDay} 小時＝1 日`}</Chip>}>
-        <div class="stack">
-          <div class="seg five">
-            {SPEED_PRESETS.map((p) => (
-              <button key={p.id} class={!manualPaused && activePreset.id === p.id ? "active" : ""} onClick={() => setClock({ speed: p.id }, `時間流速：${p.name}`)}>
-                <b>{p.name}</b>
-                <small>{p.realHoursPerDay} 小時/日</small>
-              </button>
-            ))}
-            <button class={manualPaused ? "active pause" : "pause"} onClick={() => setClock({ paused: !manualPaused }, manualPaused ? "時間繼續" : "時間已暫停")}>
-              <b>{manualPaused ? "▶ 恢復" : "⏸ 暫停"}</b>
-              <small>{manualPaused ? "繼續走" : "時間靜止"}</small>
-            </button>
-          </div>
-          <p class="small dim">
-            最快就是「標準」。調慢會讓營收、升級、事件、建造<b>一起變慢</b>；暫停時間完全靜止——不營業、不扣成本、不發生事件，什麼都不會流失。任何隊員都可以調整，不用等別人同意。
-          </p>
-          <label class="row">
-            <input type="checkbox" checked={clock.pauseOnEvents} onChange={(e) => setClock({ pauseOnEvents: (e.target as HTMLInputElement).checked })} />
-            <span>沒人在場時，遇到重要事件自動暫停並通知</span>
-          </label>
-          <p class="small dim">例如颱風要不要閉館。只有「放著會吃大虧」的事件才會暫停，一般事件照常營運；有人在線時不會暫停。</p>
-          <Field label="全員連續幾天沒上線就自動暫停（保底）">
-            <select value={clock.idlePauseDays ?? ""} onChange={(e) => setClock({ idlePauseDays: (e.target as HTMLSelectElement).value === "" ? null : Number((e.target as HTMLSelectElement).value) })}>
-              <option value="">關閉（離線期間照常營運）</option>
-              {[1, 2, 3, 5, 7, 14].map((d) => (
-                <option key={d} value={d}>
-                  {d} 天
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
-      </Card>
 
       <Card title="🕒 營業時間" right={<Chip tone="green">涵蓋約 {Math.round((captured / total) * 100)}% 的客流</Chip>}>
         <div class="stack">
@@ -152,7 +154,20 @@ export function Ops() {
           </Btn>
         </div>
       </Card>
+    </>
+  );
+}
 
+/** 清潔、設備維護、稽查與每日固定成本。 */
+export function FacilityCards() {
+  const s = state.value;
+  if (!s) return null;
+  let wages = 0;
+  for (const sh of s.shops) if (sh.mode === "direct") wages += (CATEGORY_BY_ID[sh.category]?.wage ?? 0) * sh.level;
+  const reservedSeats = s.regulars.filter((r) => r.reserved).length * RESERVE_UPKEEP_PER_DAY;
+  const fixed = UTILITIES_PER_DAY + (CLEANING_COST_PER_DAY[s.cleaningLevel] + MAINTENANCE_COST_PER_DAY[s.maintenanceLevel]) * facilityScale(s) + wages * laborCostFactor(s.hours.open, s.hours.close) + reservedSeats;
+  return (
+    <>
       <div class="grid two">
         <Card title="🧹 清潔等級" right={<span class="small dim">目前整潔度 {Math.round(s.cleanliness)}</span>}>
           <div class="seg">
@@ -246,6 +261,18 @@ export function Ops() {
           </div>
         </div>
       </Card>
+    </>
+  );
+}
+
+/** 完整的營運頁（舊版整頁，仍供測試與過渡使用）。 */
+export function Ops() {
+  return (
+    <>
+      <DeviceCard />
+      <TimeSettings />
+      <HoursCards />
+      <FacilityCards />
     </>
   );
 }

@@ -14,7 +14,8 @@ function ago(ts: number): string {
   return h < 24 ? `${h} 小時前` : `${Math.round(h / 24)} 天前`;
 }
 
-export function Team() {
+/** part：團隊成員／邀請／動態（世界樞紐）、商場控制與帳號（設定視窗）、或全部（舊版整頁） */
+export function Team({ part = "all" }: { part?: "all" | "team" | "controls" }) {
   const info = mallInfo.value;
   const id = mallId.value;
   if (!info || id === null) return null;
@@ -80,8 +81,13 @@ export function Team() {
     }
   };
 
+  const showTeam = part !== "controls";
+  const showControls = part !== "team";
+
   return (
     <>
+      {showTeam && (
+        <>
       <div class="grid two">
         <Card title={`👥 團隊（${info.members.length}）`}>
           <div>
@@ -154,10 +160,14 @@ export function Team() {
           </div>
         )}
       </Card>
+        </>
+      )}
 
+      {showControls && (
+        <>
       <Card title="⏱ 遊戲時間">
         <p class="small dim">
-          標準流速：真實 {REAL_HOURS_PER_GAME_DAY} 小時 ＝ 遊戲 1 天（1 遊戲小時 ≈ 15 真實分鐘）。你不在線時商場照常營業，回來看營運日報就好；沒空顧的時候，到「營運」分頁把時間調慢或暫停。
+          標準流速：真實 {REAL_HOURS_PER_GAME_DAY} 小時 ＝ 遊戲 1 天（1 遊戲小時 ≈ 15 真實分鐘）。你不在線時商場照常營業，回來看營運日報就好；沒空顧的時候，到「設定」把時間調慢或暫停。
         </p>
       </Card>
 
@@ -179,6 +189,11 @@ export function Team() {
           登出
         </Btn>
       </div>
+        </>
+      )}
     </>
   );
 }
+
+export const TeamMembers = () => <Team part="team" />;
+export const MallControls = () => <Team part="controls" />;
