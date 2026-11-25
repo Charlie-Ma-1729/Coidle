@@ -3,7 +3,7 @@
  * 場景只認 StageModel；真實資料與示範資料（fixtures）走同一條路。
  * 純函式、不依賴 DOM／Pixi。
  */
-import { CATEGORY_BY_ID, ZONES, dayWeather, expandInfo, isZoneUnlocked, mallStars, techFx, timeInfo, weatherNow, type CategoryDef, type PublicMallState, type Shop } from "@coidle/shared";
+import { CATEGORY_BY_ID, ZONES, calendarDay, calendarLabel, dayWeather, expandInfo, isZoneUnlocked, mallStars, techFx, timeInfo, weatherNow, type CategoryDef, type PublicMallState, type Shop } from "@coidle/shared";
 import { dateText } from "../format";
 import { buildAttention, shopFlagsFrom, type PendingInvite } from "../ui/attention";
 import type { FloorLinkKind } from "./floorplan";
@@ -146,7 +146,8 @@ export function toStageModel(s: PublicMallState, userId?: string | number | null
     equipment: s.equipment,
     minuteOfDay: t.hour * 60 + t.minute,
     dateLabel: dateText(s.tick),
-    weekend: t.weekend,
+    dateBadge: calendarLabel(calendarDay(t.day)),
+    weekend: t.offDay,
     cleaningLevel: s.cleaningLevel,
     weather: weatherNow(s),
     // 「客流預測」科技才看得到明日預報；事件強制的天氣預報不到

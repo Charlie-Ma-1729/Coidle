@@ -17,6 +17,8 @@ export interface MemberInfo {
   displayName: string;
   role: RoleId;
   isOwner: boolean;
+  /** 持股過半的實際控制人（創辦人頭銜只有一個，這個才是真正掌控商場的人）；舊資料沒有這個欄位 */
+  isController?: boolean;
   joinedAt: number;
 }
 

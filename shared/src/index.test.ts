@@ -4,10 +4,14 @@ import {
   CATEGORY_BY_ID,
   EVENTS,
   PERSONAS,
+  REAL_HOURS_PER_GAME_DAY,
   TICKS_PER_DAY,
   ZONE_BY_ID,
+  lagTicks,
   periodOf,
   realMsFromTick,
+  serverRealMsAt,
+  serverTickAt,
   tickFromRealMs,
   timeInfo,
   CLOCK_ANCHOR_REAL_MS,
@@ -50,16 +54,26 @@ describe("shared game data", () => {
 });
 
 describe("game clock", () => {
-  it("anchors the game calendar at 2027-04-01 and runs 4x", () => {
+  it("anchors the game calendar at 2027-04-01 and runs 6x (4 real hours = 1 game day)", () => {
     const t0 = timeInfo(tickFromRealMs(CLOCK_ANCHOR_REAL_MS));
     expect(t0.date).toBe("2027-04-01");
     expect(t0.hour).toBe(0);
-    // 真實 6 小時 = 遊戲 1 天
-    const t1 = timeInfo(tickFromRealMs(CLOCK_ANCHOR_REAL_MS + 6 * 3_600_000));
+    // 真實 4 小時 = 遊戲 1 天
+    const t1 = timeInfo(tickFromRealMs(CLOCK_ANCHOR_REAL_MS + 4 * 3_600_000));
     expect(t1.date).toBe("2027-04-02");
-    // 真實 1 天 = 4 個遊戲日；約 1.75 真實日一週
+    // 真實 1 天 = 6 個遊戲日；28 個真實小時一週
     const t2 = timeInfo(tickFromRealMs(CLOCK_ANCHOR_REAL_MS + 24 * 3_600_000));
-    expect(t2.date).toBe("2027-04-05");
+    expect(t2.date).toBe("2027-04-07");
+    expect(REAL_HOURS_PER_GAME_DAY).toBe(4);
+  });
+
+  it("the server clock is a pure linear function of real time, and mall ticks never pass it", () => {
+    const sc = { anchorRealMs: 1_000_000, anchorTick: 777 };
+    expect(serverTickAt(1_000_000, sc)).toBe(777);
+    expect(serverTickAt(1_000_000 + 4 * 3_600_000, sc)).toBe(777 + TICKS_PER_DAY);
+    expect(serverRealMsAt(777 + TICKS_PER_DAY, sc)).toBe(1_000_000 + 4 * 3_600_000);
+    expect(lagTicks(700, 1_000_000, sc)).toBe(77);
+    expect(lagTicks(900, 1_000_000, sc)).toBe(0); // 領先也當成 0
   });
 
   it("tick <-> real time round-trips", () => {

@@ -20,7 +20,7 @@ import {
   PROPERTY_TAX_RATE,
   type MallState,
 } from "@coidle/shared";
-import { advanceTo, applyCommand, createInitialState, migrateState, type Command } from "./sim";
+import { advanceFully as advanceTo, applyCommand, createInitialState, migrateState, type Command } from "./sim";
 import { dailyWages, settleBills } from "./sim/tax";
 import { timeInfo } from "./sim/time";
 

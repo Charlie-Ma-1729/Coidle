@@ -191,6 +191,9 @@ describe("one player, several malls", () => {
     const a = make();
     const p = await register(a, "multi", "分身");
     const m1 = (await call(a, p.cookie, "POST", "/api/malls", { name: "一號店" })).json().id as number;
+    // 第一座商場用免費的起始資金；第二座要自己出資（從個人錢包）
+    expect((await call(a, p.cookie, "POST", "/api/malls", { name: "二號店" })).statusCode).toBe(402);
+    a.repo.addCash((await call(a, p.cookie, "GET", "/api/me")).json().user.id, 2_000_000);
     const m2 = (await call(a, p.cookie, "POST", "/api/malls", { name: "二號店" })).json().id as number;
     const me = (await call(a, p.cookie, "GET", "/api/me")).json();
     expect(me.malls.map((m: { id: number }) => m.id)).toEqual([m1, m2]);

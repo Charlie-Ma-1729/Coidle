@@ -31,7 +31,7 @@ const STANCE = [
 ];
 
 function left(s: PublicMallState, tick: number): string {
-  const m = Math.max(1, Math.round(ticksToRealMinutes(tick - s.tick, s.clock.speed)));
+  const m = Math.max(1, Math.round(ticksToRealMinutes(tick - s.tick, s.clock.speed, s.clock.lag)));
   return m >= 60 ? `約 ${Math.round(m / 6) / 10} 小時` : `約 ${m} 分鐘`;
 }
 

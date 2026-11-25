@@ -7,6 +7,8 @@ import {
   TRADE_MIN_FUNDS,
   TRADE_MIN_GOODS,
   TRADE_NET_WINDOW_MS,
+  RELATED_BLOCK_TEXT,
+  RELATED_TAIL_MS,
   afterFee,
   categoryHasStock,
   npcNumericId,
@@ -30,6 +32,10 @@ export interface TradeHost {
   /** 在商場上做一次同步修改：fn 丟出 ServiceError 就整個取消 */
   mutate(mallId: number, fn: (s: MallState) => void): void;
   deliver(mallId: number): void;
+  /** 發起方落後伺服器基準時間太多時丟出 ServiceError（沒給就不檢查） */
+  assertCanInteract?(mallId: number): void;
+  /** 兩座真人商場是不是關係企業（有共同的經營者）；沒給就不檢查 */
+  related?(a: number, b: number): boolean;
 }
 
 const keyToId = (key: string): number | null => (/^m:\d+$/.test(key) ? Number(key.slice(2)) : null);
@@ -65,7 +71,24 @@ export class TradeService {
     const h = hash32(fromMall * 7919 + Math.round(amount), Math.floor(t / 60_000));
     if (h % 100 >= 20) return;
     const delay = (1 + (h % 5)) * 3_600_000;
-    this.repo.addMail(fromMall, "funds_gift", { amount: Math.floor(amount * 0.4), from: this.npcName(npcId) ?? "友好商場" }, t, t + delay);
+    this.repo.addMail(fromMall, "funds_gift", { amount: Math.floor(amount * 0.4), from: this.npcName(npcId) ?? "友好商場" }, t, t + delay, this.repo.serverTick(t + delay));
+  }
+
+  /**
+   * 防止左手轉右手：
+   * 1. 關係企業（有共同經營者，含最近離開的成員）之間不能轉。
+   * 2. 不能「繞一圈」：A 的經營者把錢轉給朋友 C，C 再轉給同一位經營者的另一座商場 B。
+   *    所以收到過對方關係企業支援的商場，這段期間不能把同種東西再轉給那一群。
+   *    （直接還給原本那座商場沒關係，那座的淨流量上限本來就會管。）
+   */
+  private guardRelated(from: number, to: number, kind: "funds" | "goods"): void {
+    if (to < 0) return; // NPC 商場沒有經營者
+    if (this.host.related?.(from, to)) throw new ServiceError(400, RELATED_BLOCK_TEXT);
+    const t = this.now();
+    const group = this.repo.relatedMalls(to, t - RELATED_TAIL_MS);
+    if (this.repo.tradeReceivedFrom(from, group, kind, t - TRADE_NET_WINDOW_MS) > 0) {
+      throw new ServiceError(400, "你最近收到了對方關係企業的支援，這段期間不能再轉給同一群商場（避免繞一圈轉移）");
+    }
   }
 
   private checkRate(from: number, to: number, kind: string): void {
@@ -76,6 +99,8 @@ export class TradeService {
   /** 送錢（贈與）：對方收到 95%。 */
   sendFunds(fromMall: number, targetKey: string, amount: number): { sent: number; received: number } {
     const to = this.target(fromMall, targetKey);
+    this.host.assertCanInteract?.(fromMall);
+    this.guardRelated(fromMall, to, "funds");
     if (!Number.isInteger(amount) || amount < TRADE_MIN_FUNDS) throw new ServiceError(400, `一次至少 ¥${TRADE_MIN_FUNDS.toLocaleString("en-US")}（整數）`);
     const me = this.host.peek(fromMall);
     const lim = tradeLimits(me.level);
@@ -101,7 +126,7 @@ export class TradeService {
       this.maybeReciprocate(fromMall, targetKey.slice(2), received, t);
       return { sent: amount, received };
     }
-    this.repo.addMail(to, "funds_gift", { amount: received, from: this.nameOf(fromMall) }, t, t);
+    this.repo.addMail(to, "funds_gift", { amount: received, from: this.nameOf(fromMall) }, t, t, this.repo.serverTick(t));
     this.host.deliver(to);
     return { sent: amount, received };
   }
@@ -109,6 +134,8 @@ export class TradeService {
   /** 調貨：把某間直營店的庫存分一部分給對方同業態的店（對方缺貨的優先）。 */
   sendGoods(fromMall: number, targetKey: string, shopId: string, qty: number): { sent: number; received: number; rescue: boolean } {
     const to = this.target(fromMall, targetKey);
+    this.host.assertCanInteract?.(fromMall);
+    this.guardRelated(fromMall, to, "goods");
     if (!Number.isInteger(qty) || qty < TRADE_MIN_GOODS || qty > TRADE_MAX_GOODS) throw new ServiceError(400, `一次 ${TRADE_MIN_GOODS}–${TRADE_MAX_GOODS} 份`);
     const me = this.host.peek(fromMall);
     const shop = me.shops.find((x) => x.id === shopId);
@@ -136,7 +163,7 @@ export class TradeService {
     if (rescue) this.repo.addTrade(t, fromMall, to, "rescue", 1);
     this.repo.addTrade(t, fromMall, to, "goods", qty, `${shop.category} 收到 ${received}`);
     if (to < 0) return { sent: qty, received, rescue };
-    this.repo.addMail(to, "goods", { category: shop.category, qty: received, from: this.nameOf(fromMall) }, t, t);
+    this.repo.addMail(to, "goods", { category: shop.category, qty: received, from: this.nameOf(fromMall) }, t, t, this.repo.serverTick(t));
     this.host.deliver(to);
     return { sent: qty, received, rescue };
   }

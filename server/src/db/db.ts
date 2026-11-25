@@ -4,7 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 
 export type Db = DatabaseSync;
 
-const MIGRATIONS: string[] = [
+export const MIGRATIONS: string[] = [
   // v1
   `
   CREATE TABLE users (
@@ -234,6 +234,134 @@ const MIGRATIONS: string[] = [
   ALTER TABLE trades ADD COLUMN from_key TEXT;
   ALTER TABLE trades ADD COLUMN to_key TEXT;
   ALTER TABLE attacks ADD COLUMN attacker_key TEXT;
+  `,
+  // v9：伺服器基準時間（所有商場共用的時間軸），以及信件的生效 tick（落後的商場模擬到那個 tick 才收到）
+  `
+  CREATE TABLE server_clock (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    anchor_real_ms INTEGER NOT NULL,
+    anchor_tick INTEGER NOT NULL
+  );
+  ALTER TABLE mall_mailbox ADD COLUMN at_tick INTEGER;
+  `,
+  // v10：離開商場的成員紀錄，用來判斷「關係企業」（同一位玩家經手的商場不能互相聯名、貿易、搶客）
+  `
+  CREATE TABLE membership_trail (
+    mall_id INTEGER NOT NULL REFERENCES malls(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    left_at INTEGER NOT NULL
+  );
+  CREATE INDEX idx_trail_user ON membership_trail(user_id, left_at);
+  CREATE INDEX idx_trail_mall ON membership_trail(mall_id, left_at);
+  `,
+  // v11：股權（每座商場固定 10000 股）。舊商場回填：創辦人 100%（沒有創辦人就給最早加入、編號最小的成員）
+  `
+  CREATE TABLE holdings (
+    mall_id INTEGER NOT NULL REFERENCES malls(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    shares INTEGER NOT NULL CHECK (shares > 0),
+    PRIMARY KEY (mall_id, user_id)
+  );
+  CREATE INDEX idx_holdings_user ON holdings(user_id);
+  INSERT INTO holdings (mall_id, user_id, shares)
+    SELECT mall_id, MIN(user_id), 10000 FROM memberships WHERE is_owner = 1 GROUP BY mall_id;
+  INSERT INTO holdings (mall_id, user_id, shares)
+    SELECT m.mall_id, MIN(m.user_id), 10000 FROM memberships m
+    WHERE NOT EXISTS (SELECT 1 FROM holdings h WHERE h.mall_id = m.mall_id)
+      AND m.joined_at = (SELECT MIN(x.joined_at) FROM memberships x WHERE x.mall_id = m.mall_id)
+    GROUP BY m.mall_id;
+  `,
+  // v12：個人錢包（賣股份、被商場回購的錢進這裡）、給其他股東的出價、商場庫藏股（被回購、還沒賣出的股份）
+  `
+  CREATE TABLE wallets (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    cash INTEGER NOT NULL DEFAULT 0 CHECK (cash >= 0)
+  );
+  CREATE TABLE share_offers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    mall_id INTEGER NOT NULL REFERENCES malls(id) ON DELETE CASCADE,
+    from_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    to_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    shares INTEGER NOT NULL CHECK (shares > 0),
+    price INTEGER NOT NULL CHECK (price >= 0),
+    expires_at INTEGER NOT NULL
+  );
+  CREATE INDEX idx_offers_mall ON share_offers(mall_id);
+  ALTER TABLE malls ADD COLUMN treasury_shares INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE malls ADD COLUMN last_dividend_at INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE malls ADD COLUMN total_shares INTEGER NOT NULL DEFAULT 10000;
+  CREATE TABLE capital_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    mall_id INTEGER NOT NULL REFERENCES malls(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    amount INTEGER NOT NULL CHECK (amount > 0),
+    expires_at INTEGER NOT NULL
+  );
+  CREATE INDEX idx_capital_mall ON capital_requests(mall_id);
+  ALTER TABLE users ADD COLUMN founded_count INTEGER NOT NULL DEFAULT 0;
+  UPDATE users SET founded_count = (SELECT COUNT(*) FROM memberships m WHERE m.user_id = users.id AND m.is_owner = 1);
+  `,
+  // v13：股票市場（個人持倉與成交紀錄）與錢包流水（個人財務頁的「明細」）
+  `
+  CREATE TABLE stock_positions (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    company TEXT NOT NULL,
+    shares INTEGER NOT NULL CHECK (shares > 0),
+    cost_total INTEGER NOT NULL CHECK (cost_total >= 0),
+    PRIMARY KEY (user_id, company)
+  );
+  CREATE TABLE stock_trades (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    company TEXT NOT NULL,
+    side TEXT NOT NULL CHECK (side IN ('buy', 'sell')),
+    shares INTEGER NOT NULL,
+    price INTEGER NOT NULL,
+    fee INTEGER NOT NULL,
+    tax INTEGER NOT NULL,
+    day INTEGER NOT NULL,
+    at INTEGER NOT NULL
+  );
+  CREATE INDEX idx_trades_user_day ON stock_trades(user_id, day);
+  CREATE TABLE wallet_ledger (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL,
+    amount INTEGER NOT NULL,
+    balance_after INTEGER NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    at INTEGER NOT NULL
+  );
+  CREATE INDEX idx_ledger_user ON wallet_ledger(user_id, id);
+  `,
+  // v14：平衡分析用的「每座商場每個遊戲日」快照（永久保存，不隨商場的 30 天日報滾掉；解散的商場資料也留著）
+  `
+  CREATE TABLE balance_daily (
+    mall_id INTEGER NOT NULL,
+    day INTEGER NOT NULL,
+    recorded_at INTEGER NOT NULL,
+    level INTEGER NOT NULL,
+    shops INTEGER NOT NULL,
+    members INTEGER NOT NULL DEFAULT 0,
+    funds REAL,
+    revenue REAL NOT NULL,
+    profit REAL NOT NULL,
+    purchases REAL NOT NULL,
+    fixed REAL NOT NULL,
+    groups INTEGER NOT NULL,
+    units INTEGER NOT NULL,
+    walkouts INTEGER NOT NULL,
+    lost_capacity INTEGER NOT NULL,
+    stockouts INTEGER NOT NULL,
+    price_walks INTEGER NOT NULL DEFAULT 0,
+    local_rep REAL NOT NULL,
+    tourist_heat REAL NOT NULL,
+    avg_sat REAL,
+    price_ratio REAL,
+    detail_json TEXT NOT NULL DEFAULT '[]',
+    PRIMARY KEY (mall_id, day)
+  );
+  CREATE INDEX idx_balance_day ON balance_daily(day);
   `,
 ];
 

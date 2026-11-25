@@ -2,6 +2,7 @@ import {
   COMPETE_SHIELD_MS,
   NPC_MALLS,
   SEASON_MIN_AGE_MS,
+  SEASON_ONE_REWARD_PER_PLAYER,
   SEASON_PARTICIPATION,
   SEASON_REWARDS,
   internalKey,
@@ -132,8 +133,13 @@ export class WorldService {
       };
       // 先把「這一季已結算」寫進去（INSERT OR IGNORE），確保不會重複發獎
       if (!this.repo.saveSeason(season, now, JSON.stringify(result))) continue;
+      // 同一位玩家一季只領一份獎金：名次高的那座領，同一位玩家的其他商場照樣列在榜上、但不再領獎
+      const paid = new Set<number>();
       rows.forEach((row, i) => {
         if (row.kind !== "player" || !row.eligible || row.mallId === undefined) return;
+        const owners = this.repo.members(row.mallId).map((m) => m.userId);
+        if (SEASON_ONE_REWARD_PER_PLAYER && owners.some((u) => paid.has(u))) return;
+        for (const u of owners) paid.add(u);
         const reward = SEASON_REWARDS[i] ?? SEASON_PARTICIPATION;
         this.repo.addMail(
           row.mallId,

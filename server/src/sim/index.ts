@@ -1,4 +1,4 @@
-export { advanceTo } from "./advance";
+export { advanceFully, advanceTo } from "./advance";
 export { applyCommand, type Command, type CommandResult } from "./commands";
 export { migrateState } from "./migrate";
 export { createInitialState, isZoneUnlocked } from "./state";

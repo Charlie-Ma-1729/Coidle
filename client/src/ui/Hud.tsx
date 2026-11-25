@@ -24,6 +24,8 @@ export function TopBar(props: {
   funds: number;
   todayProfit: number;
   dateLabel: string;
+  /** 今天的日曆標籤（國定假日、黃金週、盂蘭盆…）；平凡的一天沒有 */
+  dateBadge?: string | null;
   minuteOfDay: number;
   speeds: SpeedOption[];
   speed: number;
@@ -89,6 +91,11 @@ export function TopBar(props: {
       )}
       <div class="st-stat st-clock st-panel">
         <small>{props.dateLabel}</small>
+        {props.dateBadge && (
+          <small class="st-badge" style={{ color: "#ffb347" }} title="今天的日曆：客流與熱門業態會跟著變">
+            {props.dateBadge}
+          </small>
+        )}
         <b>{hhmm(props.minuteOfDay)}</b>
       </div>
       <div class="st-seg" role="group" aria-label="時間流速">
@@ -98,7 +105,7 @@ export function TopBar(props: {
           </button>
         ))}
         {props.onCycleSpeed && (
-          <button class="st-btn st-speed" title="換時間流速（極速→快速→輕快→標準→悠閒→現實）" aria-label={`時間流速：${props.speedName ?? ""}，點一下換下一檔`} onClick={props.onCycleSpeed}>
+          <button class="st-btn st-speed" title="換追趕速度（落後伺服器時間時才有用；已追上就和伺服器同速）" aria-label={`追趕速度：${props.speedName ?? ""}，點一下換下一檔`} onClick={props.onCycleSpeed}>
             {props.speedName}
           </button>
         )}

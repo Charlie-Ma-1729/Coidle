@@ -14,7 +14,7 @@ export function FinanceSummary() {
   if (!s) return null;
   const t = timeInfo(s.tick);
   const open = t.hour >= s.hours.open && t.hour < s.hours.close;
-  const period = periodOf(t.hour, t.weekend);
+  const period = periodOf(t.hour, t.offDay);
   const d = s.today;
   const profitSoFar = d.revenue + d.rentIncome - d.purchases - d.fixed - d.repairs;
   const next = LEVELS.find((l) => l.level === s.level + 1);
@@ -22,7 +22,7 @@ export function FinanceSummary() {
   return (
     <>
       <div class="row">
-        <Chip tone={t.weekend ? "pink" : "cyan"}>{t.weekend ? "假日" : "平日"}</Chip>
+        <Chip tone={t.offDay ? "pink" : "cyan"}>{t.holiday ?? (t.offDay ? "假日" : "平日")}</Chip>
         <Chip tone={period === "peak" ? "amber" : period === "quiet" ? "dim" : "green"}>{period === "peak" ? "尖峰時段" : period === "quiet" ? "離峰時段" : "一般時段"}</Chip>
         <Chip tone={open ? "green" : "red"}>{open ? `營業中（至 ${s.hours.close}:00）` : `打烊中（${s.hours.open}:00 開）`}</Chip>
         <Chip tone="amber">Lv.{s.level}</Chip>

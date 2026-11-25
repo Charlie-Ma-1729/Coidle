@@ -28,7 +28,7 @@ export function BuildSheet({ slotId, onClose }: { slotId: number; onClose: () =>
             <div>
               <b>{c.name}</b> {have > 0 && <Chip tone="dim">已有 {have} 間</Chip>}
               <div class="small dim">
-                客單價約 {money(c.refPrice)}・施工 {realDuration(c.buildTicks + (lic?.extraTicks ?? 0), s.clock.speed)}
+                客單價約 {money(c.refPrice)}・施工 {realDuration(c.buildTicks + (lic?.extraTicks ?? 0), s.clock.speed, s.clock.lag)}
               </div>
               {lic && (
                 <div class="small dim">

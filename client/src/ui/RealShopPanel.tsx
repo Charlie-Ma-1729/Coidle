@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import { CATEGORY_BY_ID, MAX_SHOP_LEVEL, REFRESH_COST, UPGRADE_BASE_COST, categoryHasStock, currentUnitCost, leaseEnabled } from "@coidle/shared";
+import { CATEGORY_BY_ID, MAX_SHOP_LEVEL, PRICE_TOLERANCE, REFRESH_COST, UPGRADE_BASE_COST, categoryHasStock, currentUnitCost, leaseEnabled } from "@coidle/shared";
 import { money, num, realDuration } from "../format";
 import type { HubId, StageFloor } from "../stage/model";
 import { busy, run, state } from "../store";
@@ -79,7 +79,7 @@ export function RealShopPanel(props: {
         <Head color={hex(stage.color)} title={stage.name} sub={`${floorName}・施工中`} onClose={props.onClose} />
         <div class="st-side-body">
           <Meter value={(stage.progress ?? 0) * 100} label="施工進度" hint={`${Math.round((stage.progress ?? 0) * 100)}%`} />
-          {task && <p class="st-hint">還要約 {realDuration(Math.max(0, task.completeTick - s.tick), s.clock.speed)}。施工期間不會有客人，也不需要你做任何事。</p>}
+          {task && <p class="st-hint">還要約 {realDuration(Math.max(0, task.completeTick - s.tick), s.clock.speed, s.clock.lag)}。施工期間不會有客人，也不需要你做任何事。</p>}
         </div>
       </aside>
     );
@@ -114,7 +114,7 @@ export function RealShopPanel(props: {
         {closed && (
           <div class="st-tip red">
             <span>
-              <b>暫停營業中</b>，預計約 {realDuration(shop.closedUntilTick - s.tick, s.clock.speed)}後恢復。
+              <b>暫停營業中</b>，預計約 {realDuration(shop.closedUntilTick - s.tick, s.clock.speed, s.clock.lag)}後恢復。
             </span>
           </div>
         )}
@@ -197,7 +197,7 @@ export function RealShopPanel(props: {
             </div>
             <p class="st-hint">
               參考價 {money(cat.refPrice)}
-              {stocked ? `・進貨 ${money(uc)}／份` : ""}。{gap === 0 ? "價格越高單價賺越多，但客人越少。" : gap > 0 ? `比現在貴 ${money(gap)}：客人可能變少。` : `比現在便宜 ${money(-gap)}：客人可能變多。`}
+              {stocked ? `・進貨 ${money(uc)}／份` : ""}。{gap === 0 ? `價格越高單價賺越多，但客人越少；超過參考價約 ${PRICE_TOLERANCE} 倍後，客人看了價格就會走。` : gap > 0 ? `比現在貴 ${money(gap)}：客人可能變少。` : `比現在便宜 ${money(-gap)}：客人可能變多。`}
             </p>
           </div>
         )}

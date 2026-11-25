@@ -16,6 +16,7 @@ import {
 } from "@coidle/shared";
 import { buildApp } from "./app";
 import { advanceTo, createInitialState } from "./sim";
+import { calm } from "./testutil";
 
 const DAY = 86_400_000;
 const clock = { t: WORLD_EPOCH_MS + DAY };
@@ -45,6 +46,7 @@ async function twoMalls(a: App) {
   const u2 = await reg(a, "bob");
   const m1 = a.service.createMall(u1.id, "愛麗絲商場").mallId;
   const m2 = a.service.createMall(u2.id, "鮑伯商場").mallId;
+  calm(a.service, m1, m2);
   for (const id of [m1, m2]) {
     const s = a.service.sync(id) as MallState;
     for (const q of STARTER_QUESTS) s.meta.achievements[q.id] = 0; // 新手獎金不干擾金額檢查
@@ -134,6 +136,7 @@ describe("alliances between two player malls", () => {
       const u = await reg(a, `friend${i}`);
       others.push(a.service.createMall(u.id, `朋友${i}`).mallId);
     }
+    calm(a.service, ...others);
     for (const [i, m] of others.entries()) {
       const r = await post(a, u1.cookie, `/api/malls/${m1}/world/alliance`, { target: `m:${m}` });
       if (i < 3) expect(r.statusCode).toBe(200); // 邀請可以先送（上限 3 份）
@@ -229,6 +232,7 @@ describe("alliances with NPC malls", () => {
     const a = make();
     const u = await reg(a, "carol");
     const id = a.service.createMall(u.id, "新商場").mallId;
+    calm(a.service, id);
     a.service.sync(id);
     const mine = () => a.service.world.entries().find((e) => e.key === `m:${id}`)!;
     // 一座一定願意（分數壓低）、一座一定不願意（分數拉高）
@@ -268,6 +272,7 @@ describe("alliances with NPC malls", () => {
     const a = make();
     const u = await reg(a, "dave");
     const id = a.service.createMall(u.id, "被邀請的商場").mallId;
+    calm(a.service, id);
     a.service.sync(id);
     a.service.world.npc.set("harbor", { scoreMult: 0.3 });
     const msg = a.service.npcActor.manual("harbor", { action: "propose", target: `m:${id}` });

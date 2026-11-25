@@ -1,5 +1,5 @@
 import { signal } from "@preact/signals";
-import { registerEvents, registerRegulars, type ActivityEntry, type Command, type MallSummary, type MeResponse, type PublicMallState } from "@coidle/shared";
+import { registerEvents, registerRegulars, type ActivityEntry, type Command, type MallSummary, type MeResponse, type PublicMallState, type WealthView } from "@coidle/shared";
 import { api, ApiError, setReadOnly, type ClockPatch, type MallInfo } from "./api";
 import type { PendingInvite } from "./ui/attention";
 import { connectMall, disconnectMall } from "./ws";
@@ -32,6 +32,24 @@ export async function refreshInvites(): Promise<void> {
   } catch {
     // ignore
   }
+}
+
+/** 個人財務：錢包、商場持股、股票市值（各處共用，不再各自去拿） */
+export const wealth = signal<WealthView | null>(null);
+/** 「個人財務」視窗：要開哪一頁（null＝沒開）。Lobby 與遊戲內共用同一個視窗 */
+export const personalPage = signal<{ tab: "overview" | "stakes" | "market" | "ledger" } | null>(null);
+export const openPersonal = (tab: "overview" | "stakes" | "market" | "ledger" = "overview"): void => {
+  personalPage.value = { tab };
+};
+
+/** 重新讀取個人財務；失敗就維持原樣 */
+export async function refreshWealth(): Promise<WealthView | null> {
+  try {
+    wealth.value = await api.wealth();
+  } catch {
+    // ignore
+  }
+  return wealth.value;
 }
 
 export interface Toast {
@@ -115,6 +133,8 @@ export async function logout(): Promise<void> {
     leaveMall();
     user.value = null;
     myMalls.value = [];
+    wealth.value = null;
+    personalPage.value = null;
   }
 }
 

@@ -8,6 +8,8 @@
 //   npm run admin -- sandbox-mall <overseer帳號> [商場編號]
 //                                                把測試商場獨立出世界、轉給 Overseer 並移除其他成員；沒給編號就新開一座
 //   npm run admin -- delete-user <帳號>           刪除使用者（他創辦的商場會轉給其他成員，沒人了就解散）
+//   npm run admin -- settle-grants <商場編號> --service-stopped
+//                                                把營運中的商場補成「每位成員一份起始資金」並均分股份（只跑一次；要先停服務，見 docs/equity.md）
 import { randomBytes } from "node:crypto";
 import { createOverseer, OVERSEER_USERNAME, rotateOverseerKey } from "../auth/overseer";
 import { hashPassword } from "../auth/password";
@@ -119,6 +121,26 @@ switch (cmd) {
     console.log(`已刪除「${u.username}」`);
     break;
   }
+  case "settle-grants": {
+    // 會改商場的資金：伺服器還在跑的話，它記憶體裡的舊資金之後會蓋掉這次補資，所以要先停服務、並明確加上 --service-stopped
+    const mallId = Number(arg);
+    if (!Number.isInteger(mallId) || !repo.mallById(mallId)) {
+      console.error("用法：npm run admin -- settle-grants <商場編號> --service-stopped（要先 sudo systemctl stop coidle）");
+      process.exit(1);
+    }
+    if (!process.argv.includes("--service-stopped")) {
+      console.error("這個指令會改商場的資金。請先停掉服務（sudo systemctl stop coidle），確認後加上 --service-stopped 再執行；做完再 start。");
+      process.exit(1);
+    }
+    const r = service.adminSettleGrants(mallId);
+    if (r.grantees.length === 0) {
+      console.log("沒有需要補的成員（大家都已經投入過起始資金），什麼都沒做。");
+      break;
+    }
+    audit.record(cli, "mall.settle-grants", `mall#${mallId}`, { grantees: r.grantees, topUp: r.topUp });
+    console.log(`已補上 ${r.grantees.length} 位成員（${r.grantees.join("、")}）各一份起始資金，共 ${r.topUp.toLocaleString()}；${r.grantees.length + 1} 人均分股份（每位成員 ${r.each.toLocaleString()} 股，創辦人拿其餘）。現在可以 sudo systemctl start coidle。`);
+    break;
+  }
   default:
-    console.log("指令：users | malls | create-overseer [帳號] | rotate-overseer-key [帳號] | reset-password <帳號> | test-mall <帳號> [名稱] | sandbox-mall <overseer帳號> [商場編號] | delete-user <帳號>");
+    console.log("指令：users | malls | create-overseer [帳號] | rotate-overseer-key [帳號] | reset-password <帳號> | test-mall <帳號> [名稱] | sandbox-mall <overseer帳號> [商場編號] | delete-user <帳號> | settle-grants <商場編號> --service-stopped");
 }

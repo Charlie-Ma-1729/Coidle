@@ -48,7 +48,7 @@ function PromoCard({ s, def }: { s: PublicMallState; def: PromoDef }) {
   const reason = busyNow
     ? "進行中或已排程"
     : cooldownLeft > 0
-      ? `冷卻中（${realDuration(cooldownLeft, s.clock.speed).replace("約 ", "約")}）`
+      ? `冷卻中（${realDuration(cooldownLeft, s.clock.speed, s.clock.lag).replace("約 ", "約")}）`
       : s.funds < def.cost
         ? "資金不足"
         : tooMany
@@ -62,7 +62,7 @@ function PromoCard({ s, def }: { s: PublicMallState; def: PromoDef }) {
           {def.icon} {def.name}
         </b>
         <span class="small dim">
-          預算 {money(def.cost)}・{realDuration(def.durationTicks, s.clock.speed)}
+          預算 {money(def.cost)}・{realDuration(def.durationTicks, s.clock.speed, s.clock.lag)}
         </span>
       </div>
       <p class="small dim">{def.desc}</p>
@@ -112,7 +112,7 @@ export function Marketing() {
               const def = PROMO_BY_ID[a.defId];
               const total = a.endTick - a.startTick;
               const done = Math.min(100, ((s.tick - a.startTick) / total) * 100);
-              const left = Math.round(ticksToRealMinutes(a.endTick - s.tick, s.clock.speed));
+              const left = Math.round(ticksToRealMinutes(a.endTick - s.tick, s.clock.speed, s.clock.lag));
               return (
                 <div class="promo" key={a.uid}>
                   <div class="row between">

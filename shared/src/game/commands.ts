@@ -5,6 +5,8 @@ export type Command =
   | { type: "touch" }
   | { type: "setPrice"; shopId: string; price: number }
   | { type: "setHours"; open: number; close: number }
+  /** 概念定位：第一次免費，之後要付費並有冷卻 */
+  | { type: "setConcept"; id: string }
   | { type: "setRestock"; shopId: string; rule: Partial<RestockRule> }
   | { type: "orderStock"; shopId: string; qty: number }
   | { type: "setCleaning"; level: 0 | 1 | 2 }

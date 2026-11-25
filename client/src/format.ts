@@ -34,11 +34,17 @@ export function dateText(tick: number): string {
 }
 
 /** 遊戲 tick 數 → 「約 X 分鐘／X 小時」的真實時間說明 */
-export function realDuration(ticks: number, speed = 1): string {
-  const m = Math.round(ticksToRealMinutes(ticks, speed));
+export function realDuration(ticks: number, speed = 1, lag?: number): string {
+  const m = Math.round(ticksToRealMinutes(ticks, speed, lag));
   if (m < 60) return `約 ${m} 分鐘`;
   const h = m / 60;
   return h < 24 ? `約 ${h.toFixed(h < 10 ? 1 : 0).replace(/\.0$/, "")} 小時` : `約 ${(h / 24).toFixed(1).replace(/\.0$/, "")} 天`;
+}
+
+/** 把落後伺服器的 tick 數說成「N 遊戲日」 */
+export function lagText(lag: number): string {
+  const days = lag / 288;
+  return days < 1 ? `${Math.max(1, Math.round(days * 24))} 遊戲小時` : `${days.toFixed(days < 10 ? 1 : 0).replace(/\.0$/, "")} 遊戲日`;
 }
 
 /** 從現在往後數，下一個「HH:00」的 tick（weekendOnly：只算假日） */
@@ -47,9 +53,21 @@ export function nextTickAt(tick: number, hour: number, weekendOnly = false): num
   const nowInDay = t.hour * 12 + Math.floor(t.minute / 5);
   let target = tick + (((hour * 12 - nowInDay + 288) % 288) || 288);
   if (weekendOnly) {
-    for (let i = 0; i < 8 && !timeInfo(target).weekend; i++) target += 288;
+    for (let i = 0; i < 12 && !timeInfo(target).offDay; i++) target += 288;
   }
   return target;
+}
+
+/** 真實時間 → 「MM/DD HH:mm」（本地時區） */
+export function timeText(ms: number): string {
+  const d = new Date(ms);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/** 帶正負號的金額：+¥1,234／-¥1,234 */
+export function moneySigned(n: number): string {
+  return `${n > 0 ? "+" : ""}${money(n)}`;
 }
 
 export function signed(n: number, digits = 1): string {

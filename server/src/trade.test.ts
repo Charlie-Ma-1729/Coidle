@@ -3,6 +3,7 @@ import { TRADE_FEE, TRADE_KEEP_FUNDS, TRADE_MAX_PER_DAY, STARTER_QUESTS, WORLD_E
 import { buildApp } from "./app";
 import { applyMail } from "./sim/mail";
 import { createInitialState } from "./sim";
+import { calm } from "./testutil";
 
 const DAY = 86_400_000;
 const clock = { t: WORLD_EPOCH_MS + DAY };
@@ -32,6 +33,7 @@ async function pair(a: App, fundsA = 20_000_000, fundsB = 1_000_000) {
   const u2 = await reg(a, "bob");
   const m1 = a.service.createMall(u1.id, "甲商場").mallId;
   const m2 = a.service.createMall(u2.id, "乙商場").mallId;
+  calm(a.service, m1, m2);
   const cache = (a.service as unknown as { cache: Map<number, MallState> }).cache;
   for (const [id, funds] of [[m1, fundsA], [m2, fundsB]] as const) {
     const s = structuredClone(a.service.sync(id));

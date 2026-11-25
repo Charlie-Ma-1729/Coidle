@@ -110,6 +110,7 @@ export function StageScreen(props: { model: StageModel }) {
         funds={model.funds}
         todayProfit={model.todayProfit}
         dateLabel={model.dateLabel}
+        dateBadge={model.dateBadge}
         minuteOfDay={minute}
         speeds={SPEEDS}
         speed={speed}

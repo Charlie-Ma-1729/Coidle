@@ -99,8 +99,8 @@ export function runRegulars(s: MallState, rng: Rng, time: TimeInfo, open: Shop[]
     const cands = open.filter((x) => x.category === def.fav || x.category === def.alt);
     if (cands.length === 0) continue;
     const p = PERSONA_BY_ID[def.persona];
-    const share = (time.weekend ? p.weekendHourShare : p.hourShare)[time.hour] ?? 0;
-    const perDay = (0.35 + (0.9 * reg.affinity) / 100) * (reg.reserved ? 1.3 : 1) * (time.weekend ? Math.sqrt(p.weekendMult) : 1);
+    const share = (time.offDay ? p.weekendHourShare : p.hourShare)[time.hour] ?? 0;
+    const perDay = (0.35 + (0.9 * reg.affinity) / 100) * (reg.reserved ? 1.3 : 1) * (time.offDay ? Math.sqrt(p.weekendMult) : 1);
     const prob = Math.min(0.5, (perDay * share) / TICKS_PER_HOUR);
     if (!rng.chance(prob)) continue;
     units += visit(s, rng, reg, def, p, cands, sale);

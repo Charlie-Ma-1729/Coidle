@@ -8,6 +8,7 @@ import {
   COMPETE_TARGET_MULT,
   COMPETE_TICKS,
   PERSONA_BY_ID,
+  RELATED_BLOCK_TEXT,
   canCompete,
   competeCost,
   npcNumericId,
@@ -29,6 +30,10 @@ export interface CompeteHost {
   snapshot(mallId: number): { level: number };
   spend(mallId: number, amount: number): boolean;
   deliver(mallId: number): void;
+  /** 發起方落後伺服器基準時間太多時丟出 ServiceError（沒給就不檢查） */
+  assertCanInteract?(mallId: number): void;
+  /** 兩座真人商場是不是關係企業（有共同的經營者）；沒給就不檢查 */
+  related?(a: number, b: number): boolean;
 }
 
 export interface CompeteResult {
@@ -53,6 +58,8 @@ export class CompeteService {
   blocker(attackerMall: number, target: DirectoryEntry, attackerLevel: number): string | null {
     const t = this.now();
     if (target.key === `m:${attackerMall}`) return "不能對自己的商場出手";
+    const targetMall = keyToId(target.key);
+    if (targetMall !== null && this.host.related?.(attackerMall, targetMall)) return RELATED_BLOCK_TEXT;
     if (!canCompete(attackerLevel, target.level)) return `你們（Lv.${attackerLevel}）比「${target.name}」（Lv.${target.level}）大太多了——商戰只能找等級相近的商場，或是以小打大`;
     const ally = (this.repo.alliancesOf(`m:${attackerMall}`, ["active"]) as { a_key: string; b_key: string }[]).some((r) => r.a_key === target.key || r.b_key === target.key);
     if (ally) return "你們有聯名協議，不能對盟友出手";
@@ -75,6 +82,7 @@ export class CompeteService {
     if (!(persona in PERSONA_BY_ID)) throw new ServiceError(400, "請選擇一種客人");
     const target = this.world.entries().find((e) => e.key === targetKey);
     if (!target) throw new ServiceError(404, "找不到這座商場");
+    this.host.assertCanInteract?.(mallId);
     const me = this.host.snapshot(mallId);
     const why = this.blocker(mallId, target, me.level);
     if (why) throw new ServiceError(400, why);
@@ -82,14 +90,16 @@ export class CompeteService {
     if (!this.host.spend(mallId, cost)) throw new ServiceError(400, "資金不足");
 
     const t = this.now();
+    // 雙方的效果都從「伺服器基準時間的現在」起算 COMPETE_TICKS，落後的商場模擬到那個 tick 才套用
+    const atTick = this.repo.serverTick(t);
     this.repo.addAttack(t, mallId, targetKey, persona);
     const myName = this.repo.mallById(mallId)?.name ?? "對面的商場";
     // 發動的一方拿到加成
-    this.repo.addMail(mallId, "poach_gain", { persona, mult: COMPETE_SELF_MULT, ticks: COMPETE_TICKS, who: target.name }, t, t);
+    this.repo.addMail(mallId, "poach_gain", { persona, mult: COMPETE_SELF_MULT, ticks: COMPETE_TICKS, who: target.name }, t, t, atTick);
     // 真人商場被搶的一方受到有界的損失
     const targetId = keyToId(targetKey);
     if (targetId !== null) {
-      this.repo.addMail(targetId, "poach_hit", { persona, mult: COMPETE_TARGET_MULT, ticks: COMPETE_TICKS, who: myName, key: `m:${mallId}` }, t, t);
+      this.repo.addMail(targetId, "poach_hit", { persona, mult: COMPETE_TARGET_MULT, ticks: COMPETE_TICKS, who: myName, key: `m:${mallId}` }, t, t, atTick);
       this.host.deliver(targetId);
     }
     this.host.deliver(mallId);
@@ -127,7 +137,7 @@ export class CompeteService {
     const t = this.now();
     this.repo.addAttack(t, npcNumericId(npc.key.slice(2)), target.key, persona);
     const at = Math.max(t, opts.deliverAt ?? t);
-    this.repo.addMail(targetId, "poach_hit", { persona, mult: COMPETE_TARGET_MULT, ticks: COMPETE_TICKS, who: npc.name, key: publicKey(npc.key) }, t, at);
+    this.repo.addMail(targetId, "poach_hit", { persona, mult: COMPETE_TARGET_MULT, ticks: COMPETE_TICKS, who: npc.name, key: publicKey(npc.key) }, t, at, this.repo.serverTick(at));
     if (at <= t) this.host.deliver(targetId);
   }
 }

@@ -45,7 +45,7 @@ function Candidate({ s, c }: { s: PublicMallState; c: TenantCandidate }) {
         開價：每日租金 <b>{money(c.rent)}</b>（行情 {money(market)}，{vsMarket >= 1 ? "高" : "低"} {Math.abs(Math.round((vsMarket - 1) * 100))}%）＋ 營業額抽成 {Math.round(c.commission * 100)}%・租期 {c.termDays} 天
       </p>
       <p class="small dim">
-        想進駐的程度：{c.eagerness >= 0.7 ? "很想" : c.eagerness >= 0.45 ? "普通" : "不太急"}・洽談只剩約 {realDuration(c.expireTick - s.tick, s.clock.speed)}
+        想進駐的程度：{c.eagerness >= 0.7 ? "很想" : c.eagerness >= 0.45 ? "普通" : "不太急"}・洽談只剩約 {realDuration(c.expireTick - s.tick, s.clock.speed, s.clock.lag)}
       </p>
       {free.length > 1 && (
         <div class="row small">
@@ -125,7 +125,7 @@ export function Leasing() {
           <div class="alert cyan" key={r.uid}>
             <h4>📄 「{r.brand}」的租約到期了</h4>
             <p class="small">
-              想續約 {r.termDays} 天，每日租金 {money(r.rent)}。滿意度 {Math.round(shop?.tenant?.satisfaction ?? 0)}。沒處理的話，滿意度夠高會自動續約，不夠就讓他走。（約 {realDuration(r.deadlineTick - s.tick, s.clock.speed)}後）
+              想續約 {r.termDays} 天，每日租金 {money(r.rent)}。滿意度 {Math.round(shop?.tenant?.satisfaction ?? 0)}。沒處理的話，滿意度夠高會自動續約，不夠就讓他走。（約 {realDuration(r.deadlineTick - s.tick, s.clock.speed, s.clock.lag)}後）
             </p>
             <div class="row">
               <Btn small kind="primary" onClick={() => run({ type: "resolveRenewal", uid: r.uid, action: "renew" }, "續約完成")}>
@@ -162,7 +162,7 @@ export function Leasing() {
           <div class="stack">
             {fitting.map((b) => (
               <p class="small" key={b.id}>
-                🚧 「{b.tenant?.brand}」裝修中，約 {realDuration(b.completeTick - s.tick, s.clock.speed)}後開張。
+                🚧 「{b.tenant?.brand}」裝修中，約 {realDuration(b.completeTick - s.tick, s.clock.speed, s.clock.lag)}後開張。
               </p>
             ))}
             {tenants.map((x) => (

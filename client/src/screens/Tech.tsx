@@ -16,7 +16,7 @@ function Jobs({ s }: { s: PublicMallState }) {
             const pct = Math.min(100, ((s.tick - j.startTick) / (j.endTick - j.startTick)) * 100);
             return (
               <div key={j.id}>
-                <Meter label={`${def?.icon ?? ""} ${def?.name ?? j.id}`} value={pct} hint={`還要 ${realDuration(j.endTick - s.tick, s.clock.speed)}`} tone="cyan" />
+                <Meter label={`${def?.icon ?? ""} ${def?.name ?? j.id}`} value={pct} hint={`還要 ${realDuration(j.endTick - s.tick, s.clock.speed, s.clock.lag)}`} tone="cyan" />
                 <div class="row">
                   <Btn small kind="danger" onClick={() => run({ type: "cancelTech", id: j.id }, `已取消，退回 ${Math.round(TECH_CANCEL_REFUND * 100)}% 費用`)}>
                     取消（退回一半）
@@ -49,7 +49,7 @@ function TechCard({ s, t }: { s: PublicMallState; t: TechDef }) {
       {!done && !job && (
         <div class="row between">
           <span class="small dim">
-            {why ?? `研發時間${realDuration(t.ticks, s.clock.speed)}`}
+            {why ?? `研發時間${realDuration(t.ticks, s.clock.speed, s.clock.lag)}`}
             {t.requires.length > 0 && !why ? `（前置：${t.requires.map((r) => TECH_BY_ID[r]?.name).join("、")}）` : ""}
           </span>
           <Btn small kind="primary" disabled={!!why || !afford} title={!afford && !why ? "資金不足" : ""} onClick={() => run({ type: "startTech", id: t.id }, `開始研發「${t.name}」`)}>

@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest";
 import {
+  INTERACT_MAX_LAG_TICKS,
   SEASON_MS,
   STARTER_QUESTS,
   TRADE_FEE,
@@ -10,6 +11,7 @@ import {
 } from "@coidle/shared";
 import { buildApp } from "./app";
 import { createRng } from "./sim/rng";
+import { calm } from "./testutil";
 
 // 多商場長期模擬：4 座真人商場＋NPC 商場，跑 3 個賽季，每 6 個真實小時各自隨機行動
 // （結盟、聯名活動、送錢、調貨、搶客）。檢查所有不變量：沒有例外、錢與貨守恆（只會因手續費變少）、
@@ -37,6 +39,10 @@ describe("multi-mall long-run simulation", () => {
       users.push(me.user.id);
       malls.push(service.createMall(me.user.id, `模擬商場${i}`).mallId);
     }
+    calm(service, ...malls); // 遇事暫停會讓商場落後；這裡的落後只由下面「暫停再恢復」的那座商場刻意製造
+    const lagger = malls[3]!;
+    const caretaker = { id: 0, displayName: "模擬" };
+    let refusedWhileLagging = 0;
     const cache = (service as unknown as { cache: Map<number, MallState> }).cache;
     for (const id of malls) {
       const s = structuredClone(service.sync(id));
@@ -63,9 +69,13 @@ describe("multi-mall long-run simulation", () => {
     while (clock.t < end) {
       clock.t += 6 * HOUR;
       steps++;
+      // 第 4 座商場週期性地暫停約 8 步（兩個真實日）再恢復：落後伺服器、追趕、追上，期間照樣收發跨商場的信
+      if (steps % 60 === 10) service.setClock(lagger, caretaker, { paused: true });
+      if (steps % 60 === 18) service.setClock(lagger, caretaker, { paused: false });
       service.tickAll();
       for (const id of malls) {
         if (!rng.chance(0.5)) continue;
+        if (id === lagger && service.serverTick() - service.sync(id).tick > INTERACT_MAX_LAG_TICKS) refusedWhileLagging++;
         const others = service.world.entries().filter((e) => e.key !== `m:${id}`);
         const target = others[rng.int(0, others.length - 1)]!;
         switch (rng.int(0, 6)) {
@@ -97,11 +107,17 @@ describe("multi-mall long-run simulation", () => {
         }
       }
     }
-    // 最後讓所有人收完信
+    // 最後讓所有人收完信、追上伺服器時間
+    for (let i = 0; i < 4; i++) {
+      clock.t += 6 * HOUR;
+      service.tickAll();
+    }
     service.tickAll();
     service.tickAll();
 
     expect(steps).toBeGreaterThan(300);
+    expect(refusedWhileLagging).toBeGreaterThan(0); // 落後超過門檻的商場真的被擋過（互動規則有生效）
+    for (const id of malls) expect(service.serverTick() - service.sync(id).tick).toBeLessThan(2); // 全部都追上了
     expect(ok).toBeGreaterThan(50); // 真的有很多行動發生
     expect(refused).toBeGreaterThan(0); // 上限與保護真的擋過人
 

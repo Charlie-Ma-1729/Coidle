@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { COMPETE_MAX_PER_DAY, COMPETE_NEWBIE_MS, NPC_MALLS, WORLD_EPOCH_MS, internalKey, npcEntry, publicKey, type MallState } from "@coidle/shared";
 import { buildApp } from "./app";
 import { NPC_BASE_P } from "./world/npcActor";
-import { overseerLogin } from "./testutil";
+import { calm, overseerLogin } from "./testutil";
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
@@ -31,6 +31,7 @@ const cacheOf = (a: App) => (a.service as unknown as { cache: Map<number, MallSt
 async function seasoned(a: App, name: string, level = 3) {
   const u = await reg(a, name);
   const { mallId } = a.service.createMall(u.id, `${name}的商場`);
+  calm(a.service, mallId);
   const s = structuredClone(a.service.sync(mallId));
   s.level = level;
   s.funds = 20_000_000;

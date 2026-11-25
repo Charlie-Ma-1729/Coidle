@@ -64,7 +64,7 @@ function Bills({ s }: { s: PublicMallState }) {
               return (
                 <li key={b.uid}>
                   <time>
-                    {late ? <Chip tone="red">逾期</Chip> : `約 ${realDuration(b.dueTick - s.tick, s.clock.speed)}後`}
+                    {late ? <Chip tone="red">逾期</Chip> : `約 ${realDuration(b.dueTick - s.tick, s.clock.speed, s.clock.lag)}後`}
                   </time>
                   <span>
                     {OBLIGATION_NAMES[b.kind].icon} {b.label}：<b>{money(billOutstanding(b))}</b>

@@ -5,6 +5,8 @@ import {
   ALLIANCE_MAX_PENDING,
   ALLIANCE_REAL_MS,
   JOINT_PROMO_COOLDOWN_MS,
+  RELATED_BLOCK_TEXT,
+  RELATED_ENDED_TEXT,
   jointPromoCost,
   publicKey,
   type DirectoryEntry,
@@ -37,6 +39,10 @@ export interface AllianceHost {
   spend(mallId: number, amount: number): boolean;
   /** 讓商場立刻收下剛寄到的信（讓玩家馬上看到結果） */
   deliver(mallId: number): void;
+  /** 發起方落後伺服器基準時間太多時丟出 ServiceError（沒給就不檢查） */
+  assertCanInteract?(mallId: number): void;
+  /** 兩座真人商場是不是關係企業（有共同的經營者）；沒給就不檢查 */
+  related?(a: number, b: number): boolean;
 }
 
 const mallKey = (id: number) => `m:${id}`;
@@ -82,7 +88,9 @@ export class AllianceService {
     const id = mallIdOf(key);
     if (id === null) return; // NPC 不收信
     const t = this.now();
-    this.repo.addMail(id, kind, payload, t, t);
+    // 有持續時間的效果（聯名開始／結束、聯名活動）從「伺服器基準時間的現在」起算；
+    // 商場自己的時鐘模擬到那個 tick 才收到，落後的商場不會把效果套在自己的過去。純通知馬上收。
+    this.repo.addMail(id, kind, payload, t, t, kind === "notice" ? null : this.repo.serverTick(t));
   }
 
   private startMail(row: Row): void {
@@ -102,6 +110,33 @@ export class AllianceService {
       const id = mallIdOf(k);
       if (id !== null) this.host.deliver(id);
     }
+  }
+
+  /** 對象是真人商場而且和自己是關係企業就擋下（NPC 商場沒有經營者，不受影響） */
+  private assertNotRelated(mallId: number, otherKey: string): void {
+    const other = mallIdOf(otherKey);
+    if (other !== null && this.host.related?.(mallId, other)) throw new ServiceError(400, RELATED_BLOCK_TEXT);
+  }
+
+  /**
+   * 這座商場剛多了一位經營者（加入、管理員加人）：和它成為關係企業的商場，既有的聯名協議與邀請一律結束，
+   * 雙方各收到一封通知。回傳結束了幾份。
+   */
+  endRelated(mallId: number): number {
+    const me = mallKey(mallId);
+    let n = 0;
+    for (const r of this.repo.alliancesOf(me, ["pending", "active"]) as Row[]) {
+      const partner = r.a_key === me ? r.b_key : r.a_key;
+      const pid = mallIdOf(partner);
+      if (pid === null || !this.host.related?.(mallId, pid)) continue;
+      const was = r.status;
+      this.repo.setAllianceStatus(r.id, "ended");
+      if (was === "active") this.endMails(r, () => RELATED_ENDED_TEXT);
+      else for (const k of [r.a_key, r.b_key]) this.mailTo(k, "notice", { text: RELATED_ENDED_TEXT });
+      this.deliverBoth(r);
+      n++;
+    }
+    return n;
   }
 
   /** 這座商場的協議：邀請中與生效中 */
@@ -130,8 +165,10 @@ export class AllianceService {
   propose(mallId: number, targetKey: string): AllianceView[] {
     const me = mallKey(mallId);
     if (typeof targetKey !== "string" || targetKey === me) throw new ServiceError(400, "請選擇另一座商場");
+    this.host.assertCanInteract?.(mallId);
     const target = this.entryOf(targetKey);
     if (!target) throw new ServiceError(404, "找不到這座商場");
+    this.assertNotRelated(mallId, targetKey);
     const t = this.now();
 
     const existing = (this.repo.alliancesOf(me, ["pending", "active"]) as Row[]).filter((r) => (r.status === "active" || r.expires_at > t) && (r.a_key === targetKey || r.b_key === targetKey));
@@ -158,6 +195,8 @@ export class AllianceService {
       this.mailTo(row.a_key, "notice", { text: `「${this.nameOf(me)}」婉拒了你們的聯名邀請。` });
       return this.list(mallId);
     }
+    this.host.assertCanInteract?.(mallId);
+    this.assertNotRelated(mallId, row.a_key);
     if (this.activeOf(me) >= ALLIANCE_MAX_ACTIVE || this.activeOf(row.a_key) >= ALLIANCE_MAX_ACTIVE) throw new ServiceError(400, "有一方的聯名名額已經滿了");
     this.repo.activateAlliance(id, t, t + ALLIANCE_REAL_MS);
     const active = this.find(id)!;
@@ -192,6 +231,8 @@ export class AllianceService {
     const t = this.now();
     if (!row || row.status !== "active" || (row.a_key !== me && row.b_key !== me)) throw new ServiceError(404, "找不到這份協議");
     if (row.last_joint_at + JOINT_PROMO_COOLDOWN_MS > t) throw new ServiceError(400, "聯名活動剛辦過，過一陣子再辦");
+    this.host.assertCanInteract?.(mallId);
+    this.assertNotRelated(mallId, row.a_key === me ? row.b_key : row.a_key);
     const snap = this.host.snapshot(mallId);
     const cost = jointPromoCost(snap.level);
     if (!this.host.spend(mallId, cost)) throw new ServiceError(400, "資金不足");

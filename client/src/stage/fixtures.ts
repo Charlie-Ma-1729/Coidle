@@ -112,6 +112,7 @@ export function buildDemoModel(): StageModel {
     equipment: 47,
     minuteOfDay: 13 * 60 + 20,
     dateLabel: "04/07 週三",
+    dateBadge: null,
     weekend: false,
     cleaningLevel: 1,
     weather: { kind: "clear", temp: 24 },

@@ -88,6 +88,8 @@ export interface ShopDayStats {
   groups: number;
   stockouts: number;
   lost: number;
+  /** 嫌太貴而不買的組數（舊存檔沒有） */
+  priceWalks?: number;
 }
 
 export interface Shop {
@@ -191,6 +193,11 @@ export interface EventDef {
   needsUndiscovered?: boolean;
   when?: { months?: number[]; hours?: [number, number] };
   /**
+   * 需要的天氣："wet"＝此刻在下雨、"wet_streak"＝連著下了兩天以上的雨。
+   * 沒寫時由 `weatherNeedOf` 看事件文字有沒有講到下雨來決定（寫了雨就要真的有雨）。
+   */
+  needsWeather?: "wet" | "wet_streak";
+  /**
    * 沒人在場時發生這個事件要不要讓時鐘暫停等人處理。
    * "pause"＝預設處理很貴／來不及就損失大（必須有選項）；預設 "auto"＝照常用預設處理繼續營運。
    */
@@ -235,6 +242,8 @@ export interface DayStats {
   groups: number;
   units: number;
   walkouts: number;
+  /** 其中因為嫌太貴而不買的組數（舊存檔沒有） */
+  priceWalks?: number;
   satSum: Record<PersonaId, number>;
   satN: Record<PersonaId, number>;
   groupsByPersona: Record<PersonaId, number>;
@@ -271,8 +280,11 @@ export interface DailyReport {
   groups: number;
   units: number;
   walkouts: number;
+  /** 其中因為嫌太貴而不買的組數（舊日報沒有） */
+  priceWalks?: number;
   avgSat: Record<PersonaId, number | null>;
-  shops: { id: string; name: string; category: CategoryId; revenue: number; units: number; stockouts: number; lost: number }[];
+  /** price／refPrice／level／priceWalks 是平衡分析用的（舊日報沒有） */
+  shops: { id: string; name: string; category: CategoryId; revenue: number; units: number; stockouts: number; lost: number; level?: number; price?: number; refPrice?: number; priceWalks?: number }[];
   localRep: { start: number; end: number };
   touristHeat: { start: number; end: number };
   events: string[];
@@ -291,7 +303,10 @@ export interface WeatherSummary {
 }
 
 /** 傳給玩家的狀態：不含亂數種子與內部冷卻／累積表 */
-export type PublicMallState = Omit<MallState, "seed" | "cooldowns" | "grievances">;
+export type PublicMallState = Omit<MallState, "seed" | "cooldowns" | "grievances"> & {
+  /** 送出這份狀態那一刻的伺服器基準 tick（測試商場不受夾限，沒有）。畫面用它算出商場和伺服器差多少 */
+  serverTick?: number;
+};
 
 // ───────── 客人互動層 ─────────
 
@@ -584,16 +599,22 @@ export interface GuestPrefs {
   autoReplyReviews: boolean;
 }
 
-/** 時間流速檔位（倍率相對於基準 TIME_SCALE） */
-export type SpeedId = "turbo" | "rapid" | "brisk" | "standard" | "relaxed" | "slow";
+/** 追趕速度檔位（倍率相對於伺服器基準時間 TIME_SCALE；已追上伺服器時一律是 1×） */
+export type SpeedId = "turbo" | "rapid" | "brisk" | "standard";
 
 /**
  * 每座商場自己的時鐘。真實時間 → tick 的換算只看這個，
  * 模擬引擎本身只認 tick，所以暫停／調速都不需要改引擎。
+ * 商場的 tick 永遠不會超過伺服器基準時間（見 shared/game/time.ts 的 tickAt）。
  */
 export interface MallClock {
-  /** 玩家選擇的流速倍率（1＝標準：真實 6 小時為 1 遊戲日） */
+  /** 追趕速度倍率（1＝與伺服器同速：真實 4 小時為 1 遊戲日）。落後時用它加速追，追上後夾回 1× */
   speed: number;
+  /**
+   * 上次同步時落後伺服器基準時間的 tick 數（0＝已追上）。由伺服器在同步時寫入，
+   * 畫面據此顯示「追趕中」並推算倒數；未設定（測試商場不受夾限）時畫面照 speed 本身推算。
+   */
+  lag?: number;
   /** 換算錨點：真實時間 anchorRealMs 對應 tick anchorTick */
   anchorRealMs: number;
   anchorTick: number;
@@ -635,6 +656,8 @@ export interface MallState {
   level: number;
   /** 功能旗標：開發階段用來開關內容（例如 zone:b1、feature:lease） */
   flags: Record<string, boolean>;
+  /** 概念定位（見 concept.ts）；沒選過就沒有這個欄位，視為「綜合型」。since＝選定時的 tick，換定位的冷卻從這裡算 */
+  concept?: { id: string; since: number };
   hours: { open: number; close: number };
   localRep: number;
   touristHeat: number;

@@ -6,7 +6,7 @@ import { Btn } from "./ui";
 export function EventChoiceCard({ s, p }: { s: PublicMallState; p: PendingChoice }) {
   const def = EVENT_BY_ID[p.defId];
   if (!def?.choice) return null;
-  const mins = Math.max(0, Math.round(ticksToRealMinutes(p.deadlineTick - s.tick, s.clock.speed)));
+  const mins = Math.max(0, Math.round(ticksToRealMinutes(p.deadlineTick - s.tick, s.clock.speed, s.clock.lag)));
   const defaultLabel = def.choice.options.find((o) => o.id === def.choice!.defaultOption)?.label;
   return (
     <div class="alert">

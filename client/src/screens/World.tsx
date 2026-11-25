@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import { ALLIANCE_MAX_ACTIVE, BOARDS, COMPETE_SELF_MULT, COMPETE_TARGET_MULT, PERSONAS, canCompete, competeCost, CATEGORY_BY_ID, TRADE_FEE, TRADE_MAX_GOODS, TRADE_MIN_FUNDS, TRADE_MIN_GOODS, categoryHasStock, tradeLimits, boardValue, jointPromoCost, rankEntries, type BoardId, type DirectoryEntry, type SeasonResult } from "@coidle/shared";
+import { ALLIANCE_MAX_ACTIVE, RELATED_BLOCK_TEXT, BOARDS, COMPETE_SELF_MULT, COMPETE_TARGET_MULT, PERSONAS, canCompete, competeCost, CATEGORY_BY_ID, TRADE_FEE, TRADE_MAX_GOODS, TRADE_MIN_FUNDS, TRADE_MIN_GOODS, categoryHasStock, tradeLimits, boardValue, jointPromoCost, rankEntries, type BoardId, type DirectoryEntry, type SeasonResult } from "@coidle/shared";
 import { api, type AllianceView, type WorldView } from "../api";
 import { Btn, Card, Chip, Empty } from "../components/ui";
 import { moneyShort } from "../format";
@@ -124,6 +124,8 @@ export function World() {
   const [board, setBoard] = useState<BoardId>("score");
   const [open, setOpen] = useState<string | null>(null);
   const [alliances, setAlliances] = useState<AllianceView[]>([]);
+  /** 和你有共同經營者的商場（關係企業）：不能聯名、貿易、搶客 */
+  const [related, setRelated] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [focusPersona, setFocusPersona] = useState<{ key: string; persona?: string } | null>(null);
 
@@ -139,7 +141,10 @@ export function World() {
     const id = mallId.value;
     if (id === null) return Promise.resolve();
     return api.alliances(id).then(
-      (r) => setAlliances(r.alliances),
+      (r) => {
+        setAlliances(r.alliances);
+        setRelated(r.related ?? []);
+      },
       () => undefined,
     );
   };
@@ -280,7 +285,7 @@ export function World() {
                         {i + 1}. 🏬 {e.name}
                       </b>
                       <span>
-                        {isMine && <Chip tone="pink">你</Chip>} {(view?.shields[e.key] ?? 0) > Date.now() && <Chip tone="dim">🛡 保護中</Chip>} {e.stockouts > 0 && <Chip tone="amber">⚠️ {e.stockouts} 間缺貨</Chip>}
+                        {isMine && <Chip tone="pink">你</Chip>} {related.includes(e.key) && <Chip tone="dim">🔗 關係企業</Chip>} {(view?.shields[e.key] ?? 0) > Date.now() && <Chip tone="dim">🛡 保護中</Chip>} {e.stockouts > 0 && <Chip tone="amber">⚠️ {e.stockouts} 間缺貨</Chip>}
                       </span>
                     </div>
                     <div class="row between small dim">
@@ -294,9 +299,10 @@ export function World() {
                   </button>
                   {open === e.key && (
                     <div class="small" style={{ marginTop: "6px" }}>
-                      {!isMine && <TradePanel entry={e} onDone={() => void load()} />}
-                      {!isMine && <CompetePanel key={focusPersona?.key === e.key ? focusPersona.persona ?? "f" : "-"} entry={e} shieldedUntil={view?.shields[e.key] ?? 0} onDone={() => void load()} defaultPersona={focusPersona?.key === e.key ? focusPersona.persona : undefined} />}
-                      {!isMine && (
+                      {!isMine && related.includes(e.key) && <p class="small">🔗 {RELATED_BLOCK_TEXT}。</p>}
+                      {!isMine && !related.includes(e.key) && <TradePanel entry={e} onDone={() => void load()} />}
+                      {!isMine && !related.includes(e.key) && <CompetePanel key={focusPersona?.key === e.key ? focusPersona.persona ?? "f" : "-"} entry={e} shieldedUntil={view?.shields[e.key] ?? 0} onDone={() => void load()} defaultPersona={focusPersona?.key === e.key ? focusPersona.persona : undefined} />}
+                      {!isMine && !related.includes(e.key) && (
                         <Btn
                           small
                           disabled={busy || alliances.some((a) => a.partnerKey === e.key)}

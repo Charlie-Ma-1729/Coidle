@@ -15,6 +15,7 @@ import { publicKey } from "@coidle/shared";
 import { buildApp } from "./app";
 import { createInitialState } from "./sim";
 import { applyMail } from "./sim/mail";
+import { calm } from "./testutil";
 
 const DAY = 86_400_000;
 const clock = { t: WORLD_EPOCH_MS + DAY };
@@ -42,6 +43,7 @@ const post = (a: App, cookie: string, url: string, payload: unknown = {}) => a.a
 async function trio(a: App, levels: [number, number, number] = [3, 3, 3]) {
   const users = [await reg(a, "alice"), await reg(a, "bob"), await reg(a, "carol")];
   const malls = users.map((u, i) => a.service.createMall(u.id, `商場${i}`).mallId);
+  calm(a.service, ...malls);
   clock.t += COMPETE_NEWBIE_MS + 1000;
   const cache = (a.service as unknown as { cache: Map<number, MallState> }).cache;
   malls.forEach((id, i) => {
@@ -168,6 +170,7 @@ describe("limits and protection", () => {
     const t = await trio(a);
     const u = await reg(a, "newbie");
     const fresh = a.service.createMall(u.id, "新手商場").mallId;
+    calm(a.service, fresh);
     const s = structuredClone(a.service.sync(fresh));
     s.level = 3; // 等級夠接近，單純測新手保護
     t.cache.set(fresh, s);

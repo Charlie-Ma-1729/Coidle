@@ -1,4 +1,6 @@
 import {
+  PRICE_REJECT_RATE,
+  PRICE_TOLERANCE,
   CATEGORY_BY_ID,
   CLEANING_COST_PER_DAY,
   CONSUMPTION_STANDARD,
@@ -83,6 +85,12 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
 const INDEX_ALPHA = 0.0012;
 /** 「不買」的基礎權重；越大代表客人越容易嫌貴／嫌選擇少而離開 */
 const OUTSIDE_WEIGHT = 0.12;
+
+/** 這家店的標價（相對參考價的倍率）客人肯買的機率；常數與理由見 shared 的 PRICE_TOLERANCE */
+export { PRICE_TOLERANCE, PRICE_REJECT_RATE };
+export function priceAcceptance(sensitivity: number, ratio: number): number {
+  return ratio <= PRICE_TOLERANCE ? 1 : Math.exp(-sensitivity * PRICE_REJECT_RATE * (ratio - PRICE_TOLERANCE));
+}
 
 // ───────── 主迴圈：推進一個 tick（就地修改 s） ─────────
 export interface StepContext {
@@ -258,8 +266,8 @@ function runCustomers(s: MallState, time: TimeInfo, rng: Rng): number {
   let units = 0;
 
   for (const p of PERSONAS) {
-    const share = (time.weekend ? p.weekendHourShare : p.hourShare)[time.hour] ?? 0;
-    const daily = p.dailyBase * (time.weekend ? p.weekendMult : 1);
+    const share = (time.offDay ? p.weekendHourShare : p.hourShare)[time.hour] ?? 0;
+    const daily = p.dailyBase * (time.offDay ? p.weekendMult : 1);
     const lambda =
       ((daily * share) / TICKS_PER_HOUR) * indexFactor(s, p) * divMult * trafficMult(s, p.id, s.tick) * promoTraffic(s, p.id) * rivalMult(s, p.id) * techTrafficMult(s.tech.done, p.id);
     const n = rng.poisson(lambda);
@@ -322,6 +330,16 @@ function serveGroup(s: MallState, rng: Rng, p: PersonaDef, open: Shop[]): number
   }
 
   const hasStock = categoryHasStock(cat) && shop.mode === "direct";
+  if (shop.mode === "direct") {
+    const accept = priceAcceptance(p.sensitivity, effectivePrice(s, shop) / cat.refPrice);
+    if (accept < 1 && !rng.chance(accept)) {
+      shop.day.priceWalks = (shop.day.priceWalks ?? 0) + 1;
+      s.today.priceWalks = (s.today.priceWalks ?? 0) + 1;
+      s.today.walkouts++;
+      recordSample(s, p, 0.35);
+      return 0;
+    }
+  }
   const cap = shopCapacity(shop, s);
   if (shop.served >= cap) {
     shop.day.lost++;

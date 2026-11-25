@@ -3,6 +3,7 @@ import { LEVELS, SPEED_PRESETS, ZONES } from "@coidle/shared";
 import { adminApi, type AdminMall, type Overview } from "./adminApi";
 import { Badge, Card, confirmBox, Drawer, Empty, Field, fmtDateFull, fmtMoney, Ico, promptBox, Section, Seg, Switch } from "./kit";
 import { errMsg, openMall, spectateMall, toast } from "../store";
+import { fullTimeText, lagDetail } from "../serverTime";
 
 const FLAGS: { id: string; name: string }[] = [{ id: "feature:lease", name: "租賃功能" }, ...ZONES.map((z) => ({ id: `zone:${z.id}`, name: z.name }))];
 type Filter = "all" | "online" | "sandbox";
@@ -35,6 +36,10 @@ function MallDrawer(props: { m: AdminMall; ov: Overview; mine: boolean; reload: 
       }
       sub={`#${m.id}・建立於 ${fmtDateFull(m.created_at)}`}
     >
+      <p class="ad-sub">
+        商場時間 {fullTimeText(m.tick)}
+        {m.lag === null ? "・測試商場，不受伺服器時間限制" : `・伺服器時間 ${fullTimeText(props.ov.serverTick)}・${m.lag > 0 ? `落後 ${lagDetail(m.lag)}${m.paused ? "（暫停中）" : ""}` : "已追上"}`}
+      </p>
       <div class="ad-row">
         <button class="ad-btn pri" onClick={() => void spectateMall(m.id).catch((e) => toast(errMsg(e), "error"))}>
           <Ico n="eye" />
@@ -59,18 +64,18 @@ function MallDrawer(props: { m: AdminMall; ov: Overview; mine: boolean; reload: 
               ))}
             </select>
           </Field>
-          <Field label="時間流速">
+          <Field label="追趕速度">
             <select
-              aria-label="時間流速"
+              aria-label="追趕速度"
               onChange={(e) => {
                 const v = (e.target as HTMLSelectElement).value;
-                if (v) void act(() => post("/clock", { speed: v }), "已調整流速");
+                if (v) void act(() => post("/clock", { speed: v }), "已調整追趕速度");
               }}
             >
               <option value="">選擇…</option>
               {SPEED_PRESETS.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.name}（{s.realHoursPerDay} 小時＝1 天）
+                  {s.name}（{s.mult}×）
                 </option>
               ))}
             </select>
@@ -245,6 +250,7 @@ export function MallsTab(props: { ov: Overview; mineIds: number[]; reload: () =>
                   <th class="r">等級</th>
                   <th class="r">資金</th>
                   <th class="r">遊戲日</th>
+                  <th class="r">落後伺服器</th>
                   <th />
                 </tr>
               </thead>
@@ -269,6 +275,18 @@ export function MallsTab(props: { ov: Overview; mineIds: number[]; reload: () =>
                     <td class="r" data-l="等級">Lv.{m.level}</td>
                     <td class="r" data-l="資金">{fmtMoney(m.funds)}</td>
                     <td class="r" data-l="遊戲日">第 {m.day} 天</td>
+                    <td class="r" data-l="落後伺服器">
+                      {m.lag === null ? (
+                        <span class="dim">獨立</span>
+                      ) : m.lag > 0 ? (
+                        <Badge tone={m.lag > 5 * 288 ? "red" : "amber"}>
+                          {lagDetail(m.lag)}
+                          {m.paused ? "・暫停" : ""}
+                        </Badge>
+                      ) : (
+                        <span class="dim">已追上</span>
+                      )}
+                    </td>
                     <td class="act">
                       <button class="ad-btn pri sm" onClick={() => void spectateMall(m.id).catch((e) => toast(errMsg(e), "error"))}>
                         <Ico n="eye" />

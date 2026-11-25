@@ -1,4 +1,4 @@
-import { EVENTS, EVENT_BY_ID, FAMILY_ORDER, PERSONA_BY_ID, familyShopCount, type EffectSpec, type EventDef, type MallState, type PersonaId } from "@coidle/shared";
+import { EVENTS, EVENT_BY_ID, FAMILY_ORDER, PERSONA_BY_ID, familyShopCount, weatherAllows, weatherNeedOf, type EffectSpec, type EventDef, type MallState, type PersonaId } from "@coidle/shared";
 import type { Rng } from "./rng";
 import { noteSeen } from "./meta";
 import { addLog, isZoneUnlocked, nextId } from "./state";
@@ -122,7 +122,8 @@ export function applyIndexDelta(s: MallState, which: "localRep" | "touristHeat",
   else s.peakTourist = Math.max(s.peakTourist, v);
 }
 
-function eligible(s: MallState, def: EventDef, time: TimeInfo): boolean {
+/** 這個事件現在能不能發生（冷卻、月份與時段、區域、貨品、天氣…）；測試也直接用它 */
+export function eligible(s: MallState, def: EventDef, time: TimeInfo): boolean {
   if ((s.cooldowns[def.id] ?? 0) > s.tick) return false;
   if (def.when?.months && !def.when.months.includes(time.month)) return false;
   if (def.when?.hours) {
@@ -141,6 +142,8 @@ function eligible(s: MallState, def: EventDef, time: TimeInfo): boolean {
   if (def.needsRel !== undefined && !(bestMain(s)?.st.relationship !== undefined && bestMain(s)!.st.relationship >= def.needsRel)) return false;
   if (def.needsUndiscovered && !s.supply.suppliers.some((x) => !x.discovered)) return false;
   if (s.pending.some((p) => p.defId === def.id)) return false;
+  // 事件寫到下雨，就要此刻真的在下雨（連日的雨要連著下過）；不然會在大晴天看到「雨水滲進來」
+  if (!weatherAllows(weatherNeedOf(def), s)) return false;
   return true;
 }
 

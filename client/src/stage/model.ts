@@ -115,6 +115,9 @@ export interface StageModel {
   /** 遊戲內時間，從 0 點起算的分鐘數 */
   minuteOfDay: number;
   dateLabel: string;
+  /** 今天的日曆標籤（國定假日、黃金週…）；平凡的一天為 null */
+  dateBadge: string | null;
+  /** 休息日（週末或假日）：人潮用假日的樣子 */
   weekend: boolean;
   /** 清潔等級（0 不做、1 標準、2 加強）：決定下雨天會不會加派清潔員 */
   cleaningLevel: 0 | 1 | 2;

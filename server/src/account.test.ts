@@ -21,6 +21,13 @@ async function reg(a: App, username: string, displayName = username) {
 const post = (a: App, cookie: string, url: string, payload: unknown = {}) => a.app.inject({ method: "POST", url, headers: { cookie }, payload: payload as object });
 const get = (a: App, cookie: string, url: string) => a.app.inject({ method: "GET", url, headers: { cookie } });
 
+/** 離開商場前要先把股份處理掉：這裡用「請商場回購（撤資）」全部賣回去 */
+async function settle(a: App, cookie: string, mallId: number) {
+  const me = (await get(a, cookie, "/api/me")).json().user.id as number;
+  const mine = (await get(a, cookie, `/api/malls/${mallId}/holdings`)).json().holders.find((h: { userId: number }) => h.userId === me);
+  if (mine) expect((await post(a, cookie, `/api/malls/${mallId}/shares/buyback`, { shares: mine.shares })).statusCode).toBe(200);
+}
+
 async function team(a: App) {
   const owner = await reg(a, "owner", "創辦人");
   const { id, inviteCode } = (await post(a, owner, "/api/malls", { name: "測試商場" })).json();
@@ -84,6 +91,9 @@ describe("team management", () => {
     expect(kicked.json().members.length).toBe(2);
     expect((await get(a, t.third, `/api/malls/${t.id}`)).statusCode).toBe(403); // 被請走後進不來
 
+    // 帶著股份不能走：要先賣給其他股東或撤資
+    expect((await post(a, t.friend, `/api/malls/${t.id}/leave`)).statusCode).toBe(409);
+    await settle(a, t.friend, t.id);
     const left = await post(a, t.friend, `/api/malls/${t.id}/leave`);
     expect(left.json().dissolved).toBe(false);
     expect((await get(a, t.owner, `/api/malls/${t.id}`)).json().members.length).toBe(1);
@@ -97,6 +107,7 @@ describe("team management", () => {
     expect((await post(a, t.owner, `/api/malls/${t.id}/transfer`, { userId: t.uid("朋友") })).statusCode).toBe(200);
     expect((await get(a, t.friend, `/api/malls/${t.id}`)).json().inviteCode).toBeTruthy();
     expect((await get(a, t.owner, `/api/malls/${t.id}`)).json().inviteCode).toBeUndefined();
+    await settle(a, t.owner, t.id);
     expect((await post(a, t.owner, `/api/malls/${t.id}/leave`)).statusCode).toBe(200);
     expect((await get(a, t.owner, "/api/me")).json().malls).toEqual([]);
   });

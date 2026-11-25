@@ -16,7 +16,8 @@ import { HUBS } from "../ui/Dock";
 import { RealShopPanel } from "../ui/RealShopPanel";
 import { BuildSheet } from "../screens/BuildSheet";
 import { ShopSheet } from "../screens/ShopSheet";
-import { invites, leaveMall, mallId, worldFocus, mallInfo, myMalls, online, refreshInvites, run, setClock, spectating, state, user } from "../store";
+import { PersonalHost } from "../screens/Personal";
+import { invites, leaveMall, mallId, openPersonal, personalPage, worldFocus, mallInfo, myMalls, online, refreshInvites, run, setClock, spectating, state, user } from "../store";
 import { locateShop, toStageModel } from "./adapter";
 import type { AttentionItem, HubId } from "./model";
 import { useStage } from "./useStage";
@@ -86,9 +87,10 @@ function StageGameInner() {
     setMenuOpen(false);
     setStatusOpen(false);
     setReportOpen(false);
+    personalPage.value = null;
   };
 
-  const openHub = (id: HubId, tab?: string) => {
+  const openHub =(id: HubId, tab?: string) => {
     closeOverlays();
     setSelected(null);
     // 樞紐還沒開放 → 帶去「全部功能」，那裡會說明怎麼解鎖
@@ -147,7 +149,7 @@ function StageGameInner() {
   const isOverseer = user.value?.role === "overseer";
 
   // 情境提示：視窗、面板、彈出層都沒開的時候才出現，一次一則
-  const anyOverlay = !!hub || !!menuPage || !!pending || attnOpen || statusOpen || reportOpen || panelOpen || buildSlot !== null || !!sheetShop || menuOpen || paused; // 暫停橫幅出現時，提示先不出現（避免兩個一起擠在畫面上）
+  const anyOverlay = !!hub || !!menuPage || !!personalPage.value || !!pending || attnOpen || statusOpen || reportOpen || panelOpen || buildSlot !== null || !!sheetShop || menuOpen || paused; // 暫停橫幅出現時，提示先不出現（避免兩個一起擠在畫面上）
   const hint = anyOverlay
     ? null
     : pickHint({
@@ -175,15 +177,16 @@ function StageGameInner() {
         funds={model.funds}
         todayProfit={model.todayProfit}
         dateLabel={model.dateLabel}
+        dateBadge={model.dateBadge}
         minuteOfDay={model.minuteOfDay}
         speeds={SPEEDS}
         speed={paused ? 0 : 1}
         onSpeed={(id) => void setClock({ paused: id === 0 }, id === 0 ? "時間已暫停" : "時間繼續")}
-        speedName={presetOfSpeed(s.clock.speed).name}
+        speedName={`${(s.clock.lag ?? 0) > 12 ? "⏩ " : ""}${presetOfSpeed(s.clock.speed).mult}×`}
         onCycleSpeed={() => {
           const cur = presetOfSpeed(s.clock.speed);
           const next = SPEED_PRESETS[(SPEED_PRESETS.findIndex((p) => p.id === cur.id) + 1) % SPEED_PRESETS.length]!;
-          void setClock({ speed: next.id }, `時間流速：${next.name}（真實 ${next.realHoursPerDay} 小時＝1 天）`);
+          void setClock({ speed: next.id }, `追趕速度：${next.name}`);
         }}
         menuOpen={menuOpen}
         onMenu={() => {
@@ -271,6 +274,16 @@ function StageGameInner() {
             role="menuitem"
             onClick={() => {
               closeOverlays();
+              openPersonal();
+            }}
+          >
+            <Icon name="coin" size={2} />
+            個人財務
+          </button>
+          <button
+            role="menuitem"
+            onClick={() => {
+              closeOverlays();
               setMenuPage("settings");
             }}
           >
@@ -326,6 +339,7 @@ function StageGameInner() {
 
       {hub && <GameHub key={`${hub.id}:${hub.tab ?? ""}`} hub={hub.id} tab={hub.tab} badges={tabBadges(model.attention, hub.id)} onClose={() => setHub(null)} />}
       {menuPage && <MenuWindow page={menuPage} onClose={() => setMenuPage(null)} onOpenHub={(id, tab) => openHub(id, tab)} />}
+      <PersonalHost />
       {reportOpen && (
         <ReportPopup
           onClose={() => setReportOpen(false)}

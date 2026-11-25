@@ -32,7 +32,7 @@ function lastSeen(s: PublicMallState, r: RegularState): string {
 }
 
 function wait(s: PublicMallState, readyTick: number): string {
-  const m = Math.round(ticksToRealMinutes(readyTick - s.tick, s.clock.speed));
+  const m = Math.round(ticksToRealMinutes(readyTick - s.tick, s.clock.speed, s.clock.lag));
   return m >= 60 ? `約 ${Math.round(m / 6) / 10} 小時` : `約 ${Math.max(1, m)} 分鐘`;
 }
 

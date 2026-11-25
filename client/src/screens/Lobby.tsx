@@ -1,11 +1,18 @@
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { ROLES, type RoleId } from "@coidle/shared";
 import { api } from "../api";
 import { Btn, Card, Empty, Field } from "../components/ui";
 import { AccountCard } from "../components/AccountCard";
-import { errMsg, logout, myMalls, openMall, refreshMe, toast, user } from "../store";
+import { moneyShort } from "../format";
+import { errMsg, logout, myMalls, openMall, openPersonal, personalPage, refreshMe, refreshWealth, toast, user, wealth } from "../store";
+import { PersonalHost } from "./Personal";
+import "../stage/stage.css";
 
 export function Lobby() {
+  const w = wealth.value;
+  useEffect(() => {
+    void refreshWealth();
+  }, []);
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [role, setRole] = useState<RoleId>("ops");
@@ -64,6 +71,31 @@ export function Lobby() {
           )}
         </Card>
 
+        <Card
+          title="💰 我的財務"
+          right={
+            <Btn small onClick={() => openPersonal()}>
+              打開
+            </Btn>
+          }
+        >
+          {w ? (
+            <div class="stack">
+              <div class="row between">
+                <span class="small dim">總資產</span>
+                <b>{moneyShort(w.totalValue)}</b>
+              </div>
+              <div class="row between">
+                <span class="small dim">個人錢包</span>
+                <b>{moneyShort(w.cash)}</b>
+              </div>
+              <p class="small dim">商場持股、股票與錢包明細都在這裡；沒有商場也看得到。</p>
+            </div>
+          ) : (
+            <Empty>讀取中…</Empty>
+          )}
+        </Card>
+
         <Card title="建立新商場">
           <form class="stack" onSubmit={create}>
             <Field label="商場名稱">
@@ -101,6 +133,11 @@ export function Lobby() {
           登出
         </Btn>
       </div>
+      {personalPage.value && (
+        <div class="st-root">
+          <PersonalHost />
+        </div>
+      )}
     </main>
   );
 }

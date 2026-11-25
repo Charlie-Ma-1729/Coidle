@@ -22,6 +22,8 @@ async function main() {
     const me = (await built.app.inject({ method: "GET", url: "/api/me", headers: { cookie } })).json();
     malls.push(service.createMall(me.user.id, `模擬商場${i}`).mallId);
   }
+  // 沒人在場的商場遇到重要事件會暫停、落後伺服器時間，落後太多就不能發起互動；這個模擬只想看互動規則本身，關掉遇事暫停
+  for (const id of malls) service.setClock(id, { id: 0, displayName: "模擬" }, { pauseOnEvents: false });
   const cache = (service as unknown as { cache: Map<number, MallState> }).cache;
   for (const id of malls) {
     const s = structuredClone(service.sync(id));

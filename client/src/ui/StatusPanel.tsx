@@ -2,6 +2,7 @@ import { LEVELS, weatherSummary, type DayWeather, type Weather } from "@coidle/s
 import { Meter } from "../components/ui";
 import { pct } from "../format";
 import { state } from "../store";
+import { CalendarCard } from "./CalendarCard";
 import { Icon } from "./Icon";
 import { forecastAdvice, forecastText, weatherGlyph, weatherLabel } from "./weatherUi";
 
@@ -59,6 +60,7 @@ export function StatusPopover(props: { onClose: () => void; onMore: () => void; 
       </div>
       <div class="st-pop-body">
         {props.weather && <WeatherCard weather={props.weather} tomorrow={props.tomorrow ?? null} />}
+        {state.value && <CalendarCard tick={state.value.tick} />}
         <StatusMeters />
         <button class="st-btn" style={{ justifyContent: "center" }} onClick={props.onMore}>
           看財務明細

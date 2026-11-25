@@ -366,13 +366,14 @@ describe("screens render with real simulated state", () => {
     adminApi.metrics = async () => ({ from: 0, to: 1, samples: [sample, { ...sample, ts: sample.ts + 60_000 }] });
     adminApi.daily = async () => ({ days: [{ day: "2026-11-25", dau: 7, new_users: 2, peak_online: 5, peak_ws: 6, requests: 9000, errors: 1, commands: 800, npc_actions: 3, max_tick_ms: 30, samples: 600 }] });
     adminApi.overview = async () => ({
+      serverTick: 1000,
       users: [
         { id: 1, username: "overseer", display_name: "Overseer", created_at: 1, role: "overseer" as const, last_seen_at: 0 },
         { id: 2, username: "alice", display_name: "愛麗絲", created_at: 1, role: "player" as const, last_seen_at: Date.now() },
       ],
       malls: [
-        { id: 1, name: "真實商場", created_at: 1, members: 1, sandbox: 0, online: 1, members_list: [{ userId: 2, displayName: "愛麗絲", role: "gm" as const, isOwner: true, joinedAt: 0 }], level: 3, funds: 5_000_000, tick: 0, day: 12, flags: {} },
-        { id: 2, name: "測試全開商場", created_at: 1, members: 1, sandbox: 1, online: 0, members_list: [{ userId: 1, displayName: "Overseer", role: "gm" as const, isOwner: true, joinedAt: 0 }], level: 8, funds: 100_000_000, tick: 0, day: 3, flags: {} },
+        { id: 1, name: "真實商場", created_at: 1, members: 1, sandbox: 0, online: 1, members_list: [{ userId: 2, displayName: "愛麗絲", role: "gm" as const, isOwner: true, joinedAt: 0 }], level: 3, funds: 5_000_000, tick: 0, day: 12, flags: {}, lag: 2 * 288 + 36, paused: true },
+        { id: 2, name: "測試全開商場", created_at: 1, members: 1, sandbox: 1, online: 0, members_list: [{ userId: 1, displayName: "Overseer", role: "gm" as const, isOwner: true, joinedAt: 0 }], level: 8, funds: 100_000_000, tick: 0, day: 3, flags: {}, lag: null, paused: false },
       ],
     });
     adminApi.get = (async (url: string) => {
@@ -466,17 +467,88 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).toContain("每日固定成本");
   });
 
-  it("Ops shows the time-speed card with all presets and a pause button", async () => {
+  it("the balance tab charts the daily rows and groups shop-days by price ratio so a pricing flaw is visible", async () => {
+    const { adminApi } = await import("./admin/adminApi");
+    const shop = (c: string, pr: number, u: number, r: number, l: number, pw: number) => ({ c, lv: 1, pr, u, r, so: 0, l, pw });
+    const row = (day: number, ratio: number) => ({ mall_id: 4, day, level: 1, shops: 2, members: 5, funds: null, revenue: 1_000_000 + day, profit: 400_000, purchases: 1, fixed: 1, groups: 900, units: 1500, walkouts: 300, lost_capacity: 200, stockouts: 60, price_walks: 40, local_rep: 48, tourist_heat: 47, avg_sat: 0.4, price_ratio: ratio, detail: [shop("ramen", ratio, 300, 400_000, 100, 20), shop("takoyaki", 1.0, 400, 300_000, 80, 0)] });
+    adminApi.balance = async () => ({ malls: [{ id: 4, name: "第三商業帝國", sandbox: 0 }], rows: [row(20911, 1.0), row(20912, 1.5), row(20913, 1.5)] });
+    const { BalanceTab } = await import("./admin/BalanceTab");
+    await mount(<BalanceTab />);
+    await tick();
+    await tick();
+    const text = container.textContent ?? "";
+    expect(text).toContain("離場率");
+    expect(text).toContain("標價倍率 vs 每店每日表現");
+    expect(text).toContain("1.35–1.6×"); // 分組
+    expect(text).toContain("拉麵"); // 業態名稱
+    expect(text).toContain("第三商業帝國");
+    expect(text).toContain("每商場每日 CSV");
+    // 1.5× 的 2 筆（拉麵）落在 1.35–1.6 組
+    const bucketRow = [...container.querySelectorAll("tr")].find((r) => r.textContent?.startsWith("1.35–1.6×"));
+    expect(bucketRow?.querySelectorAll("td")[1]?.textContent).toBe("2");
+  });
+
+  it("the Overseer's mall list shows how far each mall is behind server time (test malls are independent)", async () => {
+    const { adminApi } = await import("./admin/adminApi");
+    const ov = await adminApi.overview();
+    const { MallsTab } = await import("./admin/MallsTab");
+    await mount(<MallsTab ov={ov} mineIds={[2]} reload={async () => undefined} />);
+    expect(container.textContent).toContain("落後伺服器");
+    expect(container.textContent).toContain("2 遊戲日 3 小時・暫停"); // 2 日又 36 tick（3 小時），暫停中
+    expect(container.textContent).toContain("獨立"); // 測試商場不受夾限
+  });
+
+  it("Ops shows the time card with the four catch-up speeds, the server-time explanation and a pause button", async () => {
     store.state.value = publicState(1);
     const { Ops } = await import("./screens/Ops");
     await mount(<Ops />);
-    expect(container.textContent).toContain("時間流速");
-    for (const name of ["極速", "快速", "輕快", "標準", "悠閒", "現實", "暫停"]) expect(container.textContent).toContain(name);
-    expect(container.textContent).toContain("6 小時/日");
-    expect(container.textContent).toContain("1 小時/日");
-    expect(container.textContent).toContain("24 小時/日");
+    expect(container.textContent).toContain("伺服器基準時間");
+    for (const name of ["極速追趕", "快速追趕", "輕快追趕", "與伺服器同速", "暫停"]) expect(container.textContent).toContain(name);
+    for (const mult of ["6×", "3×", "2×", "1×"]) expect(container.textContent).toContain(mult);
+    expect(container.textContent).toContain("4 真實小時＝1 遊戲日");
     expect(container.textContent).toContain("遇到重要事件自動暫停");
-    expect(container.querySelectorAll(".seg.seven button").length).toBe(7);
+    expect(container.querySelectorAll(".seg.five button").length).toBe(5);
+    // 沒有落後時顯示「已同步」；落後時顯示追趕中
+    expect(container.textContent).toContain("已同步");
+  });
+
+  it("Ops puts server time and the mall's own time side by side, with the exact gap (growing while paused)", async () => {
+    const s = publicState(1);
+    s.serverTick = s.tick + 76; // 6 小時 20 分
+    s.clock.holds.manual = true;
+    store.state.value = s;
+    const { Ops } = await import("./screens/Ops");
+    await mount(<Ops />);
+    expect(container.textContent).toContain("伺服器時間");
+    expect(container.textContent).toContain("你的商場");
+    expect(container.textContent).toContain("落後 6 小時 20 分");
+    expect(container.textContent).toContain("暫停中，仍在增加");
+    const { lagNow, serverTickNow } = await import("./serverTime");
+    expect(lagNow(s)).toBe(76);
+    expect(serverTickNow(s, Date.now() + 5 * 60_000)).toBeGreaterThan(s.serverTick); // 真實時間過去，伺服器 tick 往前推
+    // 運轉中的商場以收到狀態的那一刻為準；測試商場（沒有 serverTick）沿用 clock.lag
+    const running = { ...s, clock: { ...s.clock, holds: { ...s.clock.holds, manual: false } } };
+    expect(lagNow(running, Date.now() + 3_600_000)).toBe(76);
+    const sandbox = { ...running, serverTick: undefined, clock: { ...running.clock, lag: 5 } };
+    expect(serverTickNow(sandbox)).toBeNull();
+    expect(lagNow(sandbox)).toBe(5);
+  });
+
+  it("ClockBanner shows catch-up progress while the mall is behind the server", async () => {
+    const s = publicState(1);
+    s.clock.lag = 3 * 288;
+    s.clock.speed = 6;
+    store.state.value = s;
+    const { ClockBanner } = await import("./components/ClockBanner");
+    await mount(<ClockBanner />);
+    expect(container.textContent).toContain("正在追趕伺服器時間");
+    expect(container.textContent).toContain("3 遊戲日");
+    // 3 遊戲日 = 864 tick，6× 追趕：864/5 個伺服器 tick × (5/6) 分鐘 ≈ 144 分鐘
+    expect(container.textContent).toContain("2.4 小時");
+    s.clock.lag = 12;
+    store.state.value = { ...s };
+    await mount(<ClockBanner />);
+    expect(container.textContent).toBe(""); // 差一點點不打擾玩家
   });
 
   it("ClockBanner is hidden while the clock runs, and shows resume when manually paused", async () => {
@@ -939,8 +1011,13 @@ describe("format helpers", () => {
     expect(f.money(1234567)).toBe("¥1,234,567");
     expect(f.moneyShort(12_345_678)).toBe("¥12.3M");
     expect(f.moneyShort(-250_000)).toBe("-¥250k");
-    expect(f.realDuration(144)).toBe("約 3 小時"); // 144 ticks = 12 遊戲小時 = 3 真實小時
-    expect(f.realDuration(12)).toBe("約 15 分鐘");
+    expect(f.realDuration(144)).toBe("約 2 小時"); // 144 ticks = 12 遊戲小時 = 2 真實小時（4 小時＝1 遊戲日）
+    expect(f.realDuration(12)).toBe("約 10 分鐘");
+    // 落後伺服器時：以追趕速度走完追趕段，之後 1×（lag=600、6×：前 720 個 tick 約 100 分鐘＝1.7 小時）
+    expect(f.realDuration(720, 6, 600)).toBe("約 1.7 小時");
+    expect(f.realDuration(288, 6, 0)).toBe("約 4 小時"); // 已追上：追趕速度不影響
+    expect(f.lagText(288 * 3)).toBe("3 遊戲日");
+    expect(f.lagText(144)).toBe("12 遊戲小時");
   });
 });
 
@@ -1131,7 +1208,7 @@ describe("stage UI panels with real state", () => {
     store.mallInfo.value = { id: 1, name: "測試", inviteCode: "ABCD2345", members: [{ userId: 1, displayName: "我", role: "gm", isOwner: true, joinedAt: 0 }] };
     const { MenuWindow } = await import("./ui/hubs/GameHubs");
     await mount(<MenuWindow page="settings" onClose={() => {}} onOpenHub={() => {}} />);
-    expect(container.textContent).toContain("時間流速");
+    expect(container.textContent).toContain("伺服器基準時間");
     const tab = Array.from(container.querySelectorAll(".st-tabs button")).find((b) => b.textContent === "商場與帳號") as HTMLElement;
     tab.click();
     await tick();

@@ -15,22 +15,32 @@ export const TICKS_PER_HOUR = 60 / TICK_MINUTES; // 12
 export const TICKS_PER_DAY = 24 * TICKS_PER_HOUR; // 288
 /**
  * 遊戲時間比例：遊戲時間 = 真實時間 × TIME_SCALE。
- * 4 ＝ 真實 6 小時為遊戲 1 天（1 遊戲小時 = 15 真實分鐘，1 tick = 75 真實秒，
- * 一個真實日 = 4 個遊戲日，約 1.75 真實日跑完一週）。可調整。
+ * 這是「伺服器基準時間」的流速：6 ＝ 真實 4 小時為遊戲 1 天（1 遊戲小時 = 10 真實分鐘，
+ * 1 tick = 50 真實秒，一個真實日 = 6 個遊戲日，約 28 個真實小時跑完一週）。
+ * 沒有商場能比伺服器時間跑得快；落後的商場可以加速追趕，追上之後一律回到 1×。
  */
-export const TIME_SCALE = 4;
+export const TIME_SCALE = 6;
 export const REAL_HOURS_PER_GAME_DAY = 24 / TIME_SCALE;
 /** 時區偏移（遊戲日曆使用 UTC+9） */
 export const GAME_UTC_OFFSET_HOURS = 9;
 export const CURRENCY = "¥";
+/**
+ * 嫌貴就不買：標價在參考價的這個倍率以內客人照買，超過的部分依客群的價格敏感度逐步放棄。
+ * 選店只比店跟店之間的相對價格，所以沒有這一條時，全面漲價永遠最賺（見 docs/balance-report.md）。
+ */
+export const PRICE_TOLERANCE = 1.2;
+export const PRICE_REJECT_RATE = 1.2;
 
 export const INITIAL_FUNDS = 2_000_000;
 export const INDEX_START = 50;
 export const INDEX_FLOOR_ABS = 15;
 export const INDEX_FLOOR_RATIO = 0.3;
 export const INDEX_MAX_DAILY_DROP = 6;
-/** 補算上限：最多補算 14 個「標準流速」的真實日 */
-export const MAX_CATCHUP_TICKS = 14 * TICKS_PER_DAY * TIME_SCALE;
+/**
+ * 單次推進的工作量上限（tick 數）。落後更多時不會丟掉任何 tick：這一輪推進到上限，
+ * 剩下的由下一輪排程（tickAll）或下一次同步繼續。
+ */
+export const MAX_ADVANCE_TICKS = 14 * TICKS_PER_DAY * 4;
 /** 「有人在場」的判定：有 WebSocket 連線，或最近這麼久有成員操作過 */
 export const PRESENCE_WINDOW_MS = 15 * 60_000;
 
@@ -499,19 +509,7 @@ export const EVENTS: EventDef[] = [
     cooldownTicks: 288 * 4,
     effects: [{ t: "funds", amount: 80_000 }, { t: "index", which: "localRep", amount: 1 }],
   },
-  {
-    id: "holiday_rush",
-    category: "festival",
-    title: "連假人潮",
-    text: "連假開始，一家老小與外地旅客把商場擠得滿滿的。",
-    weight: 3,
-    cooldownTicks: 288 * 10,
-    when: { months: [1, 5, 8, 12] },
-    effects: [
-      { t: "traffic", persona: "family", mult: 1.6, ticks: 288 },
-      { t: "traffic", persona: "tourist", mult: 1.3, ticks: 288 },
-    ],
-  },
+  // 「連假人潮」已經由日本日曆取代（shared/game/calendar.ts：國定假日、連休、黃金週、盂蘭盆、年末年始都是固定日期），不再擲骰
   {
     id: "summer_festival",
     category: "festival",

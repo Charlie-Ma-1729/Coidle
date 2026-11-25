@@ -3,10 +3,13 @@ import {
   CATEGORY_BY_ID,
   CLEANING_COST_PER_DAY,
   INSPECTIONS,
+  INTERACT_MAX_LAG_TICKS,
   MAINTENANCE_COST_PER_DAY,
   OUTCOME_INFO,
+  REAL_HOURS_PER_GAME_DAY,
   RESERVE_UPKEEP_PER_DAY,
   SPEED_PRESETS,
+  TICKS_PER_DAY,
   UTILITIES_PER_DAY,
   facilityScale,
   hourlyTraffic,
@@ -17,36 +20,65 @@ import {
   techFx,
   timeInfo,
   WEATHER_NAMES,
+  calendarTrafficAverage,
   dayWeather,
   weatherAt,
   weatherNow,
   weatherTrafficAverage,
 } from "@coidle/shared";
+import { CalendarCard } from "../ui/CalendarCard";
+import { ConceptCard } from "../ui/ConceptCard";
 import { forecastAdvice, forecastText } from "../ui/weatherUi";
 import { DeviceCard } from "../components/DeviceCard";
 import { InspectionCard } from "../components/InspectionCard";
 import { Btn, Card, Chip, Field, Meter } from "../components/ui";
-import { money } from "../format";
+import { lagText, money } from "../format";
 import { run, setClock, state } from "../store";
+import { fullTimeText, lagDetail, lagNow, serverTickNow, useTicker } from "../serverTime";
 
 const LEVEL_NAMES = ["不做", "標準", "加強"] as const;
 
 
-/** 時間流速與自動暫停設定（HUD 只放暫停／繼續，其餘進階項目收在設定視窗） */
+/** 時間與自動暫停設定（HUD 只放暫停／繼續，其餘進階項目收在設定視窗） */
 export function TimeSettings() {
+  useTicker();
   const s = state.value;
   if (!s) return null;
   const clock = s.clock;
   const manualPaused = clock.holds.manual;
   const activePreset = presetOfSpeed(clock.speed);
+  const lag = lagNow(s);
+  const serverTick = serverTickNow(s);
+  const syncChip = isPaused(clock) ? "⏸ 已暫停" : lag > TICKS_PER_DAY / 12 ? `⏩ 追趕中・落後 ${lagText(lag)}` : `已同步・${REAL_HOURS_PER_GAME_DAY} 小時＝1 日`;
   return (
-        <Card title="⏱ 時間流速" right={<Chip tone={isPaused(clock) ? "amber" : "green"}>{isPaused(clock) ? "⏸ 已暫停" : `${activePreset.name}・${activePreset.realHoursPerDay} 小時＝1 日`}</Chip>}>
+        <Card title="⏱ 時間" right={<Chip tone={isPaused(clock) || lag > TICKS_PER_DAY / 12 ? "amber" : "green"}>{syncChip}</Chip>}>
           <div class="stack">
-            <div class="seg seven">
+            <div class="time-compare">
+              {serverTick === null ? (
+                <div>
+                  <span>商場時間</span>
+                  <b>{fullTimeText(s.tick)}</b>
+                  <small>測試商場：不受伺服器基準時間限制</small>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <span>伺服器時間</span>
+                    <b>{fullTimeText(serverTick)}</b>
+                  </div>
+                  <div>
+                    <span>你的商場</span>
+                    <b>{fullTimeText(s.tick)}</b>
+                    <small class={lag > 0 ? "late" : ""}>{lag > 0 ? `落後 ${lagDetail(lag)}${isPaused(clock) ? "（暫停中，仍在增加）" : ""}` : "已追上，同步中"}</small>
+                  </div>
+                </>
+              )}
+            </div>
+            <div class="seg five">
               {SPEED_PRESETS.map((p) => (
-                <button key={p.id} class={!manualPaused && activePreset.id === p.id ? "active" : ""} onClick={() => setClock({ speed: p.id }, `時間流速：${p.name}`)}>
-                  <b>{p.name}</b>
-                  <small>{p.realHoursPerDay} 小時/日</small>
+                <button key={p.id} class={!manualPaused && activePreset.id === p.id ? "active" : ""} onClick={() => setClock({ speed: p.id }, `追趕速度：${p.name}`)}>
+                  <b>{p.mult}×</b>
+                  <small>{p.name}</small>
                 </button>
               ))}
               <button class={manualPaused ? "active pause" : "pause"} onClick={() => setClock({ paused: !manualPaused }, manualPaused ? "時間繼續" : "時間已暫停")}>
@@ -55,7 +87,7 @@ export function TimeSettings() {
               </button>
             </div>
             <p class="small dim">
-              最快是 1 小時＝1 天，最慢和現實時間一樣（24 小時＝1 天），預設「標準」是 6 小時＝1 天。調快或調慢會讓營收、升級、事件、建造<b>一起變快或變慢</b>；暫停時間完全靜止——不營業、不扣成本、不發生事件，什麼都不會流失。任何隊員都可以調整，不用等別人同意。
+              所有商場共用一個<b>伺服器基準時間</b>：{REAL_HOURS_PER_GAME_DAY} 真實小時＝1 遊戲日，誰都不能比它快。暫停時商場的時間靜止（不營業、不扣成本、不發生事件，什麼都不會流失），但伺服器時間繼續走，所以暫停會讓你的商場<b>落後</b>；恢復後會依上面選的追趕速度加速追回，追上之後就和伺服器同速。聯名、搶客、貿易這些跨商場互動都以伺服器時間為準，落後超過 {INTERACT_MAX_LAG_TICKS / TICKS_PER_DAY} 個遊戲日時要先追上才能發起。任何隊員都可以調整。
             </p>
             <label class="row">
               <input type="checkbox" checked={clock.pauseOnEvents} onChange={(e) => setClock({ pauseOnEvents: (e.target as HTMLInputElement).checked })} />
@@ -105,15 +137,15 @@ export function HoursCards() {
             {Array.from({ length: 12 }, (_, i) => {
               const ti = timeInfo(s.tick + i * 12);
               const h = ti.hour;
-              const wk = ti.weekend;
-              // 天氣也算進去：下雨、颱風時整體人流會明顯變少（i = 0 是此刻，含事件強制的天氣）
+              const wk = ti.offDay;
+              // 天氣與日曆也算進去：下雨、颱風時整體人流會明顯變少；連假、節日則會變多（i = 0 是此刻，含事件強制的天氣）
               const w = i === 0 ? weatherNow(s) : weatherAt(ti.day, h);
-              const v = (hourlyTraffic(wk)[h] ?? 0) * weatherTrafficAverage(w);
+              const v = (hourlyTraffic(wk)[h] ?? 0) * weatherTrafficAverage(w) * calendarTrafficAverage(ti.day);
               const mx = Math.max(...hourlyTraffic(wk)) * 1.1;
               return <div class="bar" key={i} title={`${h}:00　${WEATHER_NAMES[w.kind]}　${Math.round((v / mx) * 100)}%`} style={{ height: `${Math.max(4, Math.min(100, (v / mx) * 100))}%` }} />;
             })}
           </div>
-          <p class="small dim">柱子越高人越多（已含天氣）；尖峰前把庫存補好、人手排滿。</p>
+          <p class="small dim">柱子越高人越多（已含天氣與日曆）；尖峰前把庫存補好、人手排滿。</p>
           <p class="small">
             <b>明日預報：</b>
             {forecastText(dayWeather(timeInfo(s.tick).day + 1))}
@@ -121,6 +153,12 @@ export function HoursCards() {
           </p>
         </Card>
       )}
+
+      <ConceptCard />
+
+      <Card title="📅 日本日曆" right={<span class="small dim">連假與節日的人潮</span>}>
+        <CalendarCard tick={s.tick} />
+      </Card>
 
       <Card title="🕒 營業時間" right={<Chip tone="green">涵蓋約 {Math.round((captured / total) * 100)}% 的客流</Chip>}>
         <div class="stack">

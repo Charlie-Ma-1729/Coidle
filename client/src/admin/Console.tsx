@@ -4,6 +4,7 @@ import { useEffect, useState } from "preact/hooks";
 import { adminApi, type Overview } from "./adminApi";
 import { AiTab } from "./AiTab";
 import { AuditTab } from "./AuditTab";
+import { BalanceTab } from "./BalanceTab";
 import { EventsTab } from "./EventsTab";
 import { LiveTab } from "./LiveTab";
 import { MallsTab } from "./MallsTab";
@@ -13,7 +14,7 @@ import { DialogHost, Ico, type IconName } from "./kit";
 import { errMsg, logout, myMalls, openMall, toast, user } from "../store";
 import "./admin.css";
 
-type Tab = "live" | "malls" | "users" | "npc" | "events" | "ai" | "audit";
+type Tab = "live" | "balance" | "malls" | "users" | "npc" | "events" | "ai" | "audit";
 interface TabDef {
   id: Tab;
   label: string;
@@ -26,6 +27,7 @@ const GROUPS: { title: string; tabs: TabDef[] }[] = [
     title: "營運",
     tabs: [
       { id: "live", label: "即時數據", icon: "live", title: "即時數據", desc: "線上人數、活躍玩家、伺服器狀態與每日統計，可匯出。" },
+      { id: "balance", label: "平衡數據", icon: "tune", title: "平衡數據", desc: "每座商場每個遊戲日的營收、離場原因、價格與口碑，永久保存，可匯出做平衡調整。" },
       { id: "audit", label: "稽核紀錄", icon: "audit", title: "稽核紀錄", desc: "每個管理操作都留在這裡，也會印在伺服器的 terminal。" },
     ],
   },
@@ -157,6 +159,7 @@ export function Console() {
           {tab === "npc" && (ov ? <NpcTab ov={ov} reload={reload} /> : loading)}
           {tab === "events" && (ov ? <EventsTab ov={ov} /> : loading)}
           {tab === "ai" && <AiTab />}
+          {tab === "balance" && <BalanceTab />}
           {tab === "audit" && <AuditTab />}
         </div>
       </main>

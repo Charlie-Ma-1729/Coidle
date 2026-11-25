@@ -1,4 +1,4 @@
-import { CURRENCY, PERSONA_IDS, summarizeWeatherDay, weatherReportNote, type DailyReport, type MallState, type PersonaId } from "@coidle/shared";
+import { CATEGORY_BY_ID, CURRENCY, PERSONA_IDS, summarizeWeatherDay, weatherReportNote, type DailyReport, type MallState, type PersonaId } from "@coidle/shared";
 import { flavor, type FlavorMood } from "./flavor";
 import { hash32 } from "./rng";
 
@@ -28,6 +28,10 @@ export function buildReport(s: MallState): DailyReport {
     units: sh.day.units,
     stockouts: sh.day.stockouts,
     lost: sh.day.lost,
+    level: sh.level,
+    price: sh.price,
+    refPrice: CATEGORY_BY_ID[sh.category]?.refPrice,
+    priceWalks: sh.day.priceWalks ?? 0,
   }));
 
   const notes: string[] = [];
@@ -40,6 +44,7 @@ export function buildReport(s: MallState): DailyReport {
   for (const sh of shops) {
     if (sh.stockouts >= 3) notes.push(`「${sh.name}」缺貨 ${sh.stockouts} 次，客人只好跑去別家了。`);
     if (sh.lost >= 5) notes.push(`「${sh.name}」忙不過來，${sh.lost} 組客人排不到位子。`);
+    if ((sh.priceWalks ?? 0) >= 5) notes.push(`「${sh.name}」標價太高，${sh.priceWalks} 組客人看了價格就走。`);
   }
   for (const sh of s.shops) {
     if (sh.mode === "direct" && sh.freshness < 50) notes.push(`「${sh.name}」的菜單有點老氣了，客人覺得沒新鮮感。`);
@@ -77,6 +82,7 @@ export function buildReport(s: MallState): DailyReport {
     groups: d.groups,
     units: d.units,
     walkouts: d.walkouts,
+    priceWalks: d.priceWalks ?? 0,
     avgSat,
     shops,
     localRep: { start: d.startIndex.localRep, end: s.localRep },

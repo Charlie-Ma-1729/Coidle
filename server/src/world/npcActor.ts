@@ -222,7 +222,7 @@ export class NpcActor {
     const from = npcNumericId(npc.key.slice(2));
     this.repo.addTrade(t, from, targetId, "goods", qty, `${shop.category} 收到 ${afterFee(qty)}`);
     this.repo.addTrade(t, from, targetId, "rescue", 1);
-    this.repo.addMail(targetId, "goods", { category: shop.category, qty: afterFee(qty), from: npc.name }, t, t);
+    this.repo.addMail(targetId, "goods", { category: shop.category, qty: afterFee(qty), from: npc.name }, t, t, this.repo.serverTick(t));
     this.host.deliver(targetId);
     this.log(npc.key.slice(2), "rescue", target.key, `送貨 ${qty}`, manual);
   }

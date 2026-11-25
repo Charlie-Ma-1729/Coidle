@@ -1,12 +1,39 @@
+import { REAL_HOURS_PER_GAME_DAY, TICKS_PER_DAY } from "./data";
 import type { WorldState } from "./types";
 
 // 合作：聯名協議的常數與純函式。獨立成一個檔案，讓商戰（rivals.ts）可以引用而不會和 world.ts 形成循環匯入。
 const DAY_MS = 86_400_000;
 
+// ───────── 跨商場互動與伺服器基準時間 ─────────
+// 所有跨商場的效果都以「伺服器基準時間」（server tick）為起點、以遊戲 tick 計長度；
+// 商場自己的時鐘落後時，模擬到那個 tick 才會收到效果。冷卻、保護、每日上限用真實毫秒，
+// 因為伺服器時間是真實時間的線性函數，兩者等價。
+/** 落後伺服器基準時間超過這麼多 tick（5 遊戲日，約 20 個真實小時）的商場，不能發起跨商場互動 */
+export const INTERACT_MAX_LAG_TICKS = 5 * TICKS_PER_DAY;
+
+/** 能不能發起跨商場互動？可以回傳 null，否則回傳原因（前後端共用同一套說明） */
+export function interactBlocker(lag: number): string | null {
+  if (lag > INTERACT_MAX_LAG_TICKS) return "你的商場落後伺服器時間太多了，先把時間追上來再發起互動";
+  return null;
+}
+
+// ───────── 關係企業：同一位玩家經手的商場，不能左手轉右手 ─────────
+/**
+ * 兩座商場只要有同一位玩家（現任成員，或在這段期間內離開的成員）就是「關係企業」。
+ * 離開後仍算一段時間，是為了擋掉「加入、轉完、退出」的做法。期間與一個賽季同長。
+ */
+export const RELATED_TAIL_MS = 28 * DAY_MS;
+/** 關係企業之間不能做的事（前後端共用同一段說明） */
+export const RELATED_BLOCK_TEXT = "你們有共同的經營者（或最近才離開的成員），屬於關係企業，不能互相聯名、貿易或搶客";
+/** 關係企業之間的聯名協議被強制結束時，寄給雙方的通知 */
+export const RELATED_ENDED_TEXT = "兩座商場出現了共同的經營者，成為關係企業，聯名協議已自動結束";
+/** 一季同一位玩家只領一份獎金，名次較低的另一座商場不再領獎（仍然列在榜上） */
+export const SEASON_ONE_REWARD_PER_PLAYER = true;
+
 // ───────── 合作：聯名協議 ─────────
-/** 聯名協議期間（遊戲日；標準流速下約 7 個真實日） */
+/** 聯名協議期間（遊戲日；伺服器基準流速下約 4 個真實日 16 小時） */
 export const ALLIANCE_GAME_DAYS = 28;
-export const ALLIANCE_REAL_MS = 7 * DAY_MS;
+export const ALLIANCE_REAL_MS = Math.round(ALLIANCE_GAME_DAYS * REAL_HOURS_PER_GAME_DAY * 3_600_000);
 /** 同時最多幾份聯名協議；邀請有效期 */
 export const ALLIANCE_MAX_ACTIVE = 2;
 export const ALLIANCE_MAX_PENDING = 3;

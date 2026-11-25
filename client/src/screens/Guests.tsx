@@ -41,7 +41,7 @@ const PERSONA_NAME: Record<string, string> = {
 };
 
 function remaining(s: PublicMallState, deadlineTick: number): string {
-  const mins = Math.max(0, Math.round(ticksToRealMinutes(deadlineTick - s.tick, s.clock.speed)));
+  const mins = Math.max(0, Math.round(ticksToRealMinutes(deadlineTick - s.tick, s.clock.speed, s.clock.lag)));
   return mins >= 60 ? `${Math.round(mins / 6) / 10} 小時` : `${mins} 分鐘`;
 }
 
@@ -59,13 +59,13 @@ export function WalkCard({ s }: { s: PublicMallState }) {
   const open = t.hour >= s.hours.open && t.hour < s.hours.close;
   const cooldown = s.walk.nextTick - s.tick;
   const voices = s.walk.voices.filter((v) => v.expireTick >= s.tick);
-  const period = periodOf(t.hour, t.weekend);
+  const period = periodOf(t.hour, t.offDay);
   const hint = !open
     ? "商場打烊中，店裡沒有客人可以聊。"
     : isPaused(s.clock)
       ? "時間暫停中。"
       : cooldown > 0
-        ? `剛巡過場，約 ${realDuration(cooldown, s.clock.speed).replace("約 ", "")}後客人換一批再來。`
+        ? `剛巡過場，約 ${realDuration(cooldown, s.clock.speed, s.clock.lag).replace("約 ", "")}後客人換一批再來。`
         : period === "peak"
           ? "現在是尖峰時段，客人最多、狀況也最多。"
           : "聽聽此刻店裡客人在說什麼。";

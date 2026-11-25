@@ -12,6 +12,7 @@ import { RESERVED_USERNAMES, overseerByKey } from "../auth/overseer";
 import { NPC_BASE_P, type ManualAction } from "../world/npcActor";
 import { dailyCsv, sampleCsv, type DailyStat, type Metrics, type MetricsSample } from "../services/metrics";
 import type { UserRow } from "../db/repo";
+import { balanceCsv, balanceShopCsv } from "../services/balance";
 import type { AuditService } from "../services/audit";
 import { COOKIE_NAME, SESSION_TTL_MS, requireOverseer, requireUser, sessionToken, setSessionCookie, userFromRequest } from "./auth";
 
@@ -242,6 +243,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   app.post("/api/malls", async (req) => {
     const user = requireUser(req, repo, now());
     const name = str(body(req).name, "商場名稱", 1, 30);
+    if (user.role !== "overseer") service.chargeFounding(user.id); // 第一座免費，之後要自己出資
     const { mallId, inviteCode } = service.createMall(user.id, name);
     return { id: mallId, inviteCode };
   });
@@ -251,7 +253,17 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const b = body(req);
     const code = str(b.code, "邀請碼", 4, 16);
     const role = typeof b.role === "string" && ROLE_IDS.includes(b.role) ? (b.role as RoleId) : undefined;
-    return { id: service.joinMall(code, user.id, role, config.maxMembers) };
+    const id = service.joinMall(code, user.id, role, config.maxMembers);
+    // 第一次參與商場的玩家，把自己一次性的起始資金投進來換股份（失敗就留著，下次再試）
+    let grant = { contributed: false, shares: 0 };
+    if (user.role !== "overseer") {
+      try {
+        grant = service.contributeGrant(id, user.id);
+      } catch {
+        // 商場暫時落後伺服器時間等原因：不影響加入
+      }
+    }
+    return { id, grantShares: grant.contributed ? grant.shares : undefined };
   });
 
   app.get("/api/malls/:id", async (req) => {
@@ -261,7 +273,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     return {
       id: mall.id,
       name: mall.name,
-      inviteCode: member?.is_owner ? mall.invite_code : undefined,
+      inviteCode: member && service.authorityOf(mallId) === member.user_id ? mall.invite_code : undefined,
       members: service.members(mallId),
     };
   });
@@ -323,6 +335,105 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     return { members: service.members(mallId) };
   });
 
+  // 股權：成員看得到股權表；持股的人（含已離開商場的）可以把股份無償轉給現任成員
+  app.get("/api/malls/:id/holdings", async (req) => {
+    const mallId = mallIdOf(req.params);
+    // 股東（含被請出商場、不再是成員的人）也看得到股權表，才能處理自己的持股
+    const me = userFromRequest(req, repo, now());
+    if (!(me && repo.sharesOf(mallId, me.id) > 0)) requireReader(req, mallId);
+    return service.holdings(mallId);
+  });
+
+  app.post("/api/malls/:id/shares/transfer", async (req) => {
+    const mallId = mallIdOf(req.params);
+    const user = requireUser(req, repo, now());
+    const b = body(req);
+    if (typeof b.userId !== "number" || !Number.isInteger(b.userId)) throw new ServiceError(400, "對象無效");
+    if (typeof b.shares !== "number") throw new ServiceError(400, "股數無效");
+    return service.transferShares(mallId, user.id, b.userId, b.shares);
+  });
+
+  // 賣給其他股東：出價（只有出價與被出價的人看得到）→ 對方同意／拒絕，任一方可取消
+  app.get("/api/malls/:id/shares/offers", async (req) => {
+    const mallId = mallIdOf(req.params);
+    const user = requireUser(req, repo, now());
+    return { offers: service.offers(mallId, user.id), requests: service.authorityOf(mallId) === user.id ? service.capitalRequests(mallId) : service.capitalRequests(mallId).filter((r) => r.userId === user.id) };
+  });
+  app.post("/api/malls/:id/shares/offer", async (req) => {
+    const mallId = mallIdOf(req.params);
+    const user = requireUser(req, repo, now());
+    const b = body(req);
+    if (typeof b.userId !== "number" || !Number.isInteger(b.userId)) throw new ServiceError(400, "對象無效");
+    if (typeof b.shares !== "number") throw new ServiceError(400, "股數無效");
+    return { offers: service.offerShares(mallId, user.id, b.userId, b.shares) };
+  });
+  app.post("/api/shares/offers/:oid/respond", async (req) => {
+    const user = requireUser(req, repo, now());
+    const oid = Number((req.params as { oid: string }).oid);
+    if (!Number.isInteger(oid)) throw new ServiceError(400, "出價編號無效");
+    return service.respondOffer(oid, user.id, body(req).accept === true);
+  });
+
+  // 商場回購、股利、注資換股
+  app.post("/api/malls/:id/shares/buyback", async (req) => {
+    const mallId = mallIdOf(req.params);
+    const user = requireUser(req, repo, now());
+    if (typeof body(req).shares !== "number") throw new ServiceError(400, "股數無效");
+    return service.buybackShares(mallId, user.id, body(req).shares as number);
+  });
+  app.post("/api/malls/:id/dividend", async (req) => {
+    const mallId = mallIdOf(req.params);
+    const user = requireUser(req, repo, now());
+    if (typeof body(req).amount !== "number") throw new ServiceError(400, "金額無效");
+    return service.declareDividend(mallId, user.id, body(req).amount as number);
+  });
+  app.post("/api/malls/:id/capital", async (req) => {
+    const mallId = mallIdOf(req.params);
+    const user = requireUser(req, repo, now());
+    if (typeof body(req).amount !== "number") throw new ServiceError(400, "金額無效");
+    return service.requestCapital(mallId, user.id, body(req).amount as number);
+  });
+  app.post("/api/capital/:rid/respond", async (req) => {
+    const user = requireUser(req, repo, now());
+    const rid = Number((req.params as { rid: string }).rid);
+    if (!Number.isInteger(rid)) throw new ServiceError(400, "申請編號無效");
+    return service.respondCapital(rid, user.id, body(req).accept === true);
+  });
+
+  app.get("/api/me/wealth", async (req) => {
+    const user = requireUser(req, repo, now());
+    return service.wealth(user.id);
+  });
+  // 個人財務頁：跨商場的持股、出價、注資申請；錢包流水
+  app.get("/api/me/equity", async (req) => {
+    const user = requireUser(req, repo, now());
+    return service.personalEquity(user.id);
+  });
+  app.get("/api/me/ledger", async (req) => {
+    const user = requireUser(req, repo, now());
+    const n = Number((req.query as { limit?: string }).limit);
+    return { entries: repo.ledgerOfUser(user.id, Number.isInteger(n) ? Math.min(200, Math.max(1, n)) : 100) };
+  });
+
+  // 股票市場：虛構集團的股票，用個人錢包買賣
+  app.get("/api/market", async (req) => service.market.list(requireUser(req, repo, now()).id));
+  app.get("/api/market/:key/history", async (req) => {
+    requireUser(req, repo, now());
+    const hours = Number((req.query as { hours?: string }).hours);
+    return service.market.history(decodeURIComponent((req.params as { key: string }).key), Number.isFinite(hours) ? hours : 168);
+  });
+  app.get("/api/me/portfolio", async (req) => service.market.portfolio(requireUser(req, repo, now()).id));
+  for (const side of ["buy", "sell"] as const) {
+    app.post(`/api/market/:key/${side}`, async (req) => {
+      const user = requireUser(req, repo, now());
+      const key = decodeURIComponent((req.params as { key: string }).key);
+      const shares = body(req).shares;
+      const r = side === "buy" ? service.market.buy(user.id, key, shares) : service.market.sell(user.id, key, shares);
+      audit.record({ id: user.id, name: user.username }, `stock.${side}`, key, { shares: r.shares, price: r.price, fee: r.fee, tax: r.tax, cash: r.cash }, req.ip);
+      return r;
+    });
+  }
+
   app.post("/api/malls/:id/rename", async (req) => {
     const mallId = mallIdOf(req.params);
     const { user } = requireMember(req, mallId);
@@ -334,13 +445,13 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   app.post("/api/malls/:id/invite/regenerate", async (req) => {
     const mallId = mallIdOf(req.params);
     const { member } = requireMember(req, mallId);
-    if (!member.is_owner) throw new ServiceError(403, "只有創辦人可以更換邀請碼");
+    if (service.authorityOf(mallId) !== member.user_id) throw new ServiceError(403, "只有管事的人（實際控制人，沒有就是創辦人）可以更換邀請碼");
     const code = newInviteCode();
     repo.setInviteCode(mallId, code);
     return { inviteCode: code };
   });
 
-  // ── 時間流速／暫停（任何成員都可以；最快就是預設，調速只會往慢走）
+  // ── 追趕速度／暫停（任何成員都可以）：落後伺服器基準時間時用追趕速度加速，追上後一律 1×
   app.post("/api/malls/:id/clock", async (req) => {
     const mallId = mallIdOf(req.params);
     const { user } = requireMember(req, mallId);
@@ -421,7 +532,8 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   };
   app.get("/api/malls/:id/world/alliances", async (req) => {
     const { mallId } = memberOf(req, req.params, false);
-    return { alliances: service.alliances.list(mallId) };
+    // related：和你有共同經營者的真人商場（名錄用它標示「關係企業」，不能聯名、貿易、搶客）
+    return { alliances: service.alliances.list(mallId), related: service.relatedMalls(mallId).map((id) => `m:${id}`) };
   });
   app.post("/api/malls/:id/world/alliance", async (req) => {
     const { mallId, user } = memberOf(req, req.params);
@@ -521,7 +633,8 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   app.get("/api/admin/overview", async (req) => {
     return {
       users: repo.allUsers(),
-      malls: repo.allMalls().map((m) => ({ ...m, online: service.connectionsOf(m.id), members_list: repo.members(m.id), ...(service.summary(m.id) ?? { level: 0, funds: 0, tick: 0, day: 0, flags: {} }) })),
+      serverTick: service.serverTick(),
+      malls: repo.allMalls().map((m) => ({ ...m, online: service.connectionsOf(m.id), members_list: repo.members(m.id), ...(service.summary(m.id) ?? { level: 0, funds: 0, tick: 0, day: 0, flags: {}, lag: null, paused: false }) })),
     };
   });
   app.post("/api/admin/users/:id/reset-password", async (req) => {
@@ -643,6 +756,12 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     note(req, "mall.member-remove", `${mallLabel(id)} ✕ ${userLabel(uid)}`);
     service.adminRemoveMember(id, uid);
     return { ok: true };
+  });
+  // 只跑一次：把已經在營運、成員沒各自投入起始資金的商場補成每人一份，股份均分
+  app.post("/api/admin/malls/:id/settle-grants", async (req) => {
+    const id = idParam(req);
+    note(req, "mall.settle-grants", mallLabel(id));
+    return service.adminSettleGrants(id);
   });
   app.post("/api/admin/malls/:id/owner", async (req) => {
     const id = idParam(req);
@@ -818,6 +937,35 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     reply.header("content-disposition", `attachment; filename="coidle-${kind}-${stamp}.${format}"`);
     if (format === "json") return reply.type("application/json").send(JSON.stringify(rows));
     return reply.type("text/csv; charset=utf-8").send(kind === "daily" ? dailyCsv(rows as DailyStat[]) : sampleCsv(rows as MetricsSample[]));
+  });
+
+  // ── 平衡數據：每座商場每個遊戲日一列（永久保存），給管理室看圖與匯出
+  const balanceRange = (q: { days?: string; from?: string; to?: string; mall?: string }) => {
+    // day 是遊戲日序；沒指定 from 就取「最近 days 個遊戲日」（預設 60）
+    const all = repo.balanceRows(0, 1e9, q.mall ? Number(q.mall) : undefined);
+    const maxDay = all.reduce((a, r) => Math.max(a, r.day), 0);
+    const fromDay = Number(q.from) || maxDay - (Math.min(3650, Math.max(1, Number(q.days) || 60)) - 1);
+    const toDay = Number(q.to) || Infinity;
+    return all.filter((r) => r.day >= fromDay && r.day <= toDay);
+  };
+  app.get("/api/admin/balance", async (req) => {
+    const rows = balanceRange(req.query as never).slice(-8000);
+    const names = new Map(repo.allMalls().map((m) => [m.id, m]));
+    return {
+      malls: [...new Set(rows.map((r) => r.mall_id))].map((id) => ({ id, name: names.get(id)?.name ?? `（已解散 #${id}）`, sandbox: names.get(id)?.sandbox ?? 0 })),
+      rows: rows.map((r) => ({ ...r, detail: JSON.parse(r.detail_json) as unknown, detail_json: undefined })),
+    };
+  });
+  app.get("/api/admin/balance/export", async (req, reply) => {
+    const q = req.query as { kind?: string; format?: string; days?: string; from?: string; to?: string; mall?: string };
+    const kind = q.kind === "shop" ? "shop" : "mall";
+    const format = q.format === "json" ? "json" : "csv";
+    const rows = balanceRange(q);
+    note(req, "balance.export", kind, { format, rows: rows.length });
+    const stamp = new Date(now()).toISOString().slice(0, 10);
+    reply.header("content-disposition", `attachment; filename="coidle-balance-${kind}-${stamp}.${format}"`);
+    if (format === "json") return reply.type("application/json").send(JSON.stringify(rows.map((r) => ({ ...r, detail: JSON.parse(r.detail_json) as unknown, detail_json: undefined }))));
+    return reply.type("text/csv; charset=utf-8").send(kind === "shop" ? balanceShopCsv(rows) : balanceCsv(rows));
   });
 
   // ── 稽核紀錄：查詢（最新在前）；before 是上一頁最後一筆的 id

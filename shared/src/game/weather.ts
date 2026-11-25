@@ -8,7 +8,7 @@
  */
 import { CLEANING_COST_PER_DAY, PERSONAS, TICKS_PER_DAY, TICKS_PER_HOUR } from "./data";
 import { timeInfo } from "./time";
-import type { MallState, PersonaId, WeatherKind, WeatherSummary } from "./types";
+import type { EventDef, MallState, PersonaId, WeatherKind, WeatherSummary } from "./types";
 
 export interface Weather {
   kind: WeatherKind;
@@ -130,6 +130,38 @@ export function weatherNow(s: Pick<MallState, "tick" | "modifiers">): Weather {
   }
   cache = { s, tick: s.tick, n: s.modifiers.length, w };
   return w;
+}
+
+// ───────── 事件的天氣條件 ─────────
+
+/** 事件文字裡明講「連日下雨」的說法（梅雨、連下好幾天…） */
+const STREAK_RAIN = /(連日|連續|接連|持續|一直).{0,4}雨|雨.{0,3}(連下|下個不停|連著下)|連下.{0,3}雨|梅雨/;
+/** 事件文字裡明講「正在下雨」的說法 */
+const WET_RAIN = /下雨|雨水|大雨|豪雨|雨天|淋雨|雨勢|淋濕|雨中|雨夜/;
+
+/**
+ * 這個事件需要什麼天氣才合理：
+ *  - "wet"：此刻正在下雨（雨或暴風雨）；"wet_streak"：連著下了兩天以上的雨。
+ * 明確寫了 `needsWeather` 就用它；沒寫的（包含 AI 生成的、已經核准上線的舊事件），
+ * 看標題與內文有沒有講到下雨——寫「連日的雨」就要連日有雨，寫「雨水滲進來」就要此刻在下雨。
+ * 描述天氣本身的事件（category 是 weather，它們自己會強制天氣）不受限。
+ */
+export function weatherNeedOf(def: Pick<EventDef, "category" | "title" | "text" | "needsWeather">): "wet" | "wet_streak" | null {
+  if (def.needsWeather !== undefined) return def.needsWeather;
+  if (def.category === "weather") return null;
+  const t = `${def.title}${def.text}`;
+  if (STREAK_RAIN.test(t)) return "wet_streak";
+  if (WET_RAIN.test(t)) return "wet";
+  return null;
+}
+
+/** 此刻的天氣符不符合事件的條件。事件強制的連日大雨本身就是「連日」，不用再看前一天。 */
+export function weatherAllows(need: "wet" | "wet_streak" | null, s: Pick<MallState, "tick" | "modifiers">): boolean {
+  if (need === null) return true;
+  if (!isWet(weatherNow(s))) return false;
+  if (need === "wet") return true;
+  if (s.modifiers.some((m) => m.kind === "weather" && m.endTick > s.tick && (m.weather === "rain" || m.weather === "storm"))) return true;
+  return isWet({ kind: dayWeather(timeInfo(s.tick).day - 1).kind, temp: 0 });
 }
 
 // ───────── 對遊戲的影響 ─────────

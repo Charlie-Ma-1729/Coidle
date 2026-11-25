@@ -1,5 +1,7 @@
 import {
   CATEGORY_BY_ID,
+  CONCEPT_BY_ID,
+  CONCEPT_COOLDOWN_TICKS,
   MAX_SHOP_LEVEL,
   ZONE_BY_ID,
   expandInfo,
@@ -10,10 +12,12 @@ import {
   UPGRADE_BASE_COST,
   UPGRADE_TICKS,
   categoryHasStock,
+  conceptChangeCost,
   leaseEnabled,
   licenseOf,
   TICKS_PER_DAY,
   type Command,
+  type ConceptId,
   type MallState,
   type RestockRule,
 } from "@coidle/shared";
@@ -69,6 +73,24 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
         return err("營業時間至少 4 小時，且須在 0–24 點之間");
       }
       s.hours = { open: cmd.open, close: cmd.close };
+      break;
+    }
+
+    case "setConcept": {
+      const def = typeof cmd.id === "string" ? CONCEPT_BY_ID[cmd.id as ConceptId] : undefined;
+      if (!def) return err("找不到這個定位");
+      if (def.id === (s.concept?.id ?? "general")) return err("目前就是這個定位");
+      // 第一次選免費；之後每次要付改裝與宣傳的費用，而且要隔一段時間才能再換
+      const first = s.concept === undefined;
+      if (!first) {
+        const left = s.concept!.since + CONCEPT_COOLDOWN_TICKS - s.tick;
+        if (left > 0) return err(`剛換過定位，還要 ${Math.ceil(left / TICKS_PER_DAY)} 個遊戲日才能再換`);
+      }
+      const cost = first ? 0 : conceptChangeCost(s.level);
+      if (s.funds < cost) return err("資金不足");
+      s.funds -= cost;
+      s.concept = { id: def.id, since: s.tick };
+      addLog(s, "info", `商場重新定位為「${def.name}」${cost > 0 ? `（花費 ¥${cost.toLocaleString("en-US")}）` : ""}。`);
       break;
     }
 

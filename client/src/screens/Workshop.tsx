@@ -166,7 +166,7 @@ function Research({ s, shop }: { s: PublicMallState; shop: Shop }) {
           <p class="small">
             {SLOT_KINDS.filter((k) => job.picks[k]).map((k) => `${info.slots[k]}：${ingName(s, job.picks[k])}`).join("　")}
           </p>
-          <Meter label="進度" value={done} hint={`還要 ${realDuration(job.endTick - s.tick, s.clock.speed)}（離線也會繼續）`} tone="cyan" />
+          <Meter label="進度" value={done} hint={`還要 ${realDuration(job.endTick - s.tick, s.clock.speed, s.clock.lag)}（離線也會繼續）`} tone="cyan" />
           <div class="row">
             <Btn small kind="danger" onClick={() => run({ type: "cancelRnd", shopId: shop.id }, "已取消，退回一半費用")}>
               取消（退回一半）
@@ -198,7 +198,7 @@ function Research({ s, shop }: { s: PublicMallState; shop: Shop }) {
         ))}
         {prev && <p class="small">⚠️ 這個組合你試過了：{OUTCOME[prev].label}。{blocked ? "不能重複。" : "可以再試一次。"}</p>}
         <p class="small dim">
-          費用 {money(ready ? cost : RND_BASE_COST[cat.group])}　時間 {realDuration(picks.special ? RND_TICKS_SPECIAL : RND_TICKS, s.clock.speed)}
+          費用 {money(ready ? cost : RND_BASE_COST[cat.group])}　時間 {realDuration(picks.special ? RND_TICKS_SPECIAL : RND_TICKS, s.clock.speed, s.clock.lag)}
         </p>
         <div class="row">
           <Btn kind="primary" disabled={!ready || blocked || s.funds < cost} onClick={() => run({ type: "startRnd", shopId: shop.id, picks }, "開始研發！")}>

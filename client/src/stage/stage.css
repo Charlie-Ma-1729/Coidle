@@ -275,3 +275,31 @@
   .st-win-wrap { padding: 0 0 calc(var(--st-dock-h) + env(safe-area-inset-bottom)); align-items: end; }
   .st-win { width: 100%; height: min(640px, 88%); border-radius: 12px 12px 0 0; }
 }
+
+/* ───── 個人財務（錢包、商場股權、股市、明細） ───── */
+.st-kpis.four { grid-template-columns: repeat(4, 1fr); }
+.st-win-body .up { color: var(--green); }
+.st-win-body .down { color: var(--red); }
+.st-win-body .st-in { width: 150px; height: 34px; padding: 0 8px; background: rgba(0, 0, 0, 0.3); border: 2px solid var(--st-edge); border-radius: 6px; color: var(--text); font: inherit; font-size: 0.86rem; user-select: text; -webkit-user-select: text; }
+.st-bar { display: grid; grid-template-columns: minmax(96px, 150px) 1fr auto; gap: 10px; align-items: center; font-size: 0.82rem; }
+.st-bar b { font-variant-numeric: tabular-nums; }
+.st-stock { appearance: none; border: 0; width: 100%; color: var(--text); font: inherit; font-size: 0.86rem; text-align: left; cursor: pointer; }
+.st-stock:hover, .st-stock:focus-visible { background: rgba(255, 255, 255, 0.09); }
+.st-amt { display: grid; justify-items: end; text-align: right; flex: none; font-variant-numeric: tabular-nums; min-width: 84px; }
+.st-amt small { color: var(--dim); font-size: 0.74rem; }
+.st-win-body .st-amt small.up { color: var(--green); }
+.st-win-body .st-amt small.down { color: var(--red); }
+.st-tag { display: inline-block; padding: 0 6px; border-radius: 999px; font-size: 0.68rem; color: var(--dim); background: rgba(255, 255, 255, 0.08); vertical-align: middle; }
+.st-stake { display: grid; gap: 8px; padding-bottom: 4px; }
+.st-stake > .st-sec { padding: 0 10px 8px; }
+.st-price { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.st-price b { font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+.st-chart { width: 100%; height: auto; max-height: 220px; background: rgba(0, 0, 0, 0.18); border-radius: 6px; }
+.st-chart-t { fill: var(--dim); font-size: 11px; }
+.st-spark { flex: none; }
+@media (max-width: 760px) {
+  .st-kpis.four { grid-template-columns: repeat(2, 1fr); }
+  .st-bar { grid-template-columns: 1fr auto; }
+  .st-bar .st-meter { grid-column: 1 / -1; order: 3; }
+  .st-win-body .st-in { width: 120px; }
+}

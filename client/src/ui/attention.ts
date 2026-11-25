@@ -31,7 +31,7 @@ const MAX_INBOX_ITEMS = 4;
 export const CLOSED_MERGE_AT = 3;
 
 function within(s: PublicMallState, tick: number): string {
-  const mins = Math.max(0, Math.round(ticksToRealMinutes(tick - s.tick, s.clock.speed)));
+  const mins = Math.max(0, Math.round(ticksToRealMinutes(tick - s.tick, s.clock.speed, s.clock.lag)));
   return mins >= 60 ? `${Math.round(mins / 6) / 10} 小時` : `${mins} 分鐘`;
 }
 

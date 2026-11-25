@@ -31,7 +31,7 @@ const STATUS: Record<string, { label: string; tone: "amber" | "red" | "cyan" }> 
 };
 
 function until(s: PublicMallState, tick: number): string {
-  const m = Math.max(1, Math.round(ticksToRealMinutes(tick - s.tick, s.clock.speed)));
+  const m = Math.max(1, Math.round(ticksToRealMinutes(tick - s.tick, s.clock.speed, s.clock.lag)));
   return m >= 60 ? `還要約 ${Math.round(m / 6) / 10} 小時` : `還要約 ${m} 分鐘`;
 }
 
