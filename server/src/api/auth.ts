@@ -24,6 +24,14 @@ export function userFromRequest(req: FastifyRequest, repo: Repo, now: number): U
 export function requireUser(req: FastifyRequest, repo: Repo, now: number): UserRow {
   const u = userFromRequest(req, repo, now);
   if (!u) throw new ServiceError(401, "請先登入");
+  repo.touchSeen(u.id, now); // 活躍玩家統計用；每位使用者每分鐘最多寫一次
+  return u;
+}
+
+/** 只有 Overseer（世界管理者）能過 */
+export function requireOverseer(req: FastifyRequest, repo: Repo, now: number): UserRow {
+  const u = requireUser(req, repo, now);
+  if (u.role !== "overseer") throw new ServiceError(403, "沒有權限");
   return u;
 }
 

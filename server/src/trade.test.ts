@@ -12,7 +12,7 @@ afterEach(async () => {
 });
 function make() {
   clock.t = WORLD_EPOCH_MS + DAY;
-  const b = buildApp({ config: { dbPath: ":memory:", adminToken: null }, now: () => clock.t });
+  const b = buildApp({ config: { dbPath: ":memory:" }, now: () => clock.t });
   opened.push(b);
   return b;
 }

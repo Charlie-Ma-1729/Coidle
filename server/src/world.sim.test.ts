@@ -18,7 +18,7 @@ import { createRng } from "./sim/rng";
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 const clock = { t: WORLD_EPOCH_MS + DAY };
-const built = buildApp({ config: { dbPath: ":memory:", adminToken: null }, now: () => clock.t });
+const built = buildApp({ config: { dbPath: ":memory:" }, now: () => clock.t });
 afterAll(async () => {
   await built.app.close();
 });

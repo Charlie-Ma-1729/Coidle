@@ -12,7 +12,7 @@ const seed = Number(process.argv[2] ?? 20270101);
 const clock = { t: WORLD_EPOCH_MS + DAY };
 
 async function main() {
-  const built = buildApp({ config: { dbPath: ":memory:", adminToken: null }, now: () => clock.t });
+  const built = buildApp({ config: { dbPath: ":memory:" }, now: () => clock.t });
   const { service, repo } = built;
   const rng = createRng(seed);
   const malls: number[] = [];

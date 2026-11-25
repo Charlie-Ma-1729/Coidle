@@ -1,11 +1,25 @@
 import type { ActivityEntry, MemberInfo, RoleId } from "@coidle/shared";
 import type { Db } from "./db";
 
+export type UserRole = "player" | "overseer";
+
 export interface UserRow {
   id: number;
   username: string;
   display_name: string;
   pass_hash: string;
+  role: UserRole;
+}
+
+export interface AuditRow {
+  id: number;
+  ts: number;
+  actor_id: number | null;
+  actor_name: string;
+  action: string;
+  target: string;
+  detail: string;
+  ip: string;
 }
 
 export interface MallRow {
@@ -35,10 +49,24 @@ export class Repo {
     return Number(r.lastInsertRowid);
   }
   userByName(username: string): UserRow | undefined {
-    return this.db.prepare("SELECT id, username, display_name, pass_hash FROM users WHERE username_lc = ?").get(username.toLowerCase()) as UserRow | undefined;
+    return this.db.prepare("SELECT id, username, display_name, pass_hash, role FROM users WHERE username_lc = ?").get(username.toLowerCase()) as UserRow | undefined;
   }
   userById(id: number): UserRow | undefined {
-    return this.db.prepare("SELECT id, username, display_name, pass_hash FROM users WHERE id = ?").get(id) as UserRow | undefined;
+    return this.db.prepare("SELECT id, username, display_name, pass_hash, role FROM users WHERE id = ?").get(id) as UserRow | undefined;
+  }
+  /** 建立 Overseer（世界管理者）帳號：keyHash 是登入金鑰的雜湊 */
+  createOverseer(username: string, displayName: string, keyHash: string, now: number): number {
+    const r = this.db
+      .prepare("INSERT INTO users (username, username_lc, display_name, pass_hash, created_at, role) VALUES (?, ?, ?, ?, ?, 'overseer')")
+      .run(username, username.toLowerCase(), displayName, keyHash, now);
+    return Number(r.lastInsertRowid);
+  }
+  overseers(): UserRow[] {
+    return this.db.prepare("SELECT id, username, display_name, pass_hash, role FROM users WHERE role = 'overseer' ORDER BY id").all() as unknown as UserRow[];
+  }
+  /** 已登入使用者的「最後上線」：每位使用者最多每分鐘寫一次 */
+  touchSeen(userId: number, now: number): void {
+    this.db.prepare("UPDATE users SET last_seen_at = ? WHERE id = ? AND last_seen_at < ?").run(now, userId, now - 60_000);
   }
 
   // ── sessions
@@ -48,7 +76,7 @@ export class Repo {
   sessionUser(tokenHash: string, now: number): UserRow | undefined {
     return this.db
       .prepare(
-        "SELECT u.id, u.username, u.display_name, u.pass_hash FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?",
+        "SELECT u.id, u.username, u.display_name, u.pass_hash, u.role FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?",
       )
       .get(tokenHash, now) as UserRow | undefined;
   }
@@ -230,13 +258,40 @@ export class Repo {
   deleteMall(mallId: number): void {
     this.db.prepare("DELETE FROM malls WHERE id = ?").run(mallId);
   }
-  allUsers(): { id: number; username: string; display_name: string; created_at: number }[] {
-    return this.db.prepare("SELECT id, username, display_name, created_at FROM users ORDER BY id").all() as never;
+  allUsers(): { id: number; username: string; display_name: string; created_at: number; role: UserRole; last_seen_at: number }[] {
+    return this.db.prepare("SELECT id, username, display_name, created_at, role, last_seen_at FROM users ORDER BY id").all() as never;
   }
-  allMalls(): { id: number; name: string; created_at: number; members: number }[] {
+  allMalls(): { id: number; name: string; created_at: number; members: number; sandbox: number }[] {
     return this.db
-      .prepare("SELECT m.id, m.name, m.created_at, (SELECT COUNT(*) FROM memberships x WHERE x.mall_id = m.id) AS members FROM malls m ORDER BY m.id")
+      .prepare("SELECT m.id, m.name, m.created_at, m.sandbox, (SELECT COUNT(*) FROM memberships x WHERE x.mall_id = m.id) AS members FROM malls m ORDER BY m.id")
       .all() as never;
+  }
+  isSandbox(mallId: number): boolean {
+    const r = this.db.prepare("SELECT sandbox FROM malls WHERE id = ?").get(mallId) as { sandbox: number } | undefined;
+    return r?.sandbox === 1;
+  }
+  setSandbox(mallId: number, on: boolean): void {
+    this.db.prepare("UPDATE malls SET sandbox = ? WHERE id = ?").run(on ? 1 : 0, mallId);
+  }
+  removeDirectory(mallId: number): void {
+    this.db.prepare("DELETE FROM mall_directory WHERE mall_id = ?").run(mallId);
+  }
+
+  // ── 稽核紀錄
+  addAudit(e: { ts: number; actorId: number | null; actorName: string; action: string; target: string; detail: unknown; ip: string }): number {
+    const r = this.db
+      .prepare("INSERT INTO audit_log (ts, actor_id, actor_name, action, target, detail, ip) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .run(e.ts, e.actorId, e.actorName, e.action, e.target, JSON.stringify(e.detail ?? {}), e.ip);
+    return Number(r.lastInsertRowid);
+  }
+  audit(q: { limit: number; before?: number; action?: string; actor?: string; since?: number; until?: number }): AuditRow[] {
+    return this.db
+      .prepare(
+        `SELECT id, ts, actor_id, actor_name, action, target, detail, ip FROM audit_log
+         WHERE (? IS NULL OR id < ?) AND (? IS NULL OR action LIKE ?) AND (? IS NULL OR actor_name = ?) AND (? IS NULL OR ts >= ?) AND (? IS NULL OR ts < ?)
+         ORDER BY id DESC LIMIT ?`,
+      )
+      .all(q.before ?? null, q.before ?? null, q.action ?? null, `${q.action ?? ""}%`, q.actor ?? null, q.actor ?? null, q.since ?? null, q.since ?? null, q.until ?? null, q.until ?? null, q.limit) as unknown as AuditRow[];
   }
 
   // ── 跨商場世界：公開名錄、賽季、信箱

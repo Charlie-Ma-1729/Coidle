@@ -166,6 +166,75 @@ const MIGRATIONS: string[] = [
   CREATE INDEX idx_attacks_target ON attacks(target_key, ts);
   CREATE INDEX idx_attacks_attacker ON attacks(attacker, ts);
   `,
+  // v8：Overseer（世界管理者）、測試商場隔離、稽核紀錄、營運指標、NPC 覆寫與動態
+  `
+  ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'player';
+  ALTER TABLE users ADD COLUMN last_seen_at INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE malls ADD COLUMN sandbox INTEGER NOT NULL DEFAULT 0;
+  CREATE TABLE audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts INTEGER NOT NULL,
+    actor_id INTEGER,
+    actor_name TEXT NOT NULL,
+    action TEXT NOT NULL,
+    target TEXT NOT NULL DEFAULT '',
+    detail TEXT NOT NULL DEFAULT '{}',
+    ip TEXT NOT NULL DEFAULT ''
+  );
+  CREATE INDEX idx_audit_ts ON audit_log(ts DESC);
+  CREATE INDEX idx_audit_action ON audit_log(action, ts DESC);
+  CREATE TABLE metrics_samples (
+    ts INTEGER PRIMARY KEY,
+    online_users INTEGER NOT NULL,
+    online_malls INTEGER NOT NULL,
+    ws_conns INTEGER NOT NULL,
+    active_24h INTEGER NOT NULL,
+    active_7d INTEGER NOT NULL,
+    users_total INTEGER NOT NULL,
+    malls_total INTEGER NOT NULL,
+    requests INTEGER NOT NULL,
+    errors INTEGER NOT NULL,
+    commands INTEGER NOT NULL,
+    npc_actions INTEGER NOT NULL,
+    tick_ms REAL NOT NULL,
+    loop_lag_ms REAL NOT NULL,
+    rss_mb REAL NOT NULL,
+    heap_mb REAL NOT NULL,
+    uptime_s INTEGER NOT NULL
+  );
+  CREATE TABLE daily_stats (
+    day TEXT PRIMARY KEY,
+    dau INTEGER NOT NULL DEFAULT 0,
+    new_users INTEGER NOT NULL DEFAULT 0,
+    peak_online INTEGER NOT NULL DEFAULT 0,
+    peak_ws INTEGER NOT NULL DEFAULT 0,
+    requests INTEGER NOT NULL DEFAULT 0,
+    errors INTEGER NOT NULL DEFAULT 0,
+    commands INTEGER NOT NULL DEFAULT 0,
+    npc_actions INTEGER NOT NULL DEFAULT 0,
+    max_tick_ms REAL NOT NULL DEFAULT 0,
+    samples INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE TABLE npc_overrides (
+    npc_id TEXT PRIMARY KEY,
+    json TEXT NOT NULL,
+    expires_at INTEGER NOT NULL DEFAULT 0,
+    updated_at INTEGER NOT NULL
+  );
+  CREATE TABLE npc_actions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts INTEGER NOT NULL,
+    npc_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    target_key TEXT NOT NULL DEFAULT '',
+    detail TEXT NOT NULL DEFAULT '',
+    manual INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE INDEX idx_npc_actions ON npc_actions(npc_id, ts DESC);
+  ALTER TABLE trades ADD COLUMN from_key TEXT;
+  ALTER TABLE trades ADD COLUMN to_key TEXT;
+  ALTER TABLE attacks ADD COLUMN attacker_key TEXT;
+  `,
 ];
 
 export function openDb(path: string): Db {

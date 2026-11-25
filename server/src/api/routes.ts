@@ -8,7 +8,19 @@ import type { Repo } from "../db/repo";
 import { MallService, ServiceError, type ClockPatch } from "../services/mallService";
 import type { PushService } from "../services/push";
 import type { Command } from "../sim";
-import { COOKIE_NAME, SESSION_TTL_MS, requireUser, sessionToken, setSessionCookie } from "./auth";
+import { RESERVED_USERNAMES, overseerByKey } from "../auth/overseer";
+import type { UserRow } from "../db/repo";
+import type { AuditService } from "../services/audit";
+import { COOKIE_NAME, SESSION_TTL_MS, requireOverseer, requireUser, sessionToken, setSessionCookie, userFromRequest } from "./auth";
+
+declare module "fastify" {
+  interface FastifyRequest {
+    /** 管理 API：通過驗證的 Overseer */
+    actor?: UserRow;
+    /** 管理 API：處理函式留給稽核紀錄的說明 */
+    auditNote?: { action: string; target: string; detail: unknown };
+  }
+}
 
 export interface Deps {
   config: Config;
@@ -17,6 +29,7 @@ export interface Deps {
   push: PushService;
   now: () => number;
   content: ContentService;
+  audit: AuditService;
 }
 
 const USERNAME_RE = /^[A-Za-z0-9_぀-ヿ一-鿿]{2,20}$/;
@@ -46,8 +59,36 @@ function mallIdOf(params: unknown): number {
 }
 
 export function registerRoutes(app: FastifyInstance, deps: Deps): void {
-  const { config, repo, service, push, now, content } = deps;
+  const { config, repo, service, push, now, content, audit } = deps;
   const failures = new Map<string, { n: number; resetAt: number }>();
+
+  /** 管理 API 處理函式用：替這次操作寫一句稽核說明（沒寫的話，會自動記下方法與路徑） */
+  const note = (req: { auditNote?: { action: string; target: string; detail: unknown } }, action: string, target = "", detail: unknown = {}) => {
+    req.auditNote = { action, target, detail };
+  };
+
+  // ── 所有 /api/admin/*：只有 Overseer 能用，每個非讀取的操作都留下稽核紀錄
+  app.addHook("preHandler", async (req) => {
+    if (!req.url.startsWith("/api/admin/")) return;
+    try {
+      req.actor = requireOverseer(req, repo, now());
+    } catch (e) {
+      const who = userFromRequest(req, repo, now());
+      audit.record({ id: who?.id ?? null, name: who?.username ?? "(未登入)" }, "admin.denied", `${req.method} ${req.url.split("?")[0]}`, {}, req.ip);
+      throw e;
+    }
+  });
+  app.addHook("onResponse", async (req, reply) => {
+    const actor = req.actor;
+    if (!actor) return;
+    const n = req.auditNote;
+    if (req.method === "GET" && !n) return;
+    const ok = reply.statusCode < 400;
+    const path = req.url.split("?")[0]!;
+    const base = n ? (ok ? n.action : `${n.action}.failed`) : `http.${req.method.toLowerCase()}`;
+    const detail = { ...(n ? (n.detail as object) : { body: req.body }), status: reply.statusCode };
+    audit.record({ id: actor.id, name: actor.username }, base, n?.target ?? path, detail, req.ip);
+  });
 
   const requireMember = (req: Parameters<typeof requireUser>[0], mallId: number) => {
     const user = requireUser(req, repo, now());
@@ -68,6 +109,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     if (config.signupSecret && b.signupSecret !== config.signupSecret) throw new ServiceError(403, "註冊密語不正確");
     const username = str(b.username, "帳號", 2, 20);
     if (!USERNAME_RE.test(username)) throw new ServiceError(400, "帳號只能用英數字、底線、中日文");
+    if (RESERVED_USERNAMES.includes(username.toLowerCase())) throw new ServiceError(400, "這個帳號名稱不能使用");
     const password = typeof b.password === "string" ? b.password : "";
     if (password.length < 8 || password.length > 72) throw new ServiceError(400, "密碼長度需在 8–72 字之間");
     const displayName = b.displayName === undefined ? username : str(b.displayName, "暱稱", 1, 20);
@@ -86,7 +128,8 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     if (f && f.resetAt > now() && f.n >= 8) throw new ServiceError(429, "嘗試次數過多，請稍後再試");
     const user = repo.userByName(username);
     // 帳號不存在時也跑一次雜湊，避免用回應時間猜帳號
-    const ok = user ? await verifyPassword(password, user.pass_hash) : (await hashPassword(password), false);
+    // Overseer 只能用金鑰登入；這裡一律當成帳號或密碼錯誤
+    const ok = user && user.role !== "overseer" ? await verifyPassword(password, user.pass_hash) : (await hashPassword(password), false);
     if (!ok || !user) {
       const cur = f && f.resetAt > now() ? f : { n: 0, resetAt: now() + 10 * 60_000 };
       cur.n++;
@@ -95,6 +138,29 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     }
     failures.delete(key);
     startSession(reply, user.id);
+    return { ok: true };
+  });
+
+  // Overseer（世界管理者）：只用金鑰登入。失敗次數限制比一般登入更嚴，成功與失敗都留下稽核紀錄。
+  app.post("/api/auth/overseer", async (req, reply) => {
+    const key = typeof body(req).key === "string" ? (body(req).key as string).trim() : "";
+    const fkey = `ovs|${req.ip}`;
+    const f = failures.get(fkey);
+    if (f && f.resetAt > now() && f.n >= 5) {
+      audit.record({ id: null, name: "(未登入)" }, "overseer.login.blocked", "", {}, req.ip);
+      throw new ServiceError(429, "嘗試次數過多，請稍後再試");
+    }
+    const user = key.length >= 20 && key.length <= 200 ? await overseerByKey(repo, key) : null;
+    if (!user) {
+      const cur = f && f.resetAt > now() ? f : { n: 0, resetAt: now() + 15 * 60_000 };
+      cur.n++;
+      failures.set(fkey, cur);
+      audit.record({ id: null, name: "(未登入)" }, "overseer.login.fail", "", {}, req.ip);
+      throw new ServiceError(401, "金鑰不正確");
+    }
+    failures.delete(fkey);
+    startSession(reply, user.id);
+    audit.record({ id: user.id, name: user.username }, "overseer.login", "", {}, req.ip);
     return { ok: true };
   });
 
@@ -108,7 +174,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   app.get("/api/me", async (req): Promise<MeResponse> => {
     const user = requireUser(req, repo, now());
     return {
-      user: { id: user.id, username: user.username, displayName: user.display_name },
+      user: { id: user.id, username: user.username, displayName: user.display_name, role: user.role },
       malls: repo.mallsOfUser(user.id).map((m) => ({ id: m.id, name: m.name, role: m.role, isOwner: m.is_owner === 1 })),
     };
   });
@@ -123,6 +189,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
 
   app.post("/api/me/password", async (req) => {
     const user = requireUser(req, repo, now());
+    if (user.role === "overseer") throw new ServiceError(403, "Overseer 只能用金鑰登入；要換金鑰請用伺服器上的指令列");
     const b = body(req);
     const current = typeof b.current === "string" ? b.current : "";
     const next = typeof b.next === "string" ? b.next : "";
@@ -144,6 +211,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
 
   app.post("/api/me/delete", async (req, reply) => {
     const user = requireUser(req, repo, now());
+    if (user.role === "overseer") throw new ServiceError(403, "Overseer 帳號不能自行刪除");
     const password = typeof body(req).password === "string" ? (body(req).password as string) : "";
     if (!(await verifyPassword(password, user.pass_hash))) throw new ServiceError(403, "密碼不正確");
     service.deleteAccount(user.id);
@@ -297,13 +365,13 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     return { ok: true };
   });
 
-  // ── 開發／營運：開放內容的旗標（需要 ADMIN_TOKEN）
+  // ── 管理：開放內容的旗標
   app.post("/api/admin/malls/:id/flags", async (req) => {
-    if (!config.adminToken || req.headers["x-admin-token"] !== config.adminToken) throw new ServiceError(403, "沒有權限");
     const mallId = mallIdOf(req.params);
     const b = body(req);
     const flag = str(b.flag, "flag", 3, 60);
     if (!/^(zone|feature):[a-z0-9_]+$/.test(flag) || typeof b.value !== "boolean") throw new ServiceError(400, "旗標格式不正確");
+    note(req, "mall.flag", `mall#${mallId}`, { flag, value: b.value });
     return service.setFlag(mallId, flag, b.value);
   });
 
@@ -325,13 +393,14 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   });
 
   // ── 聯名協議（跨商場合作）：只有該商場的成員能操作
-  const memberOf = (req: Parameters<typeof requireUser>[0], params: unknown) => {
+  const memberOf = (req: Parameters<typeof requireUser>[0], params: unknown, write = true) => {
     const mallId = mallIdOf(params);
     const { user } = requireMember(req, mallId);
+    if (write) service.assertInWorld(mallId);
     return { user, mallId };
   };
   app.get("/api/malls/:id/world/alliances", async (req) => {
-    const { mallId } = memberOf(req, req.params);
+    const { mallId } = memberOf(req, req.params, false);
     return { alliances: service.alliances.list(mallId) };
   });
   app.post("/api/malls/:id/world/alliance", async (req) => {
@@ -383,12 +452,8 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     return { alliances: out.views, cost: out.cost };
   });
 
-  // ── AI 內容管理（需要 ADMIN_TOKEN）
-  const admin = (req: { headers: Record<string, unknown> }) => {
-    if (!config.adminToken || req.headers["x-admin-token"] !== config.adminToken) throw new ServiceError(403, "沒有權限");
-  };
+  // ── AI 內容管理
   app.get("/api/admin/ai/status", async (req) => {
-    admin(req);
     const b = content.budget();
     return {
       enabled: content.enabled,
@@ -408,60 +473,78 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     };
   });
   app.get("/api/admin/ai/items", async (req) => {
-    admin(req);
     const q = req.query as { kind?: string; status?: string };
     return { items: repo.contentList(q.kind ?? null, q.status ?? null, 100) };
   });
   app.post("/api/admin/ai/generate", async (req) => {
-    admin(req);
     const b = body(req);
     if (!["news", "review", "event", "brand", "dish", "regular"].includes(b.kind as string)) throw new ServiceError(400, "kind 無效");
     const count = typeof b.count === "number" ? Math.min(20, Math.max(1, Math.floor(b.count))) : undefined;
+    note(req, "ai.generate", String(b.kind), { count });
     return content.generate(b.kind as ContentKind, count);
   });
   app.post("/api/admin/ai/events/:id/:action", async (req) => {
-    admin(req);
     const p = req.params as { id: string; action: string };
     const id = Number(p.id);
     const ok = p.action === "approve" ? content.approveEvent(id) : p.action === "reject" ? content.rejectEvent(id) : false;
+    note(req, `ai.event.${p.action}`, `content#${id}`);
     if (!ok) throw new ServiceError(400, "找不到這個事件，或狀態不允許這個操作");
     return { ok: true };
   });
   app.post("/api/admin/ai/items/:id/remove", async (req) => {
-    admin(req);
+    note(req, "ai.remove", `content#${(req.params as { id: string }).id}`);
     if (!content.removeText(Number((req.params as { id: string }).id))) throw new ServiceError(400, "找不到這則內容");
     return { ok: true };
   });
 
-  // ── 管理後台（需要 ADMIN_TOKEN）：概況、商場與使用者
+  // ── 管理後台：概況、商場與使用者
   app.get("/api/admin/overview", async (req) => {
-    admin(req);
     return {
       users: repo.allUsers(),
       malls: repo.allMalls().map((m) => ({ ...m, ...(service.summary(m.id) ?? { level: 0, funds: 0, tick: 0, day: 0, flags: {} }) })),
     };
   });
   app.post("/api/admin/users/:id/reset-password", async (req) => {
-    admin(req);
     const id = Number((req.params as { id: string }).id);
-    if (!repo.userById(id)) throw new ServiceError(404, "找不到這位使用者");
+    const target = repo.userById(id);
+    if (!target) throw new ServiceError(404, "找不到這位使用者");
+    if (target.role === "overseer") throw new ServiceError(400, "Overseer 沒有密碼，要換金鑰請用伺服器上的指令列");
+    note(req, "user.reset-password", `user#${id}(${target.username})`);
     const temp = randomBytes(9).toString("base64url");
     repo.setPassHash(id, await hashPassword(temp));
     repo.deleteSessionsOfUser(id);
     return { tempPassword: temp };
   });
   app.post("/api/admin/users/:id/delete", async (req) => {
-    admin(req);
     const id = Number((req.params as { id: string }).id);
-    if (!repo.userById(id)) throw new ServiceError(404, "找不到這位使用者");
+    const target = repo.userById(id);
+    if (!target) throw new ServiceError(404, "找不到這位使用者");
+    if (target.role === "overseer") throw new ServiceError(400, "不能刪除 Overseer 帳號");
+    note(req, "user.delete", `user#${id}(${target.username})`);
     service.adminDeleteUser(id);
     return { ok: true };
   });
   app.post("/api/admin/malls/:id/delete", async (req) => {
-    admin(req);
     const id = Number((req.params as { id: string }).id);
-    if (!repo.mallById(id)) throw new ServiceError(404, "找不到這座商場");
+    const mall = repo.mallById(id);
+    if (!mall) throw new ServiceError(404, "找不到這座商場");
+    note(req, "mall.dissolve", `mall#${id}(${mall.name})`);
     service.dissolveMall(id);
     return { ok: true };
+  });
+
+  // ── 稽核紀錄：查詢（最新在前）；before 是上一頁最後一筆的 id
+  app.get("/api/admin/audit", async (req) => {
+    const q = req.query as { limit?: string; before?: string; action?: string; actor?: string; since?: string; until?: string };
+    const num = (v?: string) => (v !== undefined && v !== "" && Number.isFinite(Number(v)) ? Number(v) : undefined);
+    const rows = repo.audit({
+      limit: Math.min(500, Math.max(1, num(q.limit) ?? 100)),
+      before: num(q.before),
+      action: q.action || undefined,
+      actor: q.actor || undefined,
+      since: num(q.since),
+      until: num(q.until),
+    });
+    return { entries: rows.map((r) => ({ id: r.id, ts: r.ts, actor: r.actor_name, actorId: r.actor_id, action: r.action, target: r.target, detail: JSON.parse(r.detail) as unknown, ip: r.ip })) };
   });
 }

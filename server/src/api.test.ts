@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { WebSocket } from "ws";
 import { buildApp, type BuildOptions } from "./app";
+import { overseerLogin } from "./testutil";
 
 const T0 = Date.UTC(2026, 2, 2, 0, 0, 0); // 真實時間起點
 const HOUR = 3_600_000;
@@ -177,29 +178,18 @@ describe("malls, membership and commands", () => {
     expect(feed[0].text).toContain("調整了");
   });
 
-  it("admin flag API is disabled without token and works with it", async () => {
-    const a = makeApp({ config: { adminToken: "adm" } });
+  it("admin flag API needs an Overseer (players, even the founder, are refused)", async () => {
+    const a = makeApp();
     const { owner, id } = await setupMall(a);
-    const denied = await a.app.inject({ method: "POST", url: `/api/admin/malls/${id}/flags`, payload: { flag: "zone:f1", value: true } });
-    expect(denied.statusCode).toBe(403);
-    const ok = await a.app.inject({
-      method: "POST",
-      url: `/api/admin/malls/${id}/flags`,
-      headers: { "x-admin-token": "adm" },
-      payload: { flag: "zone:f1", value: true },
-    });
+    const anon = await a.app.inject({ method: "POST", url: `/api/admin/malls/${id}/flags`, payload: { flag: "zone:f1", value: true } });
+    expect(anon.statusCode).toBe(401);
+    const player = await a.app.inject({ method: "POST", url: `/api/admin/malls/${id}/flags`, headers: { cookie: owner.cookie }, payload: { flag: "zone:f1", value: true } });
+    expect(player.statusCode).toBe(403);
+    const H = (await overseerLogin(a)).headers;
+    const ok = await a.app.inject({ method: "POST", url: `/api/admin/malls/${id}/flags`, headers: H, payload: { flag: "zone:f1", value: true } });
     expect(ok.statusCode).toBe(200);
     const st = (await call(a, owner.cookie, "GET", `/api/malls/${id}/state`)).json();
     expect(st.flags["zone:f1"]).toBe(true);
-
-    const b = makeApp(); // 沒設 ADMIN_TOKEN：永遠拒絕，連空字串 token 都不行
-    const none = await b.app.inject({
-      method: "POST",
-      url: "/api/admin/malls/1/flags",
-      headers: { "x-admin-token": "" },
-      payload: { flag: "zone:f1", value: true },
-    });
-    expect(none.statusCode).toBe(403);
   });
 });
 

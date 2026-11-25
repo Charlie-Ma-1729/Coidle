@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app";
+import { overseerLogin } from "./testutil";
 
 const opened: ReturnType<typeof buildApp>[] = [];
 afterEach(async () => {
   while (opened.length) await opened.pop()!.app.close();
 });
-const make = (adminToken: string | null = null) => {
-  const b = buildApp({ config: { dbPath: ":memory:", adminToken }, now: () => Date.UTC(2026, 10, 24) });
+const make = () => {
+  const b = buildApp({ config: { dbPath: ":memory:" }, now: () => Date.UTC(2026, 10, 24) });
   opened.push(b);
   return b;
 };
@@ -126,13 +127,14 @@ describe("deleting an account", () => {
 });
 
 describe("admin: overview, password reset and deletion", () => {
-  const H = { "x-admin-token": "tok-1" };
-  it("needs the admin token; lists users and malls; resets a password; deletes users and malls", async () => {
-    const a = make("tok-1");
+  it("needs an Overseer login; lists users and malls; resets a password; deletes users and malls", async () => {
+    const a = make();
     const t = await team(a);
-    expect((await a.app.inject({ url: "/api/admin/overview" })).statusCode).toBe(403);
+    expect((await a.app.inject({ url: "/api/admin/overview" })).statusCode).toBe(401);
+    expect((await a.app.inject({ url: "/api/admin/overview", headers: { cookie: t.owner } })).statusCode).toBe(403); // 一般玩家（連創辦人）也不行
+    const H = (await overseerLogin(a)).headers;
     const ov = (await a.app.inject({ url: "/api/admin/overview", headers: H })).json();
-    expect(ov.users.length).toBe(3);
+    expect(ov.users.filter((u: { role: string }) => u.role === "player").length).toBe(3);
     expect(ov.malls[0]).toMatchObject({ id: t.id, members: 3, level: 1 });
     expect(JSON.stringify(ov)).not.toContain("pass_hash");
 

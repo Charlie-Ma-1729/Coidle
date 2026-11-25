@@ -9,7 +9,7 @@ afterEach(async () => {
 
 describe("管理指令：全開測試商場", () => {
   it("替使用者開一座最高等級、全區域、全科技的商場，之後仍能正常推進與操作", async () => {
-    const b = buildApp({ config: { dbPath: ":memory:", adminToken: null }, now: () => WORLD_EPOCH_MS + 86_400_000 });
+    const b = buildApp({ config: { dbPath: ":memory:" }, now: () => WORLD_EPOCH_MS + 86_400_000 });
     opened.push(b);
     const r = await b.app.inject({ method: "POST", url: "/api/auth/register", payload: { username: "charlie", password: "password123", displayName: "CharlieMa" } });
     expect(r.statusCode).toBe(200);

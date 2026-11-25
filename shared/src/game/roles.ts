@@ -35,7 +35,7 @@ export interface ActivityEntry {
 }
 
 export interface MeResponse {
-  user: { id: number; username: string; displayName: string };
+  user: { id: number; username: string; displayName: string; role: "player" | "overseer" };
   malls: MallSummary[];
 }
 

@@ -5,6 +5,7 @@ import { chat, extractJson, LlmError, type ChatResult } from "./ai/openrouter";
 import { ContentService, type AiConfig, type ChatFn } from "./ai/service";
 import { checkText, SIMILAR_LIMIT, textSimilarity } from "./ai/validate";
 import { buildApp } from "./app";
+import { overseerLogin } from "./testutil";
 import { openDb } from "./db/db";
 import { Repo } from "./db/repo";
 import { advanceTo, createInitialState } from "./sim";
@@ -355,23 +356,26 @@ describe("HTTP endpoints", () => {
     while (opened.length) await opened.pop()!.app.close();
     setFlavorSource(null);
   });
-  const make = (adminToken: string | null) => {
-    const b = buildApp({ config: { dbPath: ":memory:", adminToken, ai: { ...cfg({ apiKey: null }), budgetStart: null, spentElsewhereUsd: 0 } } });
+  const make = () => {
+    const b = buildApp({ config: { dbPath: ":memory:", ai: { ...cfg({ apiKey: null }), budgetStart: null, spentElsewhereUsd: 0 } } });
     opened.push(b);
-    return b.app;
+    return b;
   };
 
-  it("event definitions need a login; admin endpoints need the admin token", async () => {
-    const app = make("tok-123");
+  it("event definitions need a login; admin endpoints need an Overseer", async () => {
+    const b = make();
+    const app = b.app;
     expect((await app.inject({ url: "/api/content/events" })).statusCode).toBe(401);
-    expect((await app.inject({ url: "/api/admin/ai/status" })).statusCode).toBe(403);
-    expect((await app.inject({ url: "/api/admin/ai/status", headers: { "x-admin-token": "wrong" } })).statusCode).toBe(403);
-    const ok = await app.inject({ url: "/api/admin/ai/status", headers: { "x-admin-token": "tok-123" } });
+    expect((await app.inject({ url: "/api/admin/ai/status" })).statusCode).toBe(401);
+    const reg = await app.inject({ method: "POST", url: "/api/auth/register", payload: { username: "someone", password: "password123" } });
+    const player = { cookie: `coidle_sid=${reg.cookies.find((c) => c.name === "coidle_sid")!.value}` };
+    expect((await app.inject({ url: "/api/admin/ai/status", headers: player })).statusCode).toBe(403);
+    const H = (await overseerLogin(b)).headers;
+    const ok = await app.inject({ url: "/api/admin/ai/status", headers: H });
     expect(ok.statusCode).toBe(200);
     expect(ok.json().enabled).toBe(false);
     expect(JSON.stringify(ok.json())).not.toContain("sk-");
-    const gen = await app.inject({ method: "POST", url: "/api/admin/ai/generate", headers: { "x-admin-token": "tok-123" }, payload: { kind: "news" } });
+    const gen = await app.inject({ method: "POST", url: "/api/admin/ai/generate", headers: H, payload: { kind: "news" } });
     expect(gen.json().error).toContain("OPENROUTER_API_KEY");
-    expect((await make(null).inject({ url: "/api/admin/ai/status", headers: { "x-admin-token": "" } })).statusCode).toBe(403);
   });
 });

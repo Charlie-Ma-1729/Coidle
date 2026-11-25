@@ -310,7 +310,7 @@ describe("screens render with real simulated state", () => {
   });
 
   it("AccountCard offers name, password and delete flows", async () => {
-    store.user.value = { id: 1, username: "tester", displayName: "測試員" };
+    store.user.value = { id: 1, username: "tester", displayName: "測試員", role: "player" };
     const { AccountCard } = await import("./components/AccountCard");
     await mount(<AccountCard />);
     expect(container.textContent).toContain("我的帳號");
@@ -650,7 +650,7 @@ describe("screens render with real simulated state", () => {
 
   it("Team shows members and the invite code for owners", async () => {
     store.state.value = publicState(0);
-    store.user.value = { id: 1, username: "u", displayName: "我" };
+    store.user.value = { id: 1, username: "u", displayName: "我", role: "player" };
     store.mallId.value = 1;
     store.mallInfo.value = {
       id: 1,
@@ -669,7 +669,7 @@ describe("screens render with real simulated state", () => {
 describe("舊總覽／樓層的行為，在新位置的等價驗證", () => {
   beforeEach(() => {
     store.mallId.value = 1;
-    store.user.value = { id: 1, username: "u", displayName: "我" };
+    store.user.value = { id: 1, username: "u", displayName: "我", role: "player" };
   });
 
   it("AI 事件在執行期註冊後，會以一般待決事件卡的樣子出現在事件視窗", async () => {
@@ -837,7 +837,7 @@ describe("stage UI panels with real state", () => {
 
   beforeEach(() => {
     store.mallId.value = 1;
-    store.user.value = { id: 1, username: "u", displayName: "我" };
+    store.user.value = { id: 1, username: "u", displayName: "我", role: "player" };
   });
   afterAll(() => {
     globalThis.fetch = originalFetch;

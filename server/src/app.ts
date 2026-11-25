@@ -12,6 +12,7 @@ import { setFlavorSource } from "./sim/flavor";
 import { registerSecurityHeaders, registerStatic } from "./static";
 import { MallService, ServiceError } from "./services/mallService";
 import { PushService, type PushSender } from "./services/push";
+import { AuditService, type AuditSink } from "./services/audit";
 
 export interface BuildOptions {
   config?: Partial<Config>;
@@ -19,6 +20,8 @@ export interface BuildOptions {
   now?: () => number;
   /** 測試用：可注入假的推播送出函式 */
   pushSender?: PushSender;
+  /** 稽核紀錄印到哪裡；預設是 console（測試時預設不印），傳 null 關閉 */
+  auditSink?: AuditSink | null;
 }
 
 export function buildApp(opts: BuildOptions = {}) {
@@ -29,6 +32,7 @@ export function buildApp(opts: BuildOptions = {}) {
   const push = new PushService(repo, config, now, opts.pushSender ?? null);
   const service = new MallService(repo, now, push);
   const content = new ContentService(repo, config.ai, now);
+  const audit = new AuditService(repo, now, opts.auditSink !== undefined ? opts.auditSink : process.env.VITEST ? null : (line) => console.log(line));
   setFlavorSource(content.flavorSource());
   const app = Fastify({ logger: false, bodyLimit: 16 * 1024, trustProxy: config.production });
 
@@ -49,7 +53,7 @@ export function buildApp(opts: BuildOptions = {}) {
     time: new Date().toISOString(),
   }));
 
-  const deps = { config, repo, service, push, now, content };
+  const deps = { config, repo, service, push, now, content, audit };
   registerRoutes(app, deps);
   registerWs(app, deps);
   registerSecurityHeaders(app);
@@ -59,5 +63,5 @@ export function buildApp(opts: BuildOptions = {}) {
     db.close();
   });
 
-  return { app, service, repo, config, push, content };
+  return { app, service, repo, config, push, content, audit };
 }

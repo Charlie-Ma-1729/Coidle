@@ -316,9 +316,37 @@ export class MallService {
     return made;
   }
 
+  /**
+   * 管理用：把一座商場變成「獨立測試商場」——不進名錄／排行／賽季、不能聯名／貿易／搶客、
+   * 擁有者換成 Overseer、其他成員全部移除。沒給編號就新開一座全開商場。
+   */
+  adminMakeSandbox(ownerId: number, mallId?: number): { mallId: number; name: string; created: boolean; removed: string[] } {
+    let created = false;
+    if (mallId === undefined) {
+      mallId = this.adminCreateTestMall(ownerId, "測試全開商場").mallId;
+      created = true;
+    }
+    const id = mallId;
+    if (!this.repo.member(id, ownerId)) this.repo.addMember(id, ownerId, "gm", true, this.now());
+    const removed: string[] = [];
+    for (const m of this.repo.members(id)) {
+      if (m.userId === ownerId) continue;
+      this.repo.removeMember(id, m.userId);
+      removed.push(m.displayName);
+    }
+    this.repo.setOwner(id, ownerId, true);
+    this.repo.setSandbox(id, true);
+    this.repo.removeDirectory(id);
+    this.alliances.dropMall(id);
+    this.lastDirectory.delete(id);
+    this.announceMembers(id);
+    return { mallId: id, name: this.repo.mallById(id)?.name ?? "", created, removed };
+  }
+
   joinMall(code: string, userId: number, role: RoleId | undefined, maxMembers: number): number {
     const mall = this.repo.mallByCode(code.trim().toUpperCase());
     if (!mall) throw new ServiceError(404, "邀請碼不存在");
+    if (this.repo.isSandbox(mall.id)) throw new ServiceError(403, "這是測試商場，不開放加入");
     if (this.repo.member(mall.id, userId)) throw new ServiceError(409, "你已經在這座商場裡了");
     if (this.repo.memberCount(mall.id) >= maxMembers) throw new ServiceError(409, "這座商場的成員已滿");
     const r = role && ROLE_IDS.includes(role) ? role : "ops";
@@ -506,6 +534,10 @@ export class MallService {
     const row = this.repo.mallById(mallId);
     if (!row) return;
     this.lastDirectory.set(mallId, nowMs);
+    if (this.repo.isSandbox(mallId)) {
+      this.repo.removeDirectory(mallId); // 測試商場獨立於世界之外：不進名錄、排行與賽季
+      return;
+    }
     const counts = new Map<string, number>();
     for (const sh of s.shops) counts.set(sh.category, (counts.get(sh.category) ?? 0) + 1);
     const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
@@ -619,6 +651,11 @@ export class MallService {
   }
 
   /** 團隊動態：跨商場行動（聯名等）留下紀錄 */
+  /** 世界功能（聯名、貿易、搶客）：測試商場不參與 */
+  assertInWorld(mallId: number): void {
+    if (this.repo.isSandbox(mallId)) throw new ServiceError(403, "測試商場獨立於世界之外，不能聯名、貿易或搶客");
+  }
+
   logWorld(mallId: number, actor: string, text: string): void {
     this.logActivity(mallId, actor, `${actor} ${text}`);
   }
