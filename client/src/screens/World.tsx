@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import { ALLIANCE_MAX_ACTIVE, BOARDS, COMPETE_SELF_MULT, COMPETE_TARGET_MULT, PERSONAS, canCompete, competeCost, CATEGORY_BY_ID, TRADE_FEE, TRADE_MAX_GOODS, TRADE_MIN_FUNDS, TRADE_MIN_GOODS, categoryHasStock, tradeLimits, NPC_BY_ID, boardValue, jointPromoCost, npcAcceptsAlliance, rankEntries, type BoardId, type DirectoryEntry, type SeasonResult } from "@coidle/shared";
+import { ALLIANCE_MAX_ACTIVE, BOARDS, COMPETE_SELF_MULT, COMPETE_TARGET_MULT, PERSONAS, canCompete, competeCost, CATEGORY_BY_ID, TRADE_FEE, TRADE_MAX_GOODS, TRADE_MIN_FUNDS, TRADE_MIN_GOODS, categoryHasStock, tradeLimits, boardValue, jointPromoCost, rankEntries, type BoardId, type DirectoryEntry, type SeasonResult } from "@coidle/shared";
 import { api, type AllianceView, type WorldView } from "../api";
 import { Btn, Card, Chip, Empty } from "../components/ui";
 import { moneyShort } from "../format";
@@ -13,7 +13,7 @@ function valueText(e: DirectoryEntry, board: BoardId): string {
   return board === "revenue" ? moneyShort(v) : v.toFixed(1);
 }
 
-/** 對真人商場的支援：送錢、調貨（有手續費與每日上限，伺服器會擋） */
+/** 對其他商場的支援：送錢、調貨（有手續費與每日上限，伺服器會擋） */
 function TradePanel({ entry, onDone }: { entry: DirectoryEntry; onDone: () => void }) {
   const s = state.value!;
   const lim = tradeLimits(s.level);
@@ -83,7 +83,7 @@ function CompetePanel({ entry, shieldedUntil, onDone, defaultPersona }: { entry:
     setBusy(true);
     try {
       const r = await api.compete(id, entry.key, persona);
-      toast(r.hurt ? `對「${r.target}」辦了搶客促銷` : `針對「${r.target}」辦了搶客促銷（NPC 商場不會有實際損失）`, "ok");
+      toast(`對「${r.target}」辦了搶客促銷`, "ok");
       onDone();
     } catch (e) {
       toast(e instanceof Error ? e.message : "失敗了", "error");
@@ -116,7 +116,7 @@ function CompetePanel({ entry, shieldedUntil, onDone, defaultPersona }: { entry:
   );
 }
 
-/** 全服公開的商場名錄：真人商場與 NPC 商場同台，排行榜、賽季與歷屆成績 */
+/** 全服公開的商場名錄：排行榜、賽季與歷屆成績 */
 export function World() {
   const s = state.value;
   const [view, setView] = useState<WorldView | null>(null);
@@ -179,7 +179,6 @@ export function World() {
   const myRank = ranked.findIndex((e) => e.key === mine) + 1;
   const daysLeft = view ? Math.max(0, Math.ceil((view.season.end - view.now) / DAY)) : 0;
   const last: SeasonResult | undefined = view?.history[0];
-  const myScore = view?.entries.find((e) => e.key === mine)?.score ?? 0;
 
   return (
     <>
@@ -196,7 +195,7 @@ export function World() {
         {view && (
           <div class="stack">
             <p class="small">
-              第 <b>{view.season.index + 1}</b> 季・還有 <b>{daysLeft}</b> 天結算。每季結算時，前三名與符合資格的參賽商場會收到獎金與稱號（NPC 商場也會上榜，但不領獎）。
+              第 <b>{view.season.index + 1}</b> 季・還有 <b>{daysLeft}</b> 天結算。每季結算時，前三名與符合資格的參賽商場會收到獎金與稱號。
             </p>
             {myRank > 0 && (
               <p class="small">
@@ -220,7 +219,7 @@ export function World() {
                 <div class="tenant" key={a.id}>
                   <div class="row between">
                     <b>
-                      {a.partnerKind === "npc" ? "🏢" : "🏬"} {a.partnerName}
+                      🏬 {a.partnerName}
                     </b>
                     <Chip tone={a.status === "active" ? "green" : "amber"}>{a.status === "active" ? "生效中" : a.direction === "in" ? "對方邀請你" : "已送出邀請"}</Chip>
                   </div>
@@ -272,17 +271,16 @@ export function World() {
           </nav>
           <div class="stack" style={{ marginTop: "8px" }}>
             {ranked.map((e, i) => {
-              const npc = e.kind === "npc" ? NPC_BY_ID[e.key.slice(2)] : undefined;
               const isMine = e.key === mine;
               return (
                 <div key={e.key} id={`world-${e.key}`} class="tenant" style={isMine ? { borderColor: "var(--pink, #ff5fa2)" } : undefined}>
                   <button class="linklike" style={{ textAlign: "left", width: "100%" }} onClick={() => setOpen(open === e.key ? null : e.key)}>
                     <div class="row between">
                       <b>
-                        {i + 1}. {e.kind === "npc" ? "🏢" : "🏬"} {e.name}
+                        {i + 1}. 🏬 {e.name}
                       </b>
                       <span>
-                        {isMine && <Chip tone="pink">你</Chip>} {(view?.shields[e.key] ?? 0) > Date.now() && <Chip tone="dim">🛡 保護中</Chip>} {e.stockouts > 0 && <Chip tone="amber">⚠️ {e.stockouts} 間缺貨</Chip>} <Chip tone={e.kind === "npc" ? "dim" : "cyan"}>{e.kind === "npc" ? "NPC" : "真人"}</Chip>
+                        {isMine && <Chip tone="pink">你</Chip>} {(view?.shields[e.key] ?? 0) > Date.now() && <Chip tone="dim">🛡 保護中</Chip>} {e.stockouts > 0 && <Chip tone="amber">⚠️ {e.stockouts} 間缺貨</Chip>}
                       </span>
                     </div>
                     <div class="row between small dim">
@@ -296,21 +294,15 @@ export function World() {
                   </button>
                   {open === e.key && (
                     <div class="small" style={{ marginTop: "6px" }}>
-                      {npc && (
-                        <>
-                          <p>「{npc.tagline}」</p>
-                          <p class="dim">{npc.bio}</p>
-                        </>
-                      )}
-                      {!isMine && e.kind === "player" && <TradePanel entry={e} onDone={() => void load()} />}
+                      {!isMine && <TradePanel entry={e} onDone={() => void load()} />}
                       {!isMine && <CompetePanel key={focusPersona?.key === e.key ? focusPersona.persona ?? "f" : "-"} entry={e} shieldedUntil={view?.shields[e.key] ?? 0} onDone={() => void load()} defaultPersona={focusPersona?.key === e.key ? focusPersona.persona : undefined} />}
                       {!isMine && (
                         <Btn
                           small
                           disabled={busy || alliances.some((a) => a.partnerKey === e.key)}
-                          onClick={() => void act((id) => api.proposeAlliance(id, e.key), e.kind === "npc" ? "簽下聯名協議" : "已送出邀請")}
+                          onClick={() => void act((id) => api.proposeAlliance(id, e.key), "已送出邀請")}
                         >
-                          {alliances.some((a) => a.partnerKey === e.key) ? "已有協議或邀請" : e.kind === "npc" && !npcAcceptsAlliance(e.score, myScore) ? "邀請聯名（對方可能覺得你還不夠格）" : "🤝 邀請聯名"}
+                          {alliances.some((a) => a.partnerKey === e.key) ? "已有協議或邀請" : "🤝 邀請聯名"}
                         </Btn>
                       )}
                       <p class="dim">
@@ -331,7 +323,7 @@ export function World() {
           <ol class="small" style={{ margin: 0, paddingLeft: "18px" }}>
             {last.ranking.slice(0, 5).map((r) => (
               <li key={r.key}>
-                {r.name}（{r.kind === "npc" ? "NPC" : "真人"}・Lv.{r.level}）— {r.score.toFixed(1)} 分
+                {r.name}（Lv.{r.level}）— {r.score.toFixed(1)} 分
               </li>
             ))}
           </ol>

@@ -6,7 +6,7 @@ import {
   ALLIANCE_REAL_MS,
   JOINT_PROMO_COOLDOWN_MS,
   jointPromoCost,
-  npcAcceptsAlliance,
+  publicKey,
   type DirectoryEntry,
 } from "@coidle/shared";
 import type { Repo } from "../db/repo";
@@ -117,9 +117,9 @@ export class AllianceService {
         id: r.id,
         status: r.status as "pending" | "active",
         direction: r.status === "active" ? "both" : r.a_key === me ? "out" : "in",
-        partnerKey,
+        partnerKey: publicKey(partnerKey), // NPC 商場對外的代號和真人商場一樣
         partnerName: e?.name ?? "（已不存在的商場）",
-        partnerKind: partnerKey.startsWith("n:") ? "npc" : "player",
+        partnerKind: "player", // 介面不區分真人與 NPC（欄位為舊版相容而保留）
         until: r.status === "pending" ? r.expires_at : r.ends_at ?? 0,
         jointReadyAt: Math.max(0, r.last_joint_at + JOINT_PROMO_COOLDOWN_MS),
       });
@@ -132,7 +132,6 @@ export class AllianceService {
     if (typeof targetKey !== "string" || targetKey === me) throw new ServiceError(400, "請選擇另一座商場");
     const target = this.entryOf(targetKey);
     if (!target) throw new ServiceError(404, "找不到這座商場");
-    const mine = this.host.snapshot(mallId);
     const t = this.now();
 
     const existing = (this.repo.alliancesOf(me, ["pending", "active"]) as Row[]).filter((r) => (r.status === "active" || r.expires_at > t) && (r.a_key === targetKey || r.b_key === targetKey));
@@ -141,19 +140,7 @@ export class AllianceService {
     const outgoing = (this.repo.alliancesOf(me, ["pending"]) as Row[]).filter((r) => r.a_key === me && r.expires_at > t).length;
     if (outgoing >= ALLIANCE_MAX_PENDING) throw new ServiceError(400, "送出的邀請太多了，等對方回覆再說");
 
-    if (target.kind === "npc") {
-      const myEntry = this.entryOf(me);
-      const myScore = myEntry?.score ?? mine.score;
-      if (!npcAcceptsAlliance(target.score, myScore)) {
-        throw new ServiceError(400, `「${target.name}」覺得現在的你們還不夠格（對方綜合 ${target.score.toFixed(1)} 分，你們 ${myScore.toFixed(1)} 分，要在 8 分以內）`);
-      }
-      const id = this.repo.addAlliance(me, targetKey, "active", t, t, t, t + ALLIANCE_REAL_MS);
-      const row = this.find(id)!;
-      this.startMail(row);
-      this.host.deliver(mallId);
-      return this.list(mallId);
-    }
-
+    // NPC 商場和真人商場走同一條路：先是「邀請中」，對方（NPC 由排程）過一陣子才回覆
     if (this.activeOf(targetKey) >= ALLIANCE_MAX_ACTIVE) throw new ServiceError(400, "對方的聯名名額已經滿了");
     this.repo.addAlliance(me, targetKey, "pending", t, t + ALLIANCE_INVITE_MS, null, null);
     this.mailTo(targetKey, "notice", { text: `「${this.nameOf(me)}」想和你們簽聯名協議。到「世界 → 名錄與榜單」回覆（24 小時內有效，沒回覆視為婉拒）。` });
@@ -214,6 +201,85 @@ export class AllianceService {
     this.mailTo(partner, "joint_promo", { partner: this.nameOf(me) });
     this.deliverBoth(row);
     return { cost, views: this.list(mallId) };
+  }
+
+  // ── NPC 商場的行動（排程或 Overseer 觸發）：做的事和玩家一樣，只是發動者是名錄裡的 NPC 商場
+
+  /** 等 NPC 回覆的邀請（玩家邀請 NPC） */
+  pendingForNpc(): { id: number; mallKey: string; npcKey: string; createdAt: number }[] {
+    const t = this.now();
+    return (this.repo.alliancesByStatus("pending") as Row[])
+      .filter((r) => r.b_key.startsWith("n:") && r.expires_at > t)
+      .map((r) => ({ id: r.id, mallKey: r.a_key, npcKey: r.b_key, createdAt: r.created_at }));
+  }
+
+  /** NPC 回覆玩家的邀請：接受就生效，婉拒就通知玩家（和真人婉拒的訊息一樣） */
+  npcRespond(id: number, accept: boolean): void {
+    const row = this.find(id);
+    const t = this.now();
+    if (!row || row.status !== "pending" || !row.b_key.startsWith("n:") || row.expires_at <= t) throw new ServiceError(404, "找不到這份邀請");
+    const full = this.activeOf(row.b_key) >= ALLIANCE_MAX_ACTIVE || this.activeOf(row.a_key) >= ALLIANCE_MAX_ACTIVE;
+    if (!accept || full) {
+      this.repo.setAllianceStatus(id, "declined");
+      this.mailTo(row.a_key, "notice", { text: `「${this.nameOf(row.b_key)}」婉拒了你們的聯名邀請。` });
+      this.deliverBoth(row);
+      return;
+    }
+    this.repo.activateAlliance(id, t, t + ALLIANCE_REAL_MS);
+    const active = this.find(id)!;
+    this.startMail(active);
+    this.deliverBoth(active);
+  }
+
+  /** NPC 向真人商場送出聯名邀請（條件和玩家邀請玩家一樣）；回傳協議編號 */
+  npcPropose(npcKey: string, targetKey: string): number {
+    const target = this.entryOf(targetKey);
+    if (!target || target.kind !== "player") throw new ServiceError(404, "找不到這座商場");
+    const t = this.now();
+    const live = (this.repo.alliancesOf(npcKey, ["pending", "active"]) as Row[]).filter((r) => r.status === "active" || r.expires_at > t);
+    if (live.some((r) => r.a_key === targetKey || r.b_key === targetKey)) throw new ServiceError(400, "已經有聯名協議或邀請了");
+    if (this.activeOf(npcKey) >= ALLIANCE_MAX_ACTIVE || this.activeOf(targetKey) >= ALLIANCE_MAX_ACTIVE) throw new ServiceError(400, "聯名名額已滿");
+    if (live.filter((r) => r.status === "pending" && r.a_key === npcKey).length >= ALLIANCE_MAX_PENDING) throw new ServiceError(400, "送出的邀請太多了");
+    const incoming = (this.repo.alliancesOf(targetKey, ["pending"]) as Row[]).filter((r) => r.b_key === targetKey && r.expires_at > t).length;
+    if (incoming >= ALLIANCE_MAX_PENDING) throw new ServiceError(400, "對方的待回覆邀請太多了");
+    const id = this.repo.addAlliance(npcKey, targetKey, "pending", t, t + ALLIANCE_INVITE_MS, null, null);
+    this.mailTo(targetKey, "notice", { text: `「${this.nameOf(npcKey)}」想和你們簽聯名協議。到「世界 → 名錄與榜單」回覆（24 小時內有效，沒回覆視為婉拒）。` });
+    this.deliverBoth(this.find(id)!);
+    return id;
+  }
+
+  /** NPC 結束一份生效中的協議 */
+  npcEnd(id: number): void {
+    const row = this.find(id);
+    if (!row || row.status !== "active" || !(row.a_key.startsWith("n:") || row.b_key.startsWith("n:"))) throw new ServiceError(404, "找不到這份協議");
+    const npc = row.a_key.startsWith("n:") ? row.a_key : row.b_key;
+    const other = row.a_key === npc ? row.b_key : row.a_key;
+    this.repo.setAllianceStatus(id, "ended");
+    this.mailTo(other, "alliance_end", { id, text: `「${this.nameOf(npc)}」結束了和你們的聯名協議。` });
+    this.deliverBoth(row);
+  }
+
+  /** NPC 辦一場聯名活動（對玩家這邊有效；有一樣的冷卻） */
+  npcJoint(id: number): void {
+    const row = this.find(id);
+    const t = this.now();
+    if (!row || row.status !== "active" || !(row.a_key.startsWith("n:") || row.b_key.startsWith("n:"))) throw new ServiceError(404, "找不到這份協議");
+    if (row.last_joint_at + JOINT_PROMO_COOLDOWN_MS > t) throw new ServiceError(400, "聯名活動剛辦過");
+    const npc = row.a_key.startsWith("n:") ? row.a_key : row.b_key;
+    const other = row.a_key === npc ? row.b_key : row.a_key;
+    this.repo.setAllianceJoint(id, t);
+    this.mailTo(other, "joint_promo", { partner: this.nameOf(npc) });
+    this.deliverBoth(row);
+  }
+
+  /** 玩家與某 NPC 之間生效中的協議 */
+  activeWithNpc(): { id: number; mallKey: string; npcKey: string; lastJointAt: number; startedAt: number }[] {
+    return (this.repo.alliancesByStatus("active") as Row[])
+      .filter((r) => r.a_key.startsWith("n:") !== r.b_key.startsWith("n:"))
+      .map((r) => {
+        const npcKey = r.a_key.startsWith("n:") ? r.a_key : r.b_key;
+        return { id: r.id, mallKey: r.a_key === npcKey ? r.b_key : r.a_key, npcKey, lastJointAt: r.last_joint_at, startedAt: r.started_at ?? r.created_at };
+      });
   }
 
   /** 排程：過期的邀請視為婉拒；到期的協議結束 */

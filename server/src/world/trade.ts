@@ -9,12 +9,15 @@ import {
   TRADE_NET_WINDOW_MS,
   afterFee,
   categoryHasStock,
+  npcNumericId,
+  npcStockouts,
   tradeLimits,
   type MallState,
 } from "@coidle/shared";
 import type { Repo } from "../db/repo";
 import { ServiceError } from "../services/errors";
 import { applyIndexDelta } from "../sim/events";
+import { hash32 } from "../sim/rng";
 
 // 貿易：商場之間互相調貨與送錢支援。
 // 轉移是伺服器層的同步交易：先從轉出方扣、寫下紀錄，再用信箱把「收到」交給對方，
@@ -37,14 +40,32 @@ export class TradeService {
     private readonly now: () => number,
     private readonly host: TradeHost,
     private readonly nameOf: (mallId: number) => string,
+    /** NPC 商場的名字（被隱藏或不存在回傳 null） */
+    private readonly npcName: (npcId: string) => string | null = () => null,
   ) {}
 
+  /** 對象的整數編號：真人商場是資料庫編號，NPC 商場是負數（和真人商場不會撞） */
   private target(from: number, targetKey: string): number {
+    if (targetKey.startsWith("n:")) {
+      if (this.npcName(targetKey.slice(2)) === null) throw new ServiceError(404, "找不到這座商場");
+      return npcNumericId(targetKey.slice(2));
+    }
     const to = keyToId(targetKey);
-    if (to === null) throw new ServiceError(400, "貿易只能和真人商場進行（NPC 商場不做買賣）");
+    if (to === null) throw new ServiceError(404, "找不到這座商場");
     if (to === from) throw new ServiceError(400, "請選擇另一座商場");
     if (!this.repo.mallById(to)) throw new ServiceError(404, "找不到這座商場");
     return to;
+  }
+
+  /**
+   * NPC 收到支援後偶爾會回禮：約五分之一的機率，過 1–5 小時，回送收到的 40%
+   * （永遠小於送出的，所以不會變成賺錢的管道）。決定論：同一筆交易永遠得到同樣的結果。
+   */
+  private maybeReciprocate(fromMall: number, npcId: string, amount: number, t: number): void {
+    const h = hash32(fromMall * 7919 + Math.round(amount), Math.floor(t / 60_000));
+    if (h % 100 >= 20) return;
+    const delay = (1 + (h % 5)) * 3_600_000;
+    this.repo.addMail(fromMall, "funds_gift", { amount: Math.floor(amount * 0.4), from: this.npcName(npcId) ?? "友好商場" }, t, t + delay);
   }
 
   private checkRate(from: number, to: number, kind: string): void {
@@ -76,6 +97,10 @@ export class TradeService {
       s.today.purchases += amount;
     });
     this.repo.addTrade(t, fromMall, to, "funds", amount, `收到 ${received}`);
+    if (to < 0) {
+      this.maybeReciprocate(fromMall, targetKey.slice(2), received, t);
+      return { sent: amount, received };
+    }
     this.repo.addMail(to, "funds_gift", { amount: received, from: this.nameOf(fromMall) }, t, t);
     this.host.deliver(to);
     return { sent: amount, received };
@@ -91,16 +116,15 @@ export class TradeService {
     if (!shop || !cat || !categoryHasStock(cat)) throw new ServiceError(400, "這間店沒有庫存可以轉");
     if (shop.mode !== "direct" || shop.tenant) throw new ServiceError(400, "出租的店由租戶自己進貨，不能轉");
     if (qty > shop.stock * 0.5) throw new ServiceError(400, `最多只能轉出庫存的一半（目前 ${Math.floor(shop.stock)} 份）`);
-    const other = this.host.peek(to);
-    const dest = other.shops.filter((x) => x.category === shop.category && x.mode === "direct" && !x.tenant);
-    if (dest.length === 0) throw new ServiceError(400, `對方沒有「${cat.name}」的直營店，貨沒地方放`);
+    const dest = to < 0 ? [] : this.host.peek(to).shops.filter((x) => x.category === shop.category && x.mode === "direct" && !x.tenant);
+    if (to > 0 && dest.length === 0) throw new ServiceError(400, `對方沒有「${cat.name}」的直營店，貨沒地方放`);
     this.checkRate(fromMall, to, "goods");
     const t = this.now();
     const lim = tradeLimits(me.level);
     const day = this.repo.tradeSince(fromMall, to, "goods", t - TRADE_DAY_MS);
     if (day.total + qty > lim.goodsPerDay) throw new ServiceError(400, `同一座商場每天最多轉 ${lim.goodsPerDay} 份貨`);
 
-    const rescue = dest.some((x) => x.stock < 1);
+    const rescue = to < 0 ? npcStockouts(targetKey.slice(2), t) > 0 : dest.some((x) => x.stock < 1);
     const received = afterFee(qty);
     this.host.mutate(fromMall, (s) => {
       const sh = s.shops.find((x) => x.id === shopId);
@@ -111,6 +135,7 @@ export class TradeService {
     });
     if (rescue) this.repo.addTrade(t, fromMall, to, "rescue", 1);
     this.repo.addTrade(t, fromMall, to, "goods", qty, `${shop.category} 收到 ${received}`);
+    if (to < 0) return { sent: qty, received, rescue };
     this.repo.addMail(to, "goods", { category: shop.category, qty: received, from: this.nameOf(fromMall) }, t, t);
     this.host.deliver(to);
     return { sent: qty, received, rescue };

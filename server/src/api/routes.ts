@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { FastifyInstance } from "fastify";
-import { ROLE_IDS, speedPreset, type MeResponse, type RoleId } from "@coidle/shared";
+import { NPC_BY_ID, NPC_MALLS, ROLE_IDS, publicKey, speedPreset, type MeResponse, type RoleId } from "@coidle/shared";
 import type { ContentService, ContentKind } from "../ai/service";
 import { hashPassword, hashToken, newInviteCode, newSessionToken, verifyPassword } from "../auth/password";
 import type { Config } from "../config";
@@ -9,6 +9,7 @@ import { MallService, ServiceError, type ClockPatch } from "../services/mallServ
 import type { PushService } from "../services/push";
 import type { Command } from "../sim";
 import { RESERVED_USERNAMES, overseerByKey } from "../auth/overseer";
+import { NPC_BASE_P, type ManualAction } from "../world/npcActor";
 import { dailyCsv, sampleCsv, type DailyStat, type Metrics, type MetricsSample } from "../services/metrics";
 import type { UserRow } from "../db/repo";
 import type { AuditService } from "../services/audit";
@@ -425,7 +426,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   app.post("/api/malls/:id/world/alliance", async (req) => {
     const { mallId, user } = memberOf(req, req.params);
     const b = body(req);
-    const out = service.alliances.propose(mallId, str(b.target, "target", 3, 40));
+    const out = service.alliances.propose(mallId, service.world.resolve(str(b.target, "target", 3, 40)));
     service.logWorld(mallId, user.display_name, "送出了一份聯名邀請（或簽下聯名協議）");
     return { alliances: out };
   });
@@ -446,21 +447,21 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   app.post("/api/malls/:id/world/compete", async (req) => {
     const { mallId, user } = memberOf(req, req.params);
     const b = body(req);
-    const r = service.compete.attack(mallId, str(b.target, "target", 3, 40), str(b.persona, "persona", 3, 12));
+    const r = service.compete.attack(mallId, service.world.resolve(str(b.target, "target", 3, 40)), str(b.persona, "persona", 3, 12));
     service.logWorld(mallId, user.display_name, `對「${r.target}」辦了一場搶客促銷（花費 ¥${r.cost.toLocaleString("en-US")}）`);
     return r;
   });
   app.post("/api/malls/:id/world/trade/funds", async (req) => {
     const { mallId, user } = memberOf(req, req.params);
     const b = body(req);
-    const r = service.trade.sendFunds(mallId, str(b.target, "target", 3, 40), Number(b.amount));
+    const r = service.trade.sendFunds(mallId, service.world.resolve(str(b.target, "target", 3, 40)), Number(b.amount));
     service.logWorld(mallId, user.display_name, `送出支援資金 ¥${r.sent.toLocaleString("en-US")}`);
     return r;
   });
   app.post("/api/malls/:id/world/trade/goods", async (req) => {
     const { mallId, user } = memberOf(req, req.params);
     const b = body(req);
-    const r = service.trade.sendGoods(mallId, str(b.target, "target", 3, 40), str(b.shopId, "shopId", 1, 40), Number(b.qty));
+    const r = service.trade.sendGoods(mallId, service.world.resolve(str(b.target, "target", 3, 40)), str(b.shopId, "shopId", 1, 40), Number(b.qty));
     service.logWorld(mallId, user.display_name, `調了 ${r.sent} 份貨給友好商場${r.rescue ? "（缺貨救援）" : ""}`);
     return r;
   });
@@ -651,6 +652,90 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     note(req, "mall.owner", `${mallLabel(id)} → ${userLabel(uid)}`);
     service.adminSetOwner(id, uid);
     return { ok: true };
+  });
+
+  // ── NPC 商場：調整、自動出手設定、手動出手
+  const npcIdParam = (req: { params: unknown }): string => {
+    const id = (req.params as { id?: string }).id ?? "";
+    if (!NPC_BY_ID[id]) throw new ServiceError(404, "找不到這座 NPC 商場");
+    return id;
+  };
+  const npcActionView = (r: { id: number; ts: number; npc_id: string; action: string; target_key: string; detail: string; manual: number }) => ({
+    id: r.id,
+    ts: r.ts,
+    npcId: r.npc_id,
+    npcName: service.world.npc.entryAny(r.npc_id)?.name ?? r.npc_id,
+    action: r.action,
+    target: r.target_key.startsWith("#") ? r.target_key : (service.world.entries().find((e) => e.key === r.target_key)?.name ?? r.target_key),
+    detail: r.detail,
+    manual: r.manual === 1,
+  });
+  app.get("/api/admin/npc", async () => {
+    const t = now();
+    const rows = service.world.npc.overrideRows();
+    return {
+      settings: { auto: service.world.npc.auto(), activity: service.world.npc.activity(), baseProbPerHour: NPC_BASE_P },
+      npcs: NPC_MALLS.map((def) => {
+        const e = service.world.npc.entryAny(def.id, t)!;
+        const ov = rows.find((r) => r.npcId === def.id);
+        return {
+          id: def.id,
+          publicKey: publicKey(`n:${def.id}`),
+          baseName: def.name,
+          entry: { name: e.name, level: e.level, stars: e.stars, score: e.score, localRep: e.localRep, touristHeat: e.touristHeat, revenue30: e.revenue30, shops: e.shops, stockouts: e.stockouts },
+          override: ov?.override ?? null,
+          expiresAt: ov?.expiresAt ?? 0,
+          pending: service.npcActor.pendingOf(def.id),
+          actions24h: repo.npcActionCount(def.id, null, t - 86_400_000),
+          recent: repo.npcActions(5, def.id).map(npcActionView),
+        };
+      }),
+    };
+  });
+  app.get("/api/admin/npc/actions", async (req) => {
+    const limit = Math.min(200, Math.max(1, Number((req.query as { limit?: string }).limit) || 50));
+    return { actions: repo.npcActions(limit).map(npcActionView) };
+  });
+  app.post("/api/admin/npc/settings", async (req) => {
+    const b = body(req);
+    if (b.auto !== undefined) {
+      if (typeof b.auto !== "boolean") throw new ServiceError(400, "auto 格式不正確");
+      service.world.npc.setAuto(b.auto);
+    }
+    if (b.activity !== undefined) {
+      if (typeof b.activity !== "number" || !Number.isFinite(b.activity)) throw new ServiceError(400, "activity 格式不正確");
+      service.world.npc.setActivity(b.activity);
+    }
+    note(req, "npc.settings", "", { auto: b.auto, activity: b.activity });
+    return { auto: service.world.npc.auto(), activity: service.world.npc.activity() };
+  });
+  app.post("/api/admin/npc/:id/override", async (req) => {
+    const id = npcIdParam(req);
+    const b = body(req);
+    const hours = typeof b.hours === "number" && b.hours > 0 ? Math.min(24 * 365, b.hours) : 0;
+    note(req, "npc.override", `npc:${id}`, { override: b.override, hours });
+    const ov = service.world.npc.set(id, b.override, hours > 0 ? now() + hours * 3_600_000 : 0);
+    return { override: ov };
+  });
+  app.post("/api/admin/npc/:id/clear", async (req) => {
+    const id = npcIdParam(req);
+    note(req, "npc.clear", `npc:${id}`);
+    service.world.npc.clear(id);
+    return { ok: true };
+  });
+  app.post("/api/admin/npc/:id/act", async (req) => {
+    const id = npcIdParam(req);
+    const b = body(req) as Record<string, unknown>;
+    const act: ManualAction = {
+      action: b.action as ManualAction["action"],
+      target: typeof b.target === "string" ? b.target : undefined,
+      persona: typeof b.persona === "string" ? b.persona : undefined,
+      allianceId: typeof b.allianceId === "number" ? b.allianceId : undefined,
+      accept: typeof b.accept === "boolean" ? b.accept : undefined,
+      ignoreLimits: b.ignoreLimits === true,
+    };
+    note(req, "npc.act", `npc:${id}`, { ...act });
+    return { message: service.npcActor.manual(id, act) };
   });
 
   // ── 營運與玩家數據

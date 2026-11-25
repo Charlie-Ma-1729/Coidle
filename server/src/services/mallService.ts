@@ -36,6 +36,7 @@ import { WorldService } from "../world/world";
 import { AllianceService } from "../world/alliances";
 import { TradeService } from "../world/trade";
 import { CompeteService } from "../world/compete";
+import { NpcActor } from "../world/npcActor";
 import { ServiceError } from "./errors";
 import type { Repo } from "../db/repo";
 import { advanceTo, applyCommand, createInitialState, migrateState, type Command, type CommandResult } from "../sim";
@@ -191,6 +192,8 @@ export class MallService {
   readonly trade: TradeService;
   /** 商戰搶客 */
   readonly compete: CompeteService;
+  /** NPC 商場的自動出手與回覆 */
+  readonly npcActor: NpcActor;
   private lastDirectory = new Map<number, number>();
 
   constructor(
@@ -227,7 +230,14 @@ export class MallService {
         },
       },
       (id) => this.repo.mallById(id)?.name ?? "友好商場",
+      (npcId) => (this.world.npc.isHidden(npcId) ? null : this.world.npc.entryAny(npcId)?.name ?? null),
     );
+    this.npcActor = new NpcActor(repo, this.world, this.alliances, this.compete, now, {
+      peek: (id) => this.sync(id),
+      deliver: (id) => {
+        this.sync(id);
+      },
+    });
   }
 
   /** 對商場做一次同步修改（複製→修改→存檔→廣播）；fn 丟出錯誤就整個取消 */
@@ -762,6 +772,7 @@ export class MallService {
       // 賽季結算要用剛更新過的名錄；有發出獎勵就立刻讓各商場收下
       if (this.world.settleSeasons().length > 0) run();
       this.alliances.tick();
+      this.npcActor.tick();
     } catch (e) {
       console.error("world tick failed", e);
     }

@@ -106,6 +106,10 @@ async function main() {
   const trades = repo.recentTrades(100_000);
   const sum = (k: string) => trades.filter((t) => t.kind === k).reduce((a, t) => a + t.amount, 0);
   console.log(`\n貿易：資金 ${trades.filter((t) => t.kind === "funds").length} 筆、共 ${(sum("funds") / 1e6).toFixed(1)}M；貨物 ${trades.filter((t) => t.kind === "goods").length} 筆、共 ${sum("goods")} 份`);
+  const npcActs = repo.npcActions(100_000);
+  const byAction: Record<string, number> = {};
+  for (const r of npcActs) byAction[r.action] = (byAction[r.action] ?? 0) + 1;
+  console.log(`NPC 自動行動：共 ${npcActs.length} 次（${Object.entries(byAction).map(([k, v]) => `${k} ${v}`).join("、") || "—"}）`);
   const seasons = repo.latestSeasons(10);
   console.log(`賽季結算：${seasons.map((x) => `第 ${x.season + 1} 季`).join("、")}`);
   await built.app.close();

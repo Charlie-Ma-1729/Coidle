@@ -114,8 +114,11 @@ describe("directory API", () => {
     const keys = body.entries.map((e: { key: string }) => e.key);
     expect(keys).toContain(`m:${m1}`);
     expect(keys).toContain(`m:${m2}`);
-    expect(keys).toContain("n:harbor");
-    expect(body.entries.filter((e: { kind: string }) => e.kind === "npc")).toHaveLength(NPC_MALLS.length);
+    // NPC 商場和真人商場長得一樣：沒有類型標示、沒有專屬口號，代號也是同一種格式
+    expect(keys.some((k: string) => k.startsWith("n:"))).toBe(false);
+    expect(body.entries.filter((e: { kind: string }) => e.kind !== "player")).toHaveLength(0);
+    expect(body.entries.every((e: { tagline: string }) => e.tagline === "")).toBe(true);
+    expect(keys.filter((k: string) => /^m:90\d\d$/.test(k))).toHaveLength(NPC_MALLS.length);
     expect(body.season.index).toBe(0);
 
     // 只有公開欄位：沒有資金、成員、庫存、種子…

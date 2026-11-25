@@ -58,6 +58,7 @@ export function buildApp(opts: BuildOptions = {}) {
   app.addHook("onResponse", async (req, reply) => {
     if (req.url.startsWith("/api/")) metrics.request(reply.statusCode);
   });
+  service.npcActor.onAction = () => metrics.npcAction();
   const deps = { config, repo, service, push, now, content, audit, metrics };
   registerRoutes(app, deps);
   registerWs(app, deps);

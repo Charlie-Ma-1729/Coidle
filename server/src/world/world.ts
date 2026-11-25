@@ -4,8 +4,9 @@ import {
   SEASON_MIN_AGE_MS,
   SEASON_PARTICIPATION,
   SEASON_REWARDS,
-  npcEntries,
+  internalKey,
   npcEntry,
+  publicKey,
   rankEntries,
   seasonAt,
   seasonRange,
@@ -15,6 +16,7 @@ import {
   type SeasonResultRow,
 } from "@coidle/shared";
 import type { Repo } from "../db/repo";
+import { NpcService } from "./npc";
 
 // 世界服務：公開名錄（真人商場＋NPC 商場）、排行榜、賽季結算。
 // 名錄只有「公開欄位」，永遠拿不到別人的完整狀態。
@@ -30,10 +32,20 @@ export interface WorldView {
 }
 
 export class WorldService {
+  /** NPC 商場的調整與自動出手設定 */
+  readonly npc: NpcService;
+
   constructor(
     private readonly repo: Repo,
     private readonly now: () => number,
-  ) {}
+  ) {
+    this.npc = new NpcService(repo, now);
+  }
+
+  /** 對外代號（或內部代號）→ 內部代號；NPC 對外長得和真人商場一樣（"m:9000+"） */
+  resolve(key: string): string {
+    return internalKey(key);
+  }
 
   /** 真人商場在名錄裡的資料（從資料庫讀，所有商場都定時被推進，所以不會太舊） */
   playerEntries(): DirectoryEntry[] {
@@ -55,20 +67,31 @@ export class WorldService {
     }));
   }
 
+  /** 內部用：含 NPC 的完整名錄（NPC 的代號是 "n:…"，kind 是 "npc"） */
   entries(at = this.now()): DirectoryEntry[] {
-    return [...this.playerEntries(), ...npcEntries(at)];
+    return [...this.playerEntries(), ...this.npc.entries(at)];
+  }
+
+  /** 給玩家看的名錄：NPC 與真人商場完全一樣——沒有類型標示、沒有 NPC 專屬的口號，代號也看不出來 */
+  publicEntries(at = this.now()): DirectoryEntry[] {
+    return this.entries(at).map((e) => ({ ...e, key: publicKey(e.key), kind: "player" as const, tagline: "" }));
   }
 
   view(): WorldView {
     const now = this.now();
     const idx = seasonAt(now);
     const r = seasonRange(idx);
+    const shields: Record<string, number> = {};
+    for (const [k, v] of Object.entries(this.shields(now))) shields[publicKey(k)] = v;
     return {
       now,
       season: { index: idx, start: r.start, end: r.end },
-      entries: this.entries(now),
-      history: this.repo.latestSeasons(3).map((x) => JSON.parse(x.result_json) as SeasonResult),
-      shields: this.shields(now),
+      entries: this.publicEntries(now),
+      history: this.repo.latestSeasons(3).map((x) => {
+        const res = JSON.parse(x.result_json) as SeasonResult;
+        return { ...res, ranking: res.ranking.map((row) => ({ ...row, key: publicKey(row.key), kind: "player" as const })) };
+      }),
+      shields,
     };
   }
 
@@ -95,8 +118,8 @@ export class WorldService {
           revenue30: p.revenue30,
           eligible: p.created_at <= end - SEASON_MIN_AGE_MS && p.revenue30 > 0,
         })),
-        ...NPC_MALLS.map((n) => {
-          const e = npcEntry(n, end);
+        ...NPC_MALLS.filter((n) => !this.npc.overrides()[n.id]?.hidden).map((n) => {
+          const e = npcEntry(n, end, this.npc.overrides()[n.id]);
           return { key: e.key, kind: "npc" as const, name: e.name, score: e.score, level: e.level, revenue30: e.revenue30, eligible: false };
         }),
       ];

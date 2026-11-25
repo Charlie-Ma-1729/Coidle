@@ -277,6 +277,35 @@ export class Repo {
     this.db.prepare("DELETE FROM mall_directory WHERE mall_id = ?").run(mallId);
   }
 
+  /** 玩家對 NPC 商場出手的紀錄（編號大於 afterId），NPC 回敬用 */
+  attacksAgainstNpcs(afterId: number): { id: number; ts: number; attacker: number; target_key: string; persona: string }[] {
+    return this.db.prepare("SELECT id, ts, attacker, target_key, persona FROM attacks WHERE id > ? AND target_key LIKE 'n:%' ORDER BY id LIMIT 50").all(afterId) as never;
+  }
+
+  // ── NPC 商場：覆寫與動態
+  npcOverrideRows(): { npc_id: string; json: string; expires_at: number; updated_at: number }[] {
+    return this.db.prepare("SELECT npc_id, json, expires_at, updated_at FROM npc_overrides").all() as never;
+  }
+  setNpcOverride(npcId: string, json: string, expiresAt: number, now: number): void {
+    this.db
+      .prepare("INSERT INTO npc_overrides (npc_id, json, expires_at, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(npc_id) DO UPDATE SET json = excluded.json, expires_at = excluded.expires_at, updated_at = excluded.updated_at")
+      .run(npcId, json, expiresAt, now);
+  }
+  clearNpcOverride(npcId: string): void {
+    this.db.prepare("DELETE FROM npc_overrides WHERE npc_id = ?").run(npcId);
+  }
+  addNpcAction(e: { ts: number; npcId: string; action: string; targetKey: string; detail: string; manual: boolean }): void {
+    this.db.prepare("INSERT INTO npc_actions (ts, npc_id, action, target_key, detail, manual) VALUES (?, ?, ?, ?, ?, ?)").run(e.ts, e.npcId, e.action, e.targetKey, e.detail, e.manual ? 1 : 0);
+  }
+  npcActions(limit: number, npcId?: string): { id: number; ts: number; npc_id: string; action: string; target_key: string; detail: string; manual: number }[] {
+    return this.db
+      .prepare("SELECT id, ts, npc_id, action, target_key, detail, manual FROM npc_actions WHERE (? IS NULL OR npc_id = ?) ORDER BY id DESC LIMIT ?")
+      .all(npcId ?? null, npcId ?? null, limit) as never;
+  }
+  npcActionCount(npcId: string, action: string | null, since: number): number {
+    return Number((this.db.prepare("SELECT COUNT(*) AS n FROM npc_actions WHERE npc_id = ? AND (? IS NULL OR action = ?) AND ts > ?").get(npcId, action, action, since) as { n: number }).n);
+  }
+
   // ── 營運指標
   activePlayersSince(since: number): number {
     return Number((this.db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'player' AND last_seen_at >= ?").get(since) as { n: number }).n);

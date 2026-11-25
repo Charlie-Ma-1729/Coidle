@@ -10,6 +10,7 @@ import {
   allianceCount,
   jointPromoCost,
   npcAcceptsAlliance,
+  publicKey,
   rivalMult,
   type MallState,
 } from "@coidle/shared";
@@ -221,7 +222,7 @@ describe("joint promotion", () => {
 });
 
 describe("alliances with NPC malls", () => {
-  it("an NPC accepts when you are close enough in score, otherwise explains why", async () => {
+  it("inviting an NPC mall works like inviting a player: pending first, answered later by the same rule", async () => {
     expect(npcAcceptsAlliance(50, 42)).toBe(true);
     expect(npcAcceptsAlliance(50, 41.9)).toBe(false);
 
@@ -229,22 +230,59 @@ describe("alliances with NPC malls", () => {
     const u = await reg(a, "carol");
     const id = a.service.createMall(u.id, "新商場").mallId;
     a.service.sync(id);
-    const entries = a.service.world.entries();
-    const mine = entries.find((e) => e.key === `m:${id}`)!;
-    const easy = entries.filter((e) => e.kind === "npc").find((e) => npcAcceptsAlliance(e.score, mine.score));
-    const hard = entries.filter((e) => e.kind === "npc").find((e) => !npcAcceptsAlliance(e.score, mine.score));
-    if (easy) {
-      const r = await post(a, u.cookie, `/api/malls/${id}/world/alliance`, { target: easy.key });
-      expect(r.statusCode).toBe(200);
-      expect(r.json().alliances[0]).toMatchObject({ status: "active", partnerKind: "npc", partnerName: easy.name });
-      expect(allianceCount(a.service.sync(id))).toBe(1);
-    }
-    if (hard) {
-      const r = await post(a, u.cookie, `/api/malls/${id}/world/alliance`, { target: hard.key });
-      expect(r.statusCode).toBe(400);
-      expect(r.json().error).toContain("不夠格");
-    }
-    expect(easy || hard).toBeTruthy();
+    const mine = () => a.service.world.entries().find((e) => e.key === `m:${id}`)!;
+    // 一座一定願意（分數壓低）、一座一定不願意（分數拉高）
+    a.service.world.npc.set("harbor", { scoreMult: 0.3 });
+    a.service.world.npc.set("airport", { scoreMult: 3 });
+    const pubOf = (npcId: string) => publicKey(`n:${npcId}`);
+    const easy = a.service.world.entries().find((e) => e.key === "n:harbor")!;
+    const hard = a.service.world.entries().find((e) => e.key === "n:airport")!;
+    expect(npcAcceptsAlliance(easy.score, mine().score)).toBe(true);
+    expect(npcAcceptsAlliance(hard.score, mine().score)).toBe(false);
+
+    const r1 = await post(a, u.cookie, `/api/malls/${id}/world/alliance`, { target: pubOf("harbor") });
+    expect(r1.statusCode).toBe(200);
+    expect(r1.json().alliances[0]).toMatchObject({ status: "pending", direction: "out", partnerKind: "player", partnerName: easy.name, partnerKey: pubOf("harbor") });
+    expect((await post(a, u.cookie, `/api/malls/${id}/world/alliance`, { target: pubOf("airport") })).statusCode).toBe(200);
+
+    // 對方還沒回覆：什麼都沒發生
+    a.service.tickAll();
+    expect(allianceCount(a.service.sync(id))).toBe(0);
+    expect((await get(a, u.cookie, `/api/malls/${id}/world/alliances`)).json().alliances).toHaveLength(2);
+
+    // 過了回覆期限：條件符合的（有 15% 的個性不接）接受，不符合的一定婉拒；婉拒的訊息和真人婉拒一樣
+    clock.t += 5 * 3_600_000;
+    a.service.tickAll();
+    const list = (await get(a, u.cookie, `/api/malls/${id}/world/alliances`)).json().alliances as { partnerName: string; status: string }[];
+    expect(list.find((x) => x.partnerName === hard.name)).toBeUndefined();
+    const rows = a.repo.alliancesOf("m:" + id, ["active", "declined"]) as { b_key: string; status: string }[];
+    expect(rows.find((x) => x.b_key === "n:airport")!.status).toBe("declined");
+    const wantEasy = a.service.npcActor.wouldAccept(((a.repo.alliancesOf("m:" + id, ["active", "declined"]) as { id: number; b_key: string }[]).find((x) => x.b_key === "n:harbor")!).id, easy, mine());
+    expect(rows.find((x) => x.b_key === "n:harbor")!.status).toBe(wantEasy ? "active" : "declined");
+    expect(allianceCount(a.service.sync(id))).toBe(wantEasy ? 1 : 0);
+    const notices = a.service.sync(id).world.notices.map((n) => n.text).join("|");
+    expect(notices).toContain(`「${hard.name}」婉拒了你們的聯名邀請`);
+  });
+
+  it("an NPC can invite a real mall; the player answers it like any other invitation", async () => {
+    const a = make();
+    const u = await reg(a, "dave");
+    const id = a.service.createMall(u.id, "被邀請的商場").mallId;
+    a.service.sync(id);
+    a.service.world.npc.set("harbor", { scoreMult: 0.3 });
+    const msg = a.service.npcActor.manual("harbor", { action: "propose", target: `m:${id}` });
+    expect(msg).toContain("聯名邀請");
+    const inv = (await get(a, u.cookie, `/api/malls/${id}/world/alliances`)).json().alliances[0];
+    expect(inv).toMatchObject({ status: "pending", direction: "in", partnerKind: "player" });
+    expect(a.service.sync(id).world.notices[0]!.text).toContain("想和你們簽聯名協議");
+    const ok = await post(a, u.cookie, `/api/malls/${id}/world/alliance/${inv.id}/respond`, { accept: true });
+    expect(ok.statusCode).toBe(200);
+    expect(allianceCount(a.service.sync(id))).toBe(1);
+    // NPC 也能辦聯名活動（對玩家這邊有加成），一樣有冷卻
+    const allianceId = (a.repo.alliancesOf(`m:${id}`, ["active"]) as { id: number }[])[0]!.id;
+    a.service.npcActor.manual("harbor", { action: "joint", allianceId });
+    expect(a.service.sync(id).modifiers.some((m) => m.kind === "traffic")).toBe(true);
+    expect(() => a.service.npcActor.manual("harbor", { action: "joint", allianceId })).toThrow();
   });
 
   it("the combined co-op bonus (pacts + alliances) never exceeds +6%", () => {

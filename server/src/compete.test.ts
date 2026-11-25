@@ -11,6 +11,7 @@ import {
   competeCost,
   type MallState,
 } from "@coidle/shared";
+import { publicKey } from "@coidle/shared";
 import { buildApp } from "./app";
 import { createInitialState } from "./sim";
 import { applyMail } from "./sim/mail";
@@ -109,7 +110,7 @@ describe("a successful attack", () => {
     expect(third.world.notices).toHaveLength(0);
   });
 
-  it("attacking an NPC mall works too but nothing real is lost on their side", async () => {
+  it("attacking an NPC mall works too (and the answer looks the same as for a real mall)", async () => {
     const a = make();
     const t = await trio(a);
     const npc = a.service.world.entries().find((e) => e.kind === "npc" && e.level >= 2 && e.level <= 5)!;
@@ -117,9 +118,9 @@ describe("a successful attack", () => {
     const s = structuredClone(a.service.sync(t.malls[0]!));
     s.level = Math.max(1, npc.level - 1); // 小打大
     t.cache.set(t.malls[0]!, s);
-    const r = await hit(a, t.users[0]!, t.malls[0]!, npc.key);
+    const r = await hit(a, t.users[0]!, t.malls[0]!, publicKey(npc.key)); // 玩家只看得到對外代號
     expect(r.statusCode).toBe(200);
-    expect(r.json().hurt).toBe(false);
+    expect(r.json().hurt).toBe(true);
   });
 });
 

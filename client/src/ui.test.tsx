@@ -57,7 +57,8 @@ describe("screens render with real simulated state", () => {
     await tick();
     expect(container.textContent).toContain("商場名錄");
     expect(container.textContent).toContain("我們的商場");
-    expect(container.textContent).toContain("港灣大賣場");
+    expect(container.textContent).toContain("潮見廣場");
+    expect(container.textContent).not.toMatch(/NPC|真人/); // 名錄裡看不出誰是 NPC（就算拿到的資料還帶著舊的類型欄位）
     expect(container.textContent).toContain("第 1 季");
     expect(container.textContent).toContain("你");
     expect(container.textContent).toContain("還沒有賽季成績");
@@ -73,7 +74,7 @@ describe("screens render with real simulated state", () => {
     api.alliances = async () => ({
       alliances: [
         { id: 1, status: "pending" as const, direction: "in" as const, partnerKey: "m:9", partnerName: "鮑伯商場", partnerKind: "player" as const, until: now + 5 * 3_600_000, jointReadyAt: 0 },
-        { id: 2, status: "active" as const, direction: "both" as const, partnerKey: "n:harbor", partnerName: "港灣大賣場", partnerKind: "npc" as const, until: now + 6 * 86_400_000, jointReadyAt: 0 },
+        { id: 2, status: "active" as const, direction: "both" as const, partnerKey: "m:9000", partnerName: "潮見廣場", partnerKind: "player" as const, until: now + 6 * 86_400_000, jointReadyAt: 0 },
       ],
     });
     const { World } = await import("./screens/World");
@@ -374,6 +375,10 @@ describe("screens render with real simulated state", () => {
         { id: 2, name: "測試全開商場", created_at: 1, members: 1, sandbox: 1, online: 0, members_list: [{ userId: 1, displayName: "Overseer", role: "gm" as const, isOwner: true, joinedAt: 0 }], level: 8, funds: 100_000_000, tick: 0, day: 3, flags: {} },
       ],
     });
+    adminApi.get = (async (url: string) => {
+      if (url === "/npc") return { settings: { auto: true, activity: 1, baseProbPerHour: 1 / 72 }, npcs: [{ id: "harbor", publicKey: "m:9000", baseName: "潮見廣場", entry: { name: "潮見廣場", level: 2, stars: 3, score: 40, localRep: 50, touristHeat: 50, revenue30: 12_000_000, shops: 20, stockouts: 0 }, override: null, expiresAt: 0, pending: [], actions24h: 0, recent: [] }] };
+      return { actions: [] };
+    }) as typeof adminApi.get;
     adminApi.audit = async () => ({ entries: [{ id: 5, ts: Date.now(), actor: "overseer", actorId: 1, action: "mall.flag", target: "mall#1(真實商場)", detail: { flag: "zone:f1" }, ip: "1.2.3.4" }] });
     store.user.value = { id: 1, username: "overseer", displayName: "Overseer", role: "overseer" };
     store.myMalls.value = [{ id: 2, name: "測試全開商場", role: "gm", isOwner: true }];
@@ -393,6 +398,13 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).toContain("測試・獨立於世界");
     expect(container.textContent).toContain("1 人在場");
     expect(Array.from(container.querySelectorAll("button")).filter((b) => b.textContent?.includes("旁觀")).length).toBe(2);
+
+    tab("NPC").click();
+    await tick();
+    await tick();
+    expect(container.textContent).toContain("NPC 自動出手");
+    expect(container.textContent).toContain("潮見廣場");
+    expect(container.textContent).toContain("調整與手動出手");
 
     tab("使用者").click();
     await tick();
