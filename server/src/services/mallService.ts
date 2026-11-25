@@ -8,7 +8,11 @@ import {
   REGULAR_BY_ID,
   RIVAL_BY_ID,
   SUPPLIER_BY_ID,
+  LEVELS,
+  STARTER_QUESTS,
+  TECHS,
   TECH_BY_ID,
+  ZONES,
   ZONE_BY_ID,
   ROLE_IDS,
   categoryHasStock,
@@ -285,6 +289,31 @@ export class MallService {
     this.persist(mallId, state);
     this.refreshDirectory(mallId, state, nowMs, true);
     return { mallId, inviteCode: code };
+  }
+
+  /**
+   * 管理指令用：替某位使用者開一座「全開」的測試商場——最高等級、所有區域與功能旗標開放、
+   * 所有科技完成、新手任務全部完成、資金充足。是一座全新的商場（伺服器的快取裡還沒有它），
+   * 所以可以在伺服器執行中直接建立，下次有人連線時才會被載入。
+   */
+  adminCreateTestMall(userId: number, name: string): { mallId: number; inviteCode: string } {
+    const made = this.createMall(userId, name);
+    const s = structuredClone(this.load(made.mallId));
+    const top = LEVELS[LEVELS.length - 1]!;
+    s.level = top.level;
+    s.totalRevenue = Math.max(s.totalRevenue, top.minRevenue);
+    s.localRep = Math.max(s.localRep, 75);
+    s.touristHeat = Math.max(s.touristHeat, 75);
+    s.funds = Math.max(s.funds, 100_000_000);
+    for (const z of ZONES) s.flags[`zone:${z.id}`] = true;
+    s.flags["feature:lease"] = true;
+    s.tech.done = TECHS.map((t) => t.id);
+    s.tech.jobs = [];
+    for (const q of STARTER_QUESTS) s.meta.achievements[q.id] ??= s.tick;
+    this.cache.set(made.mallId, s);
+    this.persist(made.mallId, s);
+    this.refreshDirectory(made.mallId, s, this.now(), true);
+    return made;
   }
 
   joinMall(code: string, userId: number, role: RoleId | undefined, maxMembers: number): number {

@@ -2,6 +2,7 @@
 //   npm run admin -- users                       列出所有使用者
 //   npm run admin -- malls                       列出所有商場
 //   npm run admin -- reset-password <帳號>        產生一組臨時密碼（只顯示這一次），並登出所有裝置
+//   npm run admin -- test-mall <帳號> [名稱]       替這個帳號開一座「全開」測試商場（最高等級、全區域、全科技、新手任務完成、資金 1 億）
 //   npm run admin -- delete-user <帳號>           刪除使用者（他創辦的商場會轉給其他成員，沒人了就解散）
 import { randomBytes } from "node:crypto";
 import { hashPassword } from "../auth/password";
@@ -18,7 +19,7 @@ try {
 const config = loadConfig();
 const repo = new Repo(openDb(config.dbPath));
 const service = new MallService(repo);
-const [cmd, arg] = process.argv.slice(2);
+const [cmd, arg, arg2] = process.argv.slice(2);
 const date = (ms: number) => new Date(ms).toISOString().slice(0, 16).replace("T", " ");
 
 switch (cmd) {
@@ -53,6 +54,16 @@ switch (cmd) {
     console.log(`已刪除「${u.username}」`);
     break;
   }
+  case "test-mall": {
+    const u = arg ? repo.userByName(arg) : undefined;
+    if (!u) {
+      console.error("找不到這個帳號（要先在網頁上註冊）");
+      process.exit(1);
+    }
+    const made = service.adminCreateTestMall(u.id, arg2 ?? "測試全開商場");
+    console.log(`已替「${u.username}」開好「${arg2 ?? "測試全開商場"}」（#${made.mallId}，邀請碼 ${made.inviteCode}）。重新整理網頁就會在大廳看到。`);
+    break;
+  }
   default:
-    console.log("指令：users | malls | reset-password <帳號> | delete-user <帳號>");
+    console.log("指令：users | malls | reset-password <帳號> | test-mall <帳號> [名稱] | delete-user <帳號>");
 }
