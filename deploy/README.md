@@ -100,10 +100,10 @@ journalctl -u coidle -n 50 --no-pager
 （常用：`sudo systemctl restart coidle`、`sudo systemctl stop coidle`、`journalctl -u coidle -f`）
 
 ## 7. nginx 第一階段（只有 80，先讓 certbot 能驗證網域）
+（這台如果已經有別的網站，**不要**刪 `sites-enabled/default` 或其他站台的設定；這份只新增一個 `coidle` 站台。）
 ```bash
 sudo cp /opt/coidle/deploy/nginx-http.conf /etc/nginx/sites-available/coidle
 sudo ln -sf /etc/nginx/sites-available/coidle /etc/nginx/sites-enabled/coidle
-sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
 sudo systemctl reload nginx
 curl -s http://coidle.imatw.org/api/health
