@@ -92,7 +92,7 @@ export function TopBar(props: {
       <div class="st-stat st-clock st-panel">
         <small>{props.dateLabel}</small>
         {props.dateBadge && (
-          <small class="st-badge" style={{ color: "#ffb347" }} title="今天的日曆：客流與熱門業態會跟著變">
+          <small class="st-datebadge" title={`今天的日曆：${props.dateBadge}（客流與熱門業態會跟著變）`}>
             {props.dateBadge}
           </small>
         )}
