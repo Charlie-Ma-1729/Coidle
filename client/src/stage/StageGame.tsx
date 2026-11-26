@@ -236,7 +236,7 @@ function StageGameInner() {
           class="st-btn st-expand"
           disabled={!floor.expand.canBuy}
           title={floor.expand.reason ?? "再蓋一個店面"}
-          onClick={() => void run({ type: "expandZone", zone: floor.zoneId! }, "擴建完成，多了一個店面")}
+          onClick={() => confirm(`擴建一個店面？\n費用 ${money(floor.expand!.cost)}，現在就會扣款（這層目前 ${floor.expand!.n}／${floor.expand!.max} 個）。`) && void run({ type: "expandZone", zone: floor.zoneId! }, "擴建完成，多了一個店面")}
         >
           ＋ 擴建店面（{money(floor.expand.cost)}）
           <small>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import { CATEGORY_BY_ID, MAX_SHOP_LEVEL, PRICE_TOLERANCE, REFRESH_COST, PRICE_MIN, PRICE_HARD_MAX, UPGRADE_BASE_COST, categoryHasStock, currentUnitCost, leaseEnabled } from "@coidle/shared";
+import { CATEGORY_BY_ID, MAX_SHOP_LEVEL, PRICE_TOLERANCE, REFRESH_COST, PRICE_MIN, PRICE_HARD_MAX, UPGRADE_BASE_COST, UPGRADE_TICKS, categoryHasStock, currentUnitCost, leaseEnabled } from "@coidle/shared";
 import { money, num, realDuration } from "../format";
 import { workshopFocus } from "../screens/Workshop";
 import type { HubId, StageFloor } from "../stage/model";
@@ -142,7 +142,7 @@ export function RealShopPanel(props: {
               <b>菜單太老氣</b>，客人覺得沒新鮮感（{Math.round(shop.freshness)}）。
             </span>
             <div class="st-row">
-              <button class="st-btn" disabled={busy.value || s.funds < refreshCost} onClick={() => run({ type: "refreshShop", shopId: shop.id }, "推出新菜單！")}>
+              <button class="st-btn" disabled={busy.value || s.funds < refreshCost} onClick={() => confirm(`幫「${shop.name}」換新菜單？\n費用 ${money(refreshCost)}，現在就會扣款，新鮮感會回升。`) && run({ type: "refreshShop", shopId: shop.id }, "推出新菜單！")}>
                 換新菜單（{money(refreshCost)}）
               </button>
               <button
@@ -209,7 +209,7 @@ export function RealShopPanel(props: {
         )}
 
         <div class="st-cta">
-          <button class="st-btn" disabled={busy.value || shop.level >= MAX_SHOP_LEVEL || upgrading || s.funds < upgradeCost} onClick={() => run({ type: "upgradeShop", shopId: shop.id }, "開始翻新")}>
+          <button class="st-btn" disabled={busy.value || shop.level >= MAX_SHOP_LEVEL || upgrading || s.funds < upgradeCost} onClick={() => confirm(`把「${shop.name}」翻新升級到 Lv.${shop.level + 1}？\n費用 ${money(upgradeCost)}，現在就會扣款；施工約 ${realDuration(UPGRADE_TICKS, s.clock.speed, s.clock.lag)}，店內人事成本也會增加。`) && run({ type: "upgradeShop", shopId: shop.id }, "開始翻新")}>
             {shop.level >= MAX_SHOP_LEVEL ? "已達最高等級" : upgrading ? "翻新中…" : `升級到 Lv.${shop.level + 1}（${money(upgradeCost)}）`}
           </button>
           <div class="st-row">

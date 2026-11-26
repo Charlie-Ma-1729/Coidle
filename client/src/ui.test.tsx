@@ -1171,6 +1171,68 @@ describe("stage UI panels with real state", () => {
     expect(call.body.command.price).toBeGreaterThan(shop.price);
   });
 
+  it("RealShopPanel 翻新升級要先確認：取消不送出、確定才送出 upgradeShop", async () => {
+    store.state.value = publicState(0, (s) => {
+      s.funds = 50_000_000;
+    });
+    stubFetch(() => store.state.value);
+    const shop = store.state.value!.shops.find((x) => x.mode === "direct")!;
+    const { RealShopPanel } = await import("./ui/RealShopPanel");
+    await mount(<RealShopPanel slot={shop.slot} floor={await floorOf()} onClose={() => {}} openHub={() => {}} openSheet={() => {}} />);
+    const upgrade = () => Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("升級到 Lv.")) as HTMLButtonElement;
+    const asked: string[] = [];
+    const realConfirm = globalThis.confirm;
+    try {
+      const before = calls.length;
+      globalThis.confirm = (m?: string) => (asked.push(String(m)), false);
+      upgrade().click();
+      await tick();
+      await tick();
+      expect(asked).toHaveLength(1);
+      expect(asked[0]).toContain(shop.name);
+      expect(asked[0]).toContain("Lv.2");
+      expect(calls.slice(before).some((c) => c.url.endsWith("/commands"))).toBe(false); // 取消：什麼都沒送
+
+      globalThis.confirm = () => true;
+      upgrade().click();
+      await tick();
+      await tick();
+      const sent = calls.slice(before).find((c) => c.url.endsWith("/commands"))!;
+      expect(sent.body.command).toMatchObject({ type: "upgradeShop", shopId: shop.id });
+    } finally {
+      globalThis.confirm = realConfirm;
+    }
+  });
+
+  it("RealShopPanel 換新菜單要先確認：取消不送出、確定才送出 refreshShop", async () => {
+    store.state.value = publicState(0, (s) => {
+      s.funds = 50_000_000;
+      for (const x of s.shops) x.freshness = 20;
+    });
+    stubFetch(() => store.state.value);
+    const shop = store.state.value!.shops.find((x) => x.mode === "direct")!;
+    const { RealShopPanel } = await import("./ui/RealShopPanel");
+    await mount(<RealShopPanel slot={shop.slot} floor={await floorOf()} onClose={() => {}} openHub={() => {}} openSheet={() => {}} />);
+    const refresh = () => Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("換新菜單")) as HTMLButtonElement;
+    const realConfirm = globalThis.confirm;
+    try {
+      const before = calls.length;
+      globalThis.confirm = () => false;
+      refresh().click();
+      await tick();
+      await tick();
+      expect(calls.slice(before).some((c) => c.url.endsWith("/commands"))).toBe(false);
+      globalThis.confirm = () => true;
+      refresh().click();
+      await tick();
+      await tick();
+      const sent = calls.slice(before).find((c) => c.url.endsWith("/commands"))!;
+      expect(sent.body.command).toMatchObject({ type: "refreshShop", shopId: shop.id });
+    } finally {
+      globalThis.confirm = realConfirm;
+    }
+  });
+
   it("RealShopPanel has no price cap: a price far above the reference can still be raised", async () => {
     const { CATEGORY_BY_ID } = await import("@coidle/shared");
     store.state.value = publicState(0, (s) => {
