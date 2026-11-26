@@ -333,6 +333,9 @@ function Detail(props: { row: MarketRow; view: MarketView; pf: PortfolioView; co
   const [range, setRange] = useState<MarketRange>("1d");
   const [mode, setMode] = useState<"line" | "candle">("line");
   const [hist, setHist] = useState<MarketHistory | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [histErr, setHistErr] = useState(false);
+  const [retry, setRetry] = useState(0);
   const [qty, setQty] = useState("");
   const [acct, setAcct] = useState<number | null>(null);
   const { busy, run } = useAction(async () => {
@@ -341,14 +344,20 @@ function Detail(props: { row: MarketRow; view: MarketView; pf: PortfolioView; co
   });
   useEffect(() => {
     let alive = true;
+    setLoading(true);
     api
       .marketHistory(row.key, range)
-      .then((h) => alive && setHist(h))
-      .catch(() => alive && setHist(null));
+      .then((h) => {
+        if (!alive) return;
+        setHist(h);
+        setHistErr(false);
+      })
+      .catch(() => alive && setHistErr(true))
+      .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
     };
-  }, [row.key, range, view.at]);
+  }, [row.key, range, view.at, retry]);
 
   const open = view.status.open && row.listed;
   const pos = pf.positions.find((p) => p.key === row.key);
@@ -394,7 +403,15 @@ function Detail(props: { row: MarketRow; view: MarketView; pf: PortfolioView; co
           {row.divYield > 0 ? `・年配息率約 ${(row.divYield * 100).toFixed(1)}%` : "・不配息"}
         </p>
         <p class="st-hint">{row.blurb}</p>
-        {hist && <PriceChart history={hist} mode={mode} />}
+        {histErr && (
+          <p class="st-hint">
+            走勢讀取失敗。
+            <button class="st-btn" onClick={() => setRetry(retry + 1)}>
+              重試
+            </button>
+          </p>
+        )}
+        {hist && !histErr && <PriceChart history={hist} mode={hist.kind === "daily" ? mode : "line"} loading={loading} />}
         <div class="st-row" role="group" aria-label="時間範圍">
           {RANGES.map((r) => (
             <button key={r.id} class={`st-btn${range === r.id ? " on" : ""}`} aria-pressed={range === r.id} onClick={() => setRange(r.id)}>

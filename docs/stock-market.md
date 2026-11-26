@@ -78,13 +78,13 @@
 - API：`GET /api/me/corporate`、`POST /api/malls/:id/portfolio/:key/buy|sell`（稽核 `portfolio.buy|sell`）。畫面：股市詳情頁「交易帳戶」切換到「〈商場〉（公司資金）」。
 
 ## API
-`GET /api/market`（市場狀態、指數、現價、較前日收盤漲跌、開高低、制限值幅、市值、迷你走勢、持有、預約單、今日已買額）、`GET /api/market/status`、`GET /api/market/news?limit=`、`GET /api/market/:key/history?range=1d|5d|1m|3m|all`（1d／5d 每步一點，其餘每交易日一根 K 線，含消息標記與前日收盤）、`GET /api/me/portfolio`、`POST /api/market/:key/buy|sell`（`{shares}`；402 錢包不足、409 休市／未上市／超過上限／持股不足、404 無此標的、403 Overseer）、`POST /api/market/:key/order`（`{side, shares}`）、`POST /api/market/orders/:id/cancel`、`GET /api/me/wealth/history`、`GET /api/me/stock-summary`。
+`GET /api/market`（市場狀態、指數、現價、較前日收盤漲跌、開高低、制限值幅、市值、迷你走勢、持有、預約單、今日已買額）、`GET /api/market/status`、`GET /api/market/news?limit=`、`GET /api/market/:key/history?range=1d|5d|1m|3m|all`（1d／5d 是盤中每步一點，1m／3m 是最近 30／90 個遊戲日的日 K，all 是全部；v2 剛開始、交易日不夠時，前面接上 v1 的舊每小時價——盤中範圍直接接點，日 K 範圍把每遊戲日的 4 點合成一根蠟燭，所以每個區間都有各自的資料；新上市的 24 檔沒有舊歷史；含消息標記與前日收盤）、`GET /api/me/portfolio`、`POST /api/market/:key/buy|sell`（`{shares}`；402 錢包不足、409 休市／未上市／超過上限／持股不足、404 無此標的、403 Overseer）、`POST /api/market/:key/order`（`{side, shares}`）、`POST /api/market/orders/:id/cancel`、`GET /api/me/wealth/history`、`GET /api/me/stock-summary`。
 
 ## 個人財務頁（`client/src/screens/Personal.tsx`）
 四個分頁，Lobby 與遊戲內 ☰ 選單共用：
 1. **總覽**：總資產、資產組成（錢包、商場持股、股票、法人投資）、**資產走勢**（每遊戲日 16:00 JST 記一筆 `wealth_snapshots`，圖上至少兩筆才畫）、待處理的出價與注資申請、開新商場成本。
 2. **商場股權**：各商場持股（撤資、出價賣給其他股東、無償轉讓）、跨商場的出價與注資申請。
-3. **股市**：市場狀態列（開休市、遊戲時間、下次開盤倒數）、兩個指數、股價表（搜尋、板塊篩選、排序）、**消息**分頁（標題與本文）、走勢（今日／5 日／1 個月／3 個月／全部，日線可切 K 線）、買賣面板（休市時改成預約買賣）、預約單、我的持倉、已實現損益／配息／手續費／稅的彙總、交易帳戶切換（個人錢包／公司資金）。
+3. **股市**：市場狀態列（開休市、遊戲時間、下次開盤倒數）、兩個指數、股價表（搜尋、板塊篩選、排序）、**消息**分頁（標題與本文）、走勢（今日／5 日／1 個月／3 個月／全部；日線可切 K 線並疊 5 日、20 日均線；手指或滑鼠移到圖上會顯示那一點的價格或開高低收與漲跌）、買賣面板（休市時改成預約買賣）、預約單、我的持倉、已實現損益／配息／手續費／稅的彙總、交易帳戶切換（個人錢包／公司資金）。
 4. **明細**：錢包流水（可篩選；股票篩選含配息）。
 
 ### 錢包流水（`wallet_ledger`）

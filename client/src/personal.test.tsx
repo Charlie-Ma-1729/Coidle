@@ -269,6 +269,12 @@ describe("個人財務視窗", () => {
     byText("K 線").click();
     await settle();
     expect(container.querySelectorAll("svg.st-chart rect").length).toBe(10);
+    // 滑過圖：顯示那一根的開高低收
+    const svg = container.querySelector("svg.st-chart") as SVGSVGElement;
+    svg.getBoundingClientRect = () => ({ left: 0, top: 0, width: 600, height: 220, right: 600, bottom: 220, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+    svg.dispatchEvent(new MouseEvent("pointermove", { clientX: 592, bubbles: true }));
+    await settle();
+    expect(container.querySelector(".st-chart-readout")!.textContent).toContain("開 1,004");
     byText("全部").click();
     await settle();
     expect(buttons().some((b) => b.textContent?.trim() === "K 線")).toBe(false); // 只有舊的每小時價，沒有 OHLC

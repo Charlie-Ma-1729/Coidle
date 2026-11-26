@@ -326,6 +326,11 @@
 .st-price b { font-size: 1.5rem; font-variant-numeric: tabular-nums; }
 .st-chart { width: 100%; height: auto; max-height: 220px; background: rgba(0, 0, 0, 0.18); border-radius: 6px; }
 .st-chart-t { fill: var(--dim); font-size: 11px; }
+.st-chart-readout { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 0.78rem; color: var(--dim); font-variant-numeric: tabular-nums; min-height: 1.5em; }
+.st-chart-readout .grow { flex: 1 1 auto; color: var(--text); }
+.st-chart-readout b.up { color: var(--green); }
+.st-chart-readout b.down { color: var(--red); }
+.st-chart.loading { opacity: 0.45; transition: opacity 0.15s; }
 .st-spark { flex: none; }
 @media (max-width: 760px) {
   .st-kpis.four { grid-template-columns: repeat(2, 1fr); }

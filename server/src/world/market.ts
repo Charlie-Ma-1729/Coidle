@@ -57,7 +57,9 @@ const MAX_SHARES_PER_ORDER = 1_000_000;
 /** 每人同時最多幾張預約單 */
 const MAX_OPEN_ORDERS = 10;
 const SPARK_DAYS = 30;
-const RANGE_DAYS: Record<Exclude<MarketRange, "1d" | "all">, number> = { "5d": 5, "1m": 22, "3m": 66 };
+/** 5d＝最近 5 個交易日的盤中走勢；1m／3m＝最近 30／90 個遊戲日的日 K（不足的部分接 v1 舊歷史） */
+const RANGE_DAYS = { "5d": 5 } as const;
+const RANGE_GAME_DAYS: Record<"1m" | "3m", number> = { "1m": 30, "3m": 90 };
 
 interface Quote {
   price: number;
@@ -350,60 +352,101 @@ export class MarketService {
     const nowMs = this.now();
     const gnow = gstepAt(nowMs, this.clock());
     const pos = this.nowPos(e);
-    const points: MarketHistory["points"] = [];
-    let prevClose: number | null = null;
-    let kind: MarketHistory["kind"] = "daily";
-    let firstAt = nowMs - 7 * 86_400_000;
+    const clock = this.clock();
+    const startMs = this.startMs();
     const legacy = STOCK_GROUPS.indexOf(g) < LEGACY_STOCK_COUNT;
+    const today = dayOfGstep(gnow);
+    type Pt = MarketHistory["points"][number];
+    const dayOfMs = (ms: number) => dayOfGstep(gstepAt(ms, clock));
 
-    // v2 起點之前：v1 的每小時價格（舊歷史，每 4 小時＝1 遊戲日取一點）
-    const legacyPoints = (fromMs: number) => {
-      if (!legacy) return;
+    // v2 起點之前的舊歷史：v1 每真實小時一個價（1 遊戲日 4 點）。新上市的標的沒有舊歷史。
+    const legacyHourly = (fromDay: number, untilMs: number): Pt[] => {
+      const out: Pt[] = [];
+      if (!legacy) return out;
       const v1 = this.v1();
-      const end = hourOfMs(Math.min(nowMs, this.startMs()));
-      const from = Math.max(0, hourOfMs(fromMs));
-      for (let h = from; h <= end; h += 4) points.push({ at: this.hourMs(h), price: v1.priceAt(key, h) });
+      const end = hourOfMs(Math.min(nowMs, startMs));
+      for (let h = Math.max(0, hourOfMs(realMsOfGstep(gstepOf(fromDay, 0), clock))); h <= end; h++) {
+        const at = this.hourMs(h);
+        if (at >= untilMs) break;
+        out.push({ at, price: v1.priceAt(key, h) });
+      }
+      return out;
+    };
+    // 同一批舊點依遊戲日合成日 K（開＝前一日收盤，所以蠟燭是接起來的）
+    const legacyDaily = (fromDay: number, untilMs: number): Pt[] => {
+      const out: Pt[] = [];
+      let day = Number.NaN;
+      let cur: Pt | null = null;
+      for (const p of legacyHourly(fromDay, untilMs)) {
+        const d = dayOfMs(p.at);
+        if (d !== day || !cur) {
+          day = d;
+          cur = { at: p.at, price: p.price, open: out.length ? out[out.length - 1]!.price : p.price, high: p.price, low: p.price };
+          out.push(cur);
+        } else {
+          cur.at = p.at;
+          cur.price = p.price;
+          cur.high = Math.max(cur.high!, p.price);
+          cur.low = Math.min(cur.low!, p.price);
+        }
+      }
+      return out;
     };
 
-    if (!pos) {
-      legacyPoints(nowMs - 30 * 86_400_000);
-      firstAt = points[0]?.at ?? nowMs;
-    } else if (range === "1d" || range === "5d") {
+    let points: Pt[] = [];
+    let prevClose: number | null = null;
+    let kind: MarketHistory["kind"] = "daily";
+
+    if (range === "1d" || range === "5d") {
       kind = "intraday";
       const days = range === "1d" ? 1 : RANGE_DAYS["5d"];
-      for (let i = Math.max(0, pos.i - days + 1); i <= pos.i; i++) {
-        const series = e.intradaySeries(key, i);
-        const upto = i === pos.i ? pos.k + 1 : series.length;
-        for (let k = 0; k < upto; k++) points.push(series[k]!);
+      let have = 0;
+      const first = pos ? Math.max(0, pos.i - days + 1) : 0;
+      if (pos) {
+        for (let i = first; i <= pos.i; i++) {
+          const series = e.intradaySeries(key, i);
+          const upto = i === pos.i ? pos.k + 1 : series.length;
+          for (let k = 0; k < upto; k++) points.push(series[k]!);
+          have++;
+        }
       }
-      prevClose = e.prevClose(key, Math.max(0, pos.i - (range === "1d" ? 0 : days - 1)));
-      firstAt = points[0]?.at ?? nowMs;
+      // v2 才剛開始、交易日還不夠：前面接上舊的每小時價（只有 v1 有的 16 檔）
+      let prefix: Pt[] = [];
+      if (have < days) {
+        const anchorDay = pos ? e.dayOfIdx(first) : dayOfMs(Math.min(nowMs, startMs)) + 1;
+        prefix = legacyHourly(anchorDay - (days - have), points[0]?.at ?? Number.POSITIVE_INFINITY);
+      }
+      points = [...prefix, ...points];
+      if (pos && prefix.length === 0) prevClose = e.prevClose(key, first);
     } else {
-      const want = range === "all" ? pos.i + 1 : RANGE_DAYS[range];
-      const from = Math.max(0, pos.i - want + 1);
-      if (from === 0 && range !== "1m") legacyPoints(nowMs - 30 * 86_400_000);
-      for (let i = from; i <= pos.i; i++) {
-        const c = e.candle(key, i)!;
-        const at = realMsOfGstep(gstepOf(e.dayOfIdx(i), 154), this.clock());
-        if (i === pos.i) {
-          const pts = e.intradayPrices(key, i)!;
-          let hi = 0;
-          let lo = Number.MAX_SAFE_INTEGER;
-          for (let k = 0; k <= pos.k; k++) {
-            hi = Math.max(hi, pts[k]!);
-            lo = Math.min(lo, pts[k]!);
-          }
-          points.push({ at: Math.min(at, nowMs), price: pts[pos.k]!, open: pts[0]!, high: hi, low: lo });
-        } else points.push({ at, price: c.close, open: c.open, high: c.high, low: c.low });
+      const fromDay = today - (range === "all" ? 100_000 : RANGE_GAME_DAYS[range]) + 1;
+      const v2: Pt[] = [];
+      if (pos) {
+        for (let i = pos.i; i >= 0 && e.dayOfIdx(i) >= fromDay; i--) {
+          const c = e.candle(key, i)!;
+          const at = realMsOfGstep(gstepOf(e.dayOfIdx(i), 154), clock);
+          if (i === pos.i) {
+            const pts = e.intradayPrices(key, i)!;
+            let hi = 0;
+            let lo = Number.MAX_SAFE_INTEGER;
+            for (let k = 0; k <= pos.k; k++) {
+              hi = Math.max(hi, pts[k]!);
+              lo = Math.min(lo, pts[k]!);
+            }
+            v2.push({ at: Math.min(at, nowMs), price: pts[pos.k]!, open: pts[0]!, high: hi, low: lo });
+          } else v2.push({ at, price: c.close, open: c.open, high: c.high, low: c.low });
+        }
+        v2.reverse();
+        prevClose = e.prevClose(key, pos.i);
       }
-      prevClose = e.prevClose(key, pos.i);
-      firstAt = points[0]?.at ?? nowMs;
+      points = [...legacyDaily(fromDay, v2[0]?.at ?? Number.POSITIVE_INFINITY), ...v2];
     }
+    const firstAt = points[0]?.at ?? nowMs;
 
-    const d0 = dayOfGstep(gstepAt(firstAt, this.clock()));
+    const d0 = dayOfGstep(gstepAt(firstAt, clock));
     const events = e
       .newsOf(key, d0 - 1, dayOfGstep(gnow))
-      .filter((n) => gstepOf(n.day, n.stepOfDay) <= gnow && this.newsAt(n) >= firstAt)
+      .filter((n) => gstepOf(n.day, n.stepOfDay) <= gnow && this.newsAt(n) >= Math.max(firstAt, startMs))
       .map((n) => ({ id: n.id, at: this.newsAt(n), pct: n.pct, text: n.headline, body: n.body, scope: n.scope }));
     return { key, name: g.name, range, kind, points, prevClose, events };
   }
