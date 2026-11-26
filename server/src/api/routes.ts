@@ -101,6 +101,16 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     return { user, member };
   };
 
+  /**
+   * 經營商場（下指令、調時鐘、跨商場互動）：成員，而且在這座商場至少持有 1 股（IPO 以前的規則）。
+   * 沒有股份的成員仍可看、可買股／申請注資／離開，只是不能動商場。
+   */
+  const requireOperator = (req: Parameters<typeof requireUser>[0], mallId: number) => {
+    const r = requireMember(req, mallId);
+    if (repo.sharesOf(mallId, r.user.id) < 1) throw new ServiceError(403, "你在這座商場還沒有股份，至少要持有 1 股才能經營（可向股東購買，或申請注資）");
+    return r;
+  };
+
   /** 只讀的存取：成員，或旁觀中的 Overseer（旁觀不算在場、不能操作；每 10 分鐘最多記一次稽核） */
   const spectated = new Map<string, number>();
   const requireReader = (req: Parameters<typeof requireUser>[0], mallId: number) => {
@@ -298,7 +308,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
 
   app.post("/api/malls/:id/commands", async (req) => {
     const mallId = mallIdOf(req.params);
-    const { user } = requireMember(req, mallId);
+    const { user } = requireOperator(req, mallId);
     const cmd = body(req).command;
     if (typeof cmd !== "object" || cmd === null || typeof (cmd as { type?: unknown }).type !== "string") {
       throw new ServiceError(400, "指令格式不正確");
@@ -510,7 +520,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   // ── 追趕速度／暫停（任何成員都可以）：落後伺服器基準時間時用追趕速度加速，追上後一律 1×
   app.post("/api/malls/:id/clock", async (req) => {
     const mallId = mallIdOf(req.params);
-    const { user } = requireMember(req, mallId);
+    const { user } = requireOperator(req, mallId);
     const b = body(req);
     const patch: ClockPatch = {};
     if (b.speed !== undefined) {
@@ -582,7 +592,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   // ── 聯名協議（跨商場合作）：只有該商場的成員能操作
   const memberOf = (req: Parameters<typeof requireUser>[0], params: unknown, write = true) => {
     const mallId = mallIdOf(params);
-    const { user } = write ? requireMember(req, mallId) : requireReader(req, mallId);
+    const { user } = write ? requireOperator(req, mallId) : requireReader(req, mallId);
     if (write) service.assertInWorld(mallId);
     return { user, mallId };
   };

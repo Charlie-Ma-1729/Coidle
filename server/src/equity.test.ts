@@ -296,6 +296,20 @@ describe("a starting grant is one per player", () => {
     expect((await get(a, dan.cookie, "/api/me/wealth")).json().foundCost).toBe(FOUNDING_COST);
   });
 
+  it("keeps a member with 0 shares from operating the mall until they hold at least 1", async () => {
+    const a = make();
+    const w = await world(a); // bob 是 A 的成員、自己開過 B（沒領起始資金），在 A 沒有股份
+    expect(a.repo.sharesOf(w.A, w.bob.id)).toBe(0);
+    const cmd = { command: { type: "nope" } };
+    const blocked = await post(a, w.bob.cookie, `/api/malls/${w.A}/commands`, cmd);
+    expect(blocked.statusCode).toBe(403);
+    expect(blocked.json().error).toContain("1 股");
+    expect((await post(a, w.bob.cookie, `/api/malls/${w.A}/clock`, { paused: true })).statusCode).toBe(403);
+    expect((await post(a, w.alice.cookie, `/api/malls/${w.A}/commands`, cmd)).statusCode).not.toBe(403); // 有股份的人不受影響
+    a.repo.setShares(w.A, w.bob.id, 1);
+    expect((await post(a, w.bob.cookie, `/api/malls/${w.A}/commands`, cmd)).statusCode).not.toBe(403);
+  });
+
   it("tops up a running mall to one grant per member and splits it evenly (admin, once)", async () => {
     const a = make();
     const w = await world(a); // alice 創辦 A，bob 是 A 的成員但自己開過 B（已用過起始資金）
