@@ -10,11 +10,14 @@ import {
   scoreHold,
   scoreRhythm,
   scoreCut,
+  doseHit,
+  dosePos,
   stageSeed,
   type HoldLevel,
   type PlayInput,
   type PublicMallState,
   type CutLevel,
+  type DoseLevel,
   type Shop,
   type SlotKind,
 } from "@coidle/shared";
@@ -285,6 +288,104 @@ function HoldGame({ level, label, onDone }: { level: HoldLevel; label: string; o
   );
 }
 
+// ───────── 第 3 關（後半）：調配——光標來回掃，在甜蜜帶按下才算加進去 ─────────
+function DoseGame({ level, items, onDone }: { level: DoseLevel; items: { name: string; dir: number }[]; onDone: (taps: number[]) => void }) {
+  const [idx, setIdx] = useState(0);
+  const [now, setNow] = useState(0);
+  const [results, setResults] = useState<boolean[]>([]);
+  const taps = useRef<number[]>([]);
+  const t0 = useRef(0);
+  const raf = useRef(0);
+  const idxRef = useRef(0);
+  const doneRef = useRef(false);
+
+  const advance = (t: number) => {
+    const i = idxRef.current;
+    taps.current[i] = t;
+    setResults((r) => [...r, doseHit(level, i, t)]);
+    if (i + 1 >= items.length) {
+      doneRef.current = true;
+      cancelAnimationFrame(raf.current);
+      setIdx(items.length);
+      return;
+    }
+    idxRef.current = i + 1;
+    setIdx(i + 1);
+    t0.current = performance.now();
+  };
+  const tap = () => {
+    if (doneRef.current) return;
+    advance(Math.round(performance.now() - t0.current));
+  };
+  useEffect(() => {
+    t0.current = performance.now();
+    const loop = () => {
+      const t = performance.now() - t0.current;
+      setNow(t);
+      if (t > level.phase) advance(-1); // 逾時沒按＝沒加成
+      if (!doneRef.current) raf.current = requestAnimationFrame(loop);
+    };
+    raf.current = requestAnimationFrame(loop);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        tap();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      cancelAnimationFrame(raf.current);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, []);
+
+  const finished = idx >= items.length;
+  const band = level.bands[Math.min(idx, items.length - 1)]!;
+  const pos = dosePos(level, now);
+  const inBand = !finished && Math.abs(pos - band.center) <= band.width / 2;
+  return (
+    <div class="stack">
+      {!finished ? (
+        <p class="small dim">
+          第 {idx + 1}／{items.length} 項：<b>{items[idx]!.name}</b>
+          {items[idx]!.dir > 0 ? " ＋1" : " −1"}。光標掃進發亮的甜蜜帶時按下「加入」（空白鍵也行），沒按準就不會加進去。
+        </p>
+      ) : (
+        <p class="small dim">調配完成。</p>
+      )}
+      <div style={{ position: "relative", height: "40px", border: "1px solid var(--line)", borderRadius: "12px", overflow: "hidden", background: "rgba(255,255,255,0.03)" }} aria-label="調配軌道">
+        <span style={{ position: "absolute", left: `${band.center - band.width / 2}%`, width: `${band.width}%`, top: 0, bottom: 0, background: "rgba(255,95,162,0.35)" }} />
+        {!finished && <span style={{ position: "absolute", left: `${pos}%`, top: "6px", width: "6px", height: "28px", background: inBand ? "#7e7" : "var(--cyan, #5ee)", transform: "translateX(-3px)", boxShadow: inBand ? "0 0 8px #7e7" : "none" }} />}
+      </div>
+      <div class="row" style={{ gap: "6px", flexWrap: "wrap" }}>
+        {items.map((it, i) => (
+          <Chip key={i} tone={results[i] === undefined ? "dim" : results[i] ? "green" : "amber"}>
+            {it.name} {results[i] === undefined ? "…" : results[i] ? "✔ 加進去了" : "✘ 沒調準"}
+          </Chip>
+        ))}
+      </div>
+      <div class="row">
+        {!finished ? (
+          <button
+            class="btn primary"
+            style={{ flex: 1, minHeight: "52px", fontSize: "18px", touchAction: "manipulation" }}
+            onPointerDown={(e) => {
+              e.preventDefault();
+              tap();
+            }}
+          >
+            加入
+          </button>
+        ) : (
+          <Btn kind="primary" onClick={() => onDone(taps.current.slice())}>
+            用這次的調配
+          </Btn>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ───────── 第 3 關：微調（推理） ─────────
 function TweakStage({ s, group, picks, tweak, setTweak, mustTweak }: { s: PublicMallState; group: Group; picks: Picks; tweak: Record<string, number>; setTweak: (t: Record<string, number>) => void; mustTweak: boolean }) {
   const tags = TAG_BY_ID[group] ?? {};
@@ -354,8 +455,11 @@ export function PlayFlow(props: {
   const [prep, setPrep] = useState<number[]>([]);
   const [act, setAct] = useState<number[]>([]);
   const [tweak, setTweak] = useState<Record<string, number>>({});
+  const [dosing, setDosing] = useState(false);
+  const [doseTaps, setDoseTaps] = useState<number[]>([]);
+  const doseLevel = useMemo(() => (seed === undefined ? null : (makeLevel("dose", stageSeed(seed, 2), group, diff) as DoseLevel)), [seed, group, diff]);
 
-  if (seed === undefined || !prepLevel || !actLevel) {
+  if (seed === undefined || !prepLevel || !actLevel || !doseLevel) {
     return (
       <Card title="🎮 手藝小遊戲">
         <p class="small dim">關卡還沒準備好，稍等一下（或直接自動開始，沒有加成）。</p>
@@ -366,7 +470,7 @@ export function PlayFlow(props: {
       </Card>
     );
   }
-  const play: PlayInput = { seed, stages: [{ id: "prep", inputs: prep }, { id: "act", inputs: act }], tweak };
+  const play: PlayInput = { seed, stages: [{ id: "prep", inputs: prep }, { id: "act", inputs: act }, { id: "tweak", inputs: doseTaps }], tweak };
   const result = scorePlay(group, picks.method, diff, seed, play);
   const prepScore = prep.length ? scoreCut(prepLevel, prep) : 0;
   const actScore = act.length ? (actLevel.kind === "rhythm" ? scoreRhythm(actLevel, act) : actLevel.kind === "hold" ? scoreHold(actLevel, act) : 0) : 0;
@@ -459,11 +563,44 @@ export function PlayFlow(props: {
               <span class="dim">：{def.tweak.desc}</span>
             </p>
             <TweakStage s={s} group={group} picks={picks} tweak={tweak} setTweak={setTweak} mustTweak={props.mustTweak} />
-            <div class="row">
-              <Btn kind="primary" disabled={props.mustTweak && Object.keys(tweak).length === 0} onClick={() => setStep(3)}>
-                下一步
-              </Btn>
-            </div>
+            {!dosing ? (
+              <div class="row">
+                <Btn
+                  kind="primary"
+                  disabled={Object.keys(tweak).length === 0}
+                  onClick={() => {
+                    setDoseTaps([]);
+                    setDosing(true);
+                  }}
+                >
+                  開始調配（{Object.keys(tweak).length} 項）
+                </Btn>
+                <Btn
+                  disabled={props.mustTweak}
+                  onClick={() => {
+                    setTweak({});
+                    setDoseTaps([]);
+                    setStep(3);
+                  }}
+                  title={props.mustTweak ? "這個組合以前試過，要調配出不同的微調才能再試" : "不微調"}
+                >
+                  不調味，下一步
+                </Btn>
+              </div>
+            ) : (
+              <DoseGame
+                key="dose"
+                level={doseLevel}
+                items={Object.entries(tweak)
+                  .sort(([a], [b]) => a.localeCompare(b))
+                  .map(([k, v]) => ({ name: TAG_BY_ID[group][k]?.name ?? k, dir: v }))}
+                onDone={(x) => {
+                  setDoseTaps(x);
+                  setDosing(false);
+                  setStep(3);
+                }}
+              />
+            )}
           </>
         )}
         {step === 3 && (
@@ -472,13 +609,22 @@ export function PlayFlow(props: {
             <Meter label={`${def.act.icon} ${def.act.label}`} value={actScore * 100} hint={pct(actScore)} tone="pink" />
             <p class="small">
               手藝總分 <b>{result ? pct(result.score) : 0}</b>，廚藝經驗加成 <b>＋{result?.bonus ?? 0}</b>（最多 ＋3）
-              {Object.keys(tweak).length > 0 ? `；微調 ${Object.entries(tweak).map(([k, v]) => `${TAG_BY_ID[group][k]?.name ?? k}${v > 0 ? "＋" : "－"}1`).join("、")}` : ""}。
+              {result && Object.keys(result.tweak).length > 0 ? `；微調 ${Object.entries(result.tweak).map(([k, v]) => `${TAG_BY_ID[group][k]?.name ?? k}${v > 0 ? "＋" : "－"}1`).join("、")}` : ""}
+              {result && result.tried > Object.keys(result.tweak).length ? `（${result.tried - Object.keys(result.tweak).length} 項沒調準，沒有加進去）` : ""}。
             </p>
+            {props.mustTweak && result && Object.keys(result.tweak).length === 0 && <p class="small dim">這個組合以前試過，需要至少一項微調調配成功才能再試。</p>}
             <div class="row">
-              <Btn kind="primary" onClick={() => props.onStart(play)}>
+              <Btn kind="primary" disabled={props.mustTweak && !!result && Object.keys(result.tweak).length === 0} onClick={() => props.onStart(play)}>
                 開始{props.verb}
               </Btn>
-              <Btn onClick={() => setStep(0)}>重玩</Btn>
+              <Btn
+                onClick={() => {
+                  setDosing(false);
+                  setStep(0);
+                }}
+              >
+                重玩
+              </Btn>
             </div>
           </div>
         )}

@@ -9,7 +9,7 @@ import type { CategoryGroup, PlayInput } from "./types";
 //  - 引擎仍然只認 tick：小遊戲只在 client 即時玩，結果在「開始研發」那一刻以指令提交，之後離線照常結算。
 // 加成有上限、不玩也能開始（沒有加成），所以偽造輸入頂多拿到上限，不會破壞平衡。
 
-export type PlayKind = "sequence" | "rhythm" | "hold" | "cut";
+export type PlayKind = "sequence" | "rhythm" | "hold" | "cut" | "dose";
 
 export interface PlayStageDef {
   id: "prep" | "act" | "tweak";
@@ -26,22 +26,22 @@ export interface PlayGroupDef {
 export const PLAY_GROUPS: Record<CategoryGroup, PlayGroupDef> = {
   food: {
     prep: { id: "prep", label: "備料", icon: "🔪", desc: "食材一件件滑過砧板：新鮮的在亮線上下刀，壞掉的別碰。", good: "新鮮食材", bad: "壞掉的", steps: ["高湯熬煮", "食材醃漬", "米麵泡發", "醬料調製", "蔬菜清洗", "肉類切片", "油炸預熱", "擺盤備料"] },
-    act: { id: "act", label: "烹調", icon: "🔥", desc: "烹調靠手感：跟著節奏下手，或把火力維持在甜蜜點。", kinds: ["rhythm", "hold", "rhythm"], actions: { rhythm: "跟著節奏翻鍋、下鍋", hold: "把火力維持在甜蜜點", sequence: "", cut: "" } },
+    act: { id: "act", label: "烹調", icon: "🔥", desc: "烹調靠手感：跟著節奏下手，或把火力維持在甜蜜點。", kinds: ["rhythm", "hold", "rhythm"], actions: { rhythm: "跟著節奏翻鍋、下鍋", hold: "把火力維持在甜蜜點", sequence: "", cut: "", dose: "" } },
     tweak: { id: "tweak", label: "調味", icon: "🧂", desc: "依試味的線索微調：最多動兩個特性（各 ±1）。調錯方向會失衡。" },
   },
   retail: {
     prep: { id: "prep", label: "打樣", icon: "📐", desc: "布料與零件滑過裁切台：合格的在亮線上裁下，瑕疵品別碰。", good: "合格布料", bad: "瑕疵品", steps: ["布料裁切", "染色定色", "縫製主體", "細節收邊", "品質檢驗", "吊牌包裝", "配件組裝", "洗滌整燙"] },
-    act: { id: "act", label: "試作", icon: "🧵", desc: "試作要穩：跟著節奏下針，或讓機台維持在穩定區間。", kinds: ["hold", "rhythm", "hold"], actions: { rhythm: "跟著節奏縫製、組裝", hold: "讓機台維持在穩定區間", sequence: "", cut: "" } },
+    act: { id: "act", label: "試作", icon: "🧵", desc: "試作要穩：跟著節奏下針，或讓機台維持在穩定區間。", kinds: ["hold", "rhythm", "hold"], actions: { rhythm: "跟著節奏縫製、組裝", hold: "讓機台維持在穩定區間", sequence: "", cut: "", dose: "" } },
     tweak: { id: "tweak", label: "規格微調", icon: "📏", desc: "依市場的反應微調風格：最多動兩個特性（各 ±1）。" },
   },
   entertainment: {
     prep: { id: "prep", label: "編排", icon: "🗒️", desc: "橋段一段段滑過時間軸：好點子在亮線上收進節目，雷點別碰。", good: "好點子", bad: "雷點", steps: ["開場暖身", "主線劇情", "高潮橋段", "互動環節", "音效配樂", "燈光舞台", "彩蛋設計", "收尾謝幕"] },
-    act: { id: "act", label: "彩排", icon: "🎶", desc: "彩排最看節奏：跟著拍子，或把現場氣氛維持在最佳區間。", kinds: ["rhythm", "hold", "rhythm"], actions: { rhythm: "跟著拍子彩排", hold: "把氣氛維持在最佳區間", sequence: "", cut: "" } },
+    act: { id: "act", label: "彩排", icon: "🎶", desc: "彩排最看節奏：跟著拍子，或把現場氣氛維持在最佳區間。", kinds: ["rhythm", "hold", "rhythm"], actions: { rhythm: "跟著拍子彩排", hold: "把氣氛維持在最佳區間", sequence: "", cut: "", dose: "" } },
     tweak: { id: "tweak", label: "調校", icon: "🎚️", desc: "依彩排的回饋微調內容：最多動兩個特性（各 ±1）。" },
   },
   service: {
     prep: { id: "prep", label: "流程", icon: "🗂️", desc: "步驟一個個滑過流程線：該做的在亮線上確認，多餘的別碰。", good: "必要步驟", bad: "多餘步驟", steps: ["諮詢問診", "環境消毒", "器具準備", "主要療程", "輔助護理", "效果確認", "後續衛教", "預約回診"] },
-    act: { id: "act", label: "演練", icon: "💆", desc: "演練靠穩定：讓力道維持在舒適區間，或跟著節奏操作。", kinds: ["hold", "rhythm", "hold"], actions: { rhythm: "跟著節奏操作", hold: "讓力道維持在舒適區間", sequence: "", cut: "" } },
+    act: { id: "act", label: "演練", icon: "💆", desc: "演練靠穩定：讓力道維持在舒適區間，或跟著節奏操作。", kinds: ["hold", "rhythm", "hold"], actions: { rhythm: "跟著節奏操作", hold: "讓力道維持在舒適區間", sequence: "", cut: "", dose: "" } },
     tweak: { id: "tweak", label: "組合", icon: "🧪", desc: "依試用客的回饋微調組合：最多動兩個特性（各 ±1）。" },
   },
 };
@@ -78,7 +78,29 @@ export interface CutLevel {
   window: number;
   duration: number;
 }
-export type PlayLevel = SequenceLevel | RhythmLevel | HoldLevel | CutLevel;
+/** 調味：每個要微調的特性各有一段「光標來回掃、在甜蜜帶按下」的即時操作 */
+export interface DoseLevel {
+  kind: "dose";
+  /** 光標來回一趟的時間（毫秒） */
+  period: number;
+  /** 每個微調名額一條甜蜜帶（0–100） */
+  bands: { center: number; width: number }[];
+  /** 每段的最長時間（毫秒），超過沒按就算沒加成 */
+  phase: number;
+}
+export type PlayLevel = SequenceLevel | RhythmLevel | HoldLevel | CutLevel | DoseLevel;
+
+/** 光標位置（0–100）：三角波，從 0 掃到 100 再掃回來 */
+export function dosePos(level: DoseLevel, t: number): number {
+  const x = ((t % level.period) + level.period) % level.period / level.period;
+  return (x < 0.5 ? x * 2 : (1 - x) * 2) * 100;
+}
+/** 第 i 個名額在時間 t 按下是否落在甜蜜帶 */
+export function doseHit(level: DoseLevel, i: number, t: unknown): boolean {
+  const b = level.bands[i];
+  if (!b || typeof t !== "number" || !Number.isFinite(t) || t < 0 || t > level.phase) return false;
+  return Math.abs(dosePos(level, t) - b.center) <= b.width / 2;
+}
 
 function mix(a: number, b: number): number {
   let h = (a ^ 0x9e3779b9) >>> 0;
@@ -132,6 +154,10 @@ export function makeLevel(kind: PlayKind, seed: number, group: CategoryGroup, di
       items.push({ id: i, label: steps[i]!, minutes });
     }
     return { kind: "sequence", items };
+  }
+  if (kind === "dose") {
+    const bands = [0, 1].map(() => ({ center: Math.round(25 + r() * 50), width: Math.round(Math.max(8, 24 - d * 1.6)) }));
+    return { kind: "dose", period: Math.round(1500 - d * 70), bands, phase: 4500 };
   }
   if (kind === "cut") {
     const targets: number[] = [];
@@ -244,6 +270,7 @@ export function scoreCut(level: CutLevel, inputs: number[]): number {
 
 export function scoreStage(level: PlayLevel, inputs: number[]): number {
   const clean = Array.isArray(inputs) ? inputs.slice(0, 80) : [];
+  if (level.kind === "dose") return 0;
   return level.kind === "sequence" ? scoreSequence(level, clean) : level.kind === "rhythm" ? scoreRhythm(level, clean) : level.kind === "cut" ? scoreCut(level, clean) : scoreHold(level, clean);
 }
 
@@ -260,6 +287,8 @@ export interface PlayResult {
   stages: { id: string; score: number }[];
   /** 通過驗證的調味微調 */
   tweak: Record<string, number>;
+  /** 玩家想微調的特性數（含調配失敗的） */
+  tried: number;
 }
 
 /** 難度 0–8：用到的素材越貴（越稀有）越難。只用公開的素材價格，client 與伺服器算得出一樣的結果 */
@@ -283,12 +312,21 @@ export function scorePlay(group: CategoryGroup, methodId: string | undefined, di
   const tweak: Record<string, number> = {};
   let used = 0;
   const rawTweak = play.tweak && typeof play.tweak === "object" ? play.tweak : {};
-  for (const [tag, v] of Object.entries(rawTweak)) {
-    if (!tags[tag] || (v !== 1 && v !== -1) || used >= PLAY_MAX_TWEAK) continue;
+  const doseLevel = makeLevel("dose", stageSeed(playSeed, 2), group, difficulty) as DoseLevel;
+  const doseTaps = find("tweak")?.inputs ?? [];
+  // 微調要「調配」成功才生效：特性依代號排序，第 i 個名額對應第 i 個輸入
+  const wanted: [string, number][] = [];
+  for (const [tag, v] of Object.entries(rawTweak).sort(([a], [b]) => a.localeCompare(b))) {
+    if (!tags[tag] || (v !== 1 && v !== -1) || wanted.length >= PLAY_MAX_TWEAK) continue;
+    wanted.push([tag, v]);
+  }
+  const tried = wanted.length;
+  wanted.forEach(([tag, v], i) => {
+    if (!doseHit(doseLevel, i, Array.isArray(doseTaps) ? doseTaps[i] : undefined)) return;
     tweak[tag] = v;
     used++;
-  }
-  return { score, bonus, stages: [{ id: "prep", score: prep }, { id: "act", score: act }], tweak };
+  });
+  return { score, bonus, stages: [{ id: "prep", score: prep }, { id: "act", score: act }], tweak, tried };
 }
 
 /** 調味的簽名（讓「同一組素材、不同微調」算不同的組合） */

@@ -13,6 +13,8 @@ import {
   scoreAnalysis,
   scorePlay,
   scoreCut,
+  doseHit,
+  TAG_BY_ID,
   stageSeed,
   techGrade,
   type MallState,
@@ -91,12 +93,22 @@ describe("workshop mini-game scoring", () => {
     expect(spam.score).toBeLessThan(0.5);
   });
 
-  it("tweak is limited to two valid tags, ±1 each", () => {
+  it("tweak needs a successful dose tap; at most two valid tags", () => {
     const seed = 5;
-    const r = scorePlay("food", "f_fry", 0, seed, { seed, stages: [], tweak: { sweet: 1, salty: -1, spicy: 1, bogus: 1, rich: 5 } })!;
-    expect(Object.keys(r.tweak).length).toBeLessThanOrEqual(2);
-    for (const v of Object.values(r.tweak)) expect(Math.abs(v)).toBe(1);
-    expect(r.tweak.bogus).toBeUndefined();
+    const lv = makeLevel("dose", stageSeed(seed, 2), "food", 0);
+    if (lv.kind !== "dose") throw new Error("kind");
+    const hitAt = (i: number) => {
+      for (let t = 0; t <= lv.phase; t += 5) if (doseHit(lv, i, t)) return t;
+      throw new Error("no hit");
+    };
+    const [a, b, c] = Object.keys(TAG_BY_ID["food"]!).sort() as [string, string, string];
+    const play = (tweak: Record<string, number>, inputs: number[]) => scorePlay("food", "f_fry", 0, seed, { seed, stages: [{ id: "tweak", inputs }], tweak })!;
+    const ok = play({ [a]: 1, [b]: -1, [c]: 1, bogus: 1 }, [hitAt(0), hitAt(1), 0]);
+    expect(Object.keys(ok.tweak)).toEqual([a, b]);
+    expect(ok.tried).toBe(2);
+    expect(play({ [a]: 1 }, []).tweak).toEqual({});
+    expect(play({ [a]: 1 }, [-1]).tweak).toEqual({});
+    expect(play({ [a]: 5 as never }, [hitAt(0)]).tweak).toEqual({});
   });
 });
 
