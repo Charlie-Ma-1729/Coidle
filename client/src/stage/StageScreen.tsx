@@ -45,6 +45,7 @@ export function StageScreen(props: { model: StageModel }) {
     openHour: model.openHour,
     closeHour: model.closeHour,
     weekend: model.weekend,
+    timeScale: speed === 0 ? 0 : speed === 2 ? 6 : 1,
     onTap: (slot) => {
       setSelected(slot);
       setHub(null);

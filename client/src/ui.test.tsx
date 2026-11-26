@@ -606,6 +606,30 @@ describe("screens render with real simulated state", () => {
     expect(lagNow(sandbox)).toBe(5);
   });
 
+  it("timeFlow：暫停 0、落後追趕＝追趕速度、已追上 1；測試商場照自己的流速（畫面人物依此暫停／加速）", async () => {
+    const { timeFlow } = await import("./serverTime");
+    const s = publicState(1);
+    s.serverTick = s.tick + 76;
+    s.clock.speed = 6;
+    s.clock.holds.manual = false;
+    expect(timeFlow(s)).toBe(6); // 落後中、追趕速度 6×
+    s.clock.speed = 3;
+    expect(timeFlow(s)).toBe(3);
+    s.clock.holds.manual = true;
+    expect(timeFlow(s)).toBe(0); // 暫停：定格
+    s.clock.holds.manual = false;
+    s.clock.holds.events = ["e1"];
+    expect(timeFlow(s)).toBe(0); // 因待處理事件暫停也一樣
+    s.clock.holds.events = [];
+    s.serverTick = s.tick; // 已追上：夾回 1×
+    expect(timeFlow(s)).toBe(1);
+    s.clock.speed = 1;
+    s.serverTick = s.tick + 76; // 落後但追趕速度不比伺服器快：1×
+    expect(timeFlow(s)).toBe(1);
+    const sandbox = { ...s, serverTick: undefined, clock: { ...s.clock, speed: 2 } };
+    expect(timeFlow(sandbox)).toBe(2);
+  });
+
   it("ClockBanner shows catch-up progress while the mall is behind the server", async () => {
     const s = publicState(1);
     s.clock.lag = 3 * 288;

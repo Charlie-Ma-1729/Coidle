@@ -18,6 +18,7 @@ import { BuildSheet } from "../screens/BuildSheet";
 import { ShopSheet } from "../screens/ShopSheet";
 import { PersonalHost } from "../screens/Personal";
 import { invites, leaveMall, mallId, openPersonal, personalPage, worldFocus, mallInfo, myMalls, online, refreshInvites, run, setClock, spectating, state, user } from "../store";
+import { timeFlow } from "../serverTime";
 import { locateShop, toStageModel } from "./adapter";
 import type { AttentionItem, HubId } from "./model";
 import { useStage } from "./useStage";
@@ -108,6 +109,7 @@ function StageGameInner() {
     openHour: model.openHour,
     closeHour: model.closeHour,
     weekend: model.weekend,
+    timeScale: timeFlow(s),
     onTap: (slot) => {
       closeOverlays();
       setSelected(slot);

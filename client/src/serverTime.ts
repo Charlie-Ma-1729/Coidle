@@ -29,6 +29,18 @@ export function lagNow(s: PublicMallState, now = Date.now()): number {
   return Math.max(0, server - s.tick);
 }
 
+/**
+ * 商場時間此刻相對標準流速（真實 4 小時＝1 遊戲日）的倍率，畫面上的人物照這個倍率動：
+ * 暫停＝0（人物定格）；落後伺服器而在追趕＝追趕速度（2／3／6×）；已追上＝1。
+ * 測試商場不受夾限，照自己的流速。
+ */
+export function timeFlow(s: PublicMallState, now = Date.now()): number {
+  if (isPaused(s.clock)) return 0;
+  const v = Math.max(s.clock.speed, 0);
+  if (s.serverTick === undefined) return v;
+  return v > 1 && lagNow(s, now) > 0 ? v : 1;
+}
+
 /** 遊戲時間的完整寫法：2027/04/01 週四 14:30 */
 export function fullTimeText(tick: number): string {
   const t = timeInfo(tick);

@@ -22,6 +22,8 @@ export interface UseStageOptions {
   closeHour: number;
   /** 休息日（週末或假日）：人潮用假日的時段曲線 */
   weekend?: boolean;
+  /** 商場時間流速倍率：暫停 0、追趕中＝追趕速度、平常 1（預設 1）。人物與天氣動畫跟著暫停／加速 */
+  timeScale?: number;
   /** 點到店面格（slot）或空白處（null） */
   onTap: (slot: number | null) => void;
 }
@@ -104,6 +106,10 @@ export function useStage(host: { current: HTMLElement | null }, o: UseStageOptio
   useEffect(() => {
     sceneRef.current?.setClock(o.minuteOfDay, o.openHour, o.closeHour, o.weekend ?? false);
   }, [ready, o.minuteOfDay, o.openHour, o.closeHour, o.weekend]);
+
+  useEffect(() => {
+    sceneRef.current?.setTimeScale(o.timeScale ?? 1);
+  }, [ready, o.timeScale]);
 
   // 換樓層 → 重建（人潮每層各留一份）；同一樓層資料更新 → 盡量只更新動態部分
   useEffect(() => {

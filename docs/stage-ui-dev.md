@@ -58,6 +58,7 @@ client/src/screens/      既有功能畫面（被樞紐內嵌；Ops、Guests、T
 - **日夜光線**（`lighting.ts`）：全畫面色調依遊戲時間漸變（清晨暖橘、黃昏橘紅、夜晚深藍，商場打烊更暗）；入夜後營業中的店面有室內暖光與門口外溢的光、走道天花燈、噴水池與電扶梯的光（add 混合，白天整層隱藏）。
 - **人潮量依伺服器的來客曲線**（`crowd.ts`）：每店生成率 = 當天平均來客率 × 此刻的相對流量 ÷ 600（1 遊戲小時＝600 真實秒）× 平均人數 × `VISUAL_SCALE`。相對流量 `trafficShape` 來自 shared 的 `hourlyTraffic`（各客群時段曲線加總，營業時段平均為 1，平日與假日不同）。平均來客率用 `(todayGroups + 先驗) / 開店至今的曲線積分 (trafficElapsed)`，所以不會因為當天累計成交增加而愈晚愈擠，早上也不會空蕩蕩。只換算比例，不影響帳目。
 - **每層樓各留一份人潮**（`scene.ts` 的 `crowds`）：切走再切回來人還在，只補跑離開的那段（最多 `WARMUP_SECONDS`＝25 秒）；第一次看這層或店面格增減（擴建）就重新生成並 `warmUp` 到穩態人數，不會從 0 人慢慢冒出來。`rebuild()` 結尾立刻 `syncAgents`，施工進度更新時不閃。
+- **人物跟著商場時間暫停／加速**：`serverTime.ts` 的 `timeFlow(s)` 算出流速倍率（暫停 0；落後伺服器而在追趕＝追趕速度 2／3／6×；已追上 1；測試商場照自己的流速），`useStage` 的 `timeScale` → `scene.setTimeScale`。人物的移動、停留、生成、天氣特效都乘上這個倍率，暫停時定格；走路步伐動畫最多 2 倍（6× 會閃爍）。
 - **手機回前景不空白**：`scene.ts` 監聽 `webglcontextlost`、`pageshow`、`visibilitychange`；WebGL 畫面被系統回收就呼叫 `onLost`，`useStage` 整個銷毀並重建場景（`generation`）。場景載入失敗自動重試一次，仍失敗 `StageGame` 顯示「重新載入畫面」。用 `WEBGL_lose_context` 擴充的 `loseContext()` 可以在桌面瀏覽器重現。
 - **效能**（`PerfGovernor`）：每秒量一次幀率，連續 3 秒低於 40 fps 就降一級（人潮上限 100 → 56 → 30，第 2 級幀率上限 30），穩定 20 秒才升回一級。分頁隱藏時停掉 ticker；離場的人的精靈放回池子重用；放手後有慣性滑動；手機長按選單已關掉。
 - **正式環境 CSP**：伺服器是 `script-src 'self'`（不允許 eval），Pixi 預設會用 `new Function`，開發模式看不出來、正式環境整個畫面會壞掉。`scene.ts` 一開頭 `import "pixi.js/unsafe-eval"` 就是為了這個，`lighting.test.ts` 有守住。Pixi 只由延遲載入的 `scene` 區塊引入（登入頁不用下載；主程式 653 KB → 336 KB）。

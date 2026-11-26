@@ -109,6 +109,10 @@ export class StageScene {
   private roomSig = "";
   private clock: Clock = { minute: 13 * 60, open: 10, close: 22, weekend: false };
   private time = 0;
+  /** 人物動畫用的時間：隨商場時間流速走（暫停就停，加速最多 2 倍） */
+  private animTime = 0;
+  /** 商場時間流速倍率：暫停 0、追趕加速 2／3／6、平常 1 */
+  private flow = 1;
 
   private insetR = 0;
   private insetB = 0;
@@ -263,6 +267,11 @@ export class StageScene {
     this.updateNight();
   }
 
+  /** 商場時間流速（暫停 0、追趕中＝追趕速度、平常 1）：人物與天氣動畫跟著暫停／加速 */
+  setTimeScale(flow: number): void {
+    this.flow = Math.max(0, flow);
+  }
+
   setClock(minute: number, open: number, close: number, weekend = false): void {
     this.clock = { minute, open, close, weekend };
     this.updateNight();
@@ -281,8 +290,8 @@ export class StageScene {
   }
 
   /** 除錯用：目前場上的人數與 ticker 是否在跑 */
-  debugInfo(): { agents: number; staff: number; fps: number; zoom: number } {
-    return { agents: this.crowd?.agents.length ?? 0, staff: this.staffSprites.length, fps: Math.round(this.app?.ticker.FPS ?? 0), zoom: this.zoom };
+  debugInfo(): { agents: number; flow: number; staff: number; fps: number; zoom: number } {
+    return { agents: this.crowd?.agents.length ?? 0, flow: this.flow, staff: this.staffSprites.length, fps: Math.round(this.app?.ticker.FPS ?? 0), zoom: this.zoom };
   }
 
   /** 除錯用：窗格隱藏時 ticker 不會跑，手動快轉模擬 N 秒 */
@@ -605,12 +614,15 @@ export class StageScene {
       this.coast(dt);
     }
     const { minute, open, close, weekend } = this.clock;
-    this.fx.update(dt);
+    // 商場時間暫停（flow=0）人物與天氣定格；追趕加速時人物照倍率走（移動、停留、生成都乘上 flow）。
+    // 走路的步伐動畫最多加到 2 倍，不然 6× 會閃爍。
+    this.fx.update(this.flow > 0 ? dt : 0);
+    this.animTime += dt * Math.min(this.flow, 2);
     this.crowd.ensureCleaners(cleanCrewSize(this.cleaningLevel, this.weather, this.floorHasProblems()));
-    this.crowd.update(Math.min(dt, 0.1), this.shops, minute, open, close, weekend);
+    this.crowd.update(Math.min(dt, 0.1) * this.flow, this.shops, minute, open, close, weekend);
     this.syncAgents(this.crowd.agents);
 
-    for (const s of this.staffSprites) s.s.y = s.baseY + (Math.sin(this.time * 2 + s.phase) > 0.6 ? -1 : 0);
+    for (const s of this.staffSprites) s.s.y = s.baseY + (Math.sin(this.animTime * 2 + s.phase) > 0.6 ? -1 : 0);
     for (const m of this.markerSprites) m.s.y = m.baseY + Math.round(Math.sin(this.time * 4 + m.phase) * 1.5);
     if (this.selectSprite.visible) this.selectSprite.alpha = 0.55 + 0.35 * Math.sin(this.time * 5);
     if (Math.floor(this.time * 2) !== Math.floor((this.time - dt) * 2)) this.updateNight();
@@ -637,7 +649,7 @@ export class StageScene {
         sp.visible = true;
         this.agentSprites.set(a.id, sp);
       }
-      const frame = a.phase === "dwell" && a.sitting ? "sit" : a.moving ? (Math.floor(this.time * 6 + a.id) % 2 === 0 ? "stepA" : "stepB") : "idle";
+      const frame = a.phase === "dwell" && a.sitting ? "sit" : a.moving ? (Math.floor(this.animTime * 6 + a.id) % 2 === 0 ? "stepA" : "stepB") : "idle";
       sp.texture = getPersonTexture(a.variant, frame, a.kind === "cleaner");
       sp.position.set(Math.round(a.x), Math.round(a.y));
       sp.scale.x = a.face;
