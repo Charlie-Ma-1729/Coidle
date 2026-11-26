@@ -20,6 +20,10 @@ export interface MemberInfo {
   /** 持股過半的實際控制人（創辦人頭銜只有一個，這個才是真正掌控商場的人）；舊資料沒有這個欄位 */
   isController?: boolean;
   joinedAt: number;
+  /** 最後一次在「這座商場」的時間（伺服器毫秒）；在玩別座商場不算。0 或沒有＝還沒有紀錄（舊資料） */
+  lastActiveAt?: number;
+  /** 此刻正連著這座商場 */
+  online?: boolean;
 }
 
 export interface MallSummary {

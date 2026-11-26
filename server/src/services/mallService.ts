@@ -224,6 +224,8 @@ export class MallService {
   private listeners = new Set<Broadcast>();
   /** 每座商場目前有幾個 WebSocket 連線（用來判斷「有沒有人在場」） */
   private connections = new Map<number, number>();
+  /** 商場 → 成員 → 目前連線數（只含真的成員，旁觀的 Overseer 不算） */
+  private presence = new Map<number, Map<number, number>>();
   /** 跨商場世界：公開名錄、賽季 */
   readonly world: WorldService;
   /** 聯名協議（跨商場合作） */
@@ -391,6 +393,43 @@ export class MallService {
     return this.connections.get(mallId) ?? 0;
   }
 
+  /**
+   * 成員在場紀錄：某位玩家連上「這座」商場（WebSocket）才算在場；開著別座商場、或只在世界頁都不算。
+   * 同一人開多個分頁以連線數計，最後一個關掉才算離開。
+   */
+  memberConnected(mallId: number, userId: number): void {
+    let room = this.presence.get(mallId);
+    if (!room) this.presence.set(mallId, (room = new Map()));
+    const n = room.get(userId) ?? 0;
+    room.set(userId, n + 1);
+    this.repo.touchMember(mallId, userId, this.now());
+    if (n === 0) this.emit(mallId, { type: "members", mallId, members: this.members(mallId) });
+  }
+
+  /** 還連著的時候定期記一筆（伺服器當機或斷網時，「上次在場」不會差太多） */
+  memberBeat(mallId: number, userId: number): void {
+    try {
+      this.repo.touchMember(mallId, userId, this.now());
+    } catch {
+      // 同上：關閉中的資料庫就算了
+    }
+  }
+
+  memberDisconnected(mallId: number, userId: number): void {
+    const room = this.presence.get(mallId);
+    const n = (room?.get(userId) ?? 0) - 1;
+    if (!room) return;
+    if (n > 0) room.set(userId, n);
+    else room.delete(userId);
+    if (room.size === 0) this.presence.delete(mallId);
+    try {
+      this.repo.touchMember(mallId, userId, this.now());
+      if (n <= 0) this.emit(mallId, { type: "members", mallId, members: this.members(mallId) });
+    } catch {
+      // 伺服器關閉時連線才陸續斷開，資料庫可能已經先關了；在場紀錄只是參考，不影響其他事
+    }
+  }
+
   addConnection(mallId: number, delta: 1 | -1): void {
     const n = Math.max(0, (this.connections.get(mallId) ?? 0) + delta);
     if (n === 0) this.connections.delete(mallId);
@@ -488,12 +527,14 @@ export class MallService {
     const r = role && ROLE_IDS.includes(role) ? role : "ops";
     this.repo.addMember(mall.id, userId, r, false, this.now());
     this.afterMemberAdded(mall.id);
-    this.emit(mall.id, { type: "members", mallId: mall.id, members: this.repo.members(mall.id) });
+    this.emit(mall.id, { type: "members", mallId: mall.id, members: this.members(mall.id) });
     return mall.id;
   }
 
+  /** 成員名單（含此刻是否在這座商場）；給玩家看的一律走這裡 */
   members(mallId: number): MemberInfo[] {
-    return this.repo.members(mallId);
+    const room = this.presence.get(mallId);
+    return this.repo.members(mallId).map((m) => ({ ...m, online: (room?.get(m.userId) ?? 0) > 0 }));
   }
 
   // ── 帳號與團隊管理
@@ -501,6 +542,7 @@ export class MallService {
     this.cache.delete(mallId);
     this.lastEmittedTick.delete(mallId);
     this.connections.delete(mallId);
+    this.presence.delete(mallId);
   }
 
   announceMembersOf(mallId: number): void {
@@ -508,7 +550,7 @@ export class MallService {
   }
 
   private announceMembers(mallId: number): void {
-    this.emit(mallId, { type: "members", mallId, members: this.repo.members(mallId) });
+    this.emit(mallId, { type: "members", mallId, members: this.members(mallId) });
   }
 
   /** 離開商場：創辦人要先轉讓；最後一個人離開＝解散商場 */

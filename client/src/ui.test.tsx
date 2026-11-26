@@ -1309,6 +1309,15 @@ describe("stage UI panels with real state", () => {
     expect(container.textContent).toContain("邀請夥伴");
   });
 
+  it("成員在場狀態文字：在場中／上次在這座商場／還沒有紀錄", async () => {
+    const { presenceText } = await import("./screens/Team");
+    expect(presenceText({ online: true, lastActiveAt: Date.now() })).toContain("現在在場");
+    expect(presenceText({ online: false, lastActiveAt: Date.now() - 3 * 3_600_000 })).toBe("上次在這座商場：3 小時前");
+    expect(presenceText({ online: false, lastActiveAt: Date.now() - 2 * 86_400_000 })).toBe("上次在這座商場：2 天前");
+    expect(presenceText({ online: false, lastActiveAt: 0 })).toBe("還沒有在場紀錄");
+    expect(presenceText({}, true)).toContain("現在在場"); // 自己：只要在看就是在場
+  });
+
   it("HUD 流速檔位按鈕：顯示目前檔位，點一下通知換檔", async () => {
     const { TopBar } = await import("./ui/Hud");
     let cycled = 0;

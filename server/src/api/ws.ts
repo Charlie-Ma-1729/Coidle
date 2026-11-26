@@ -15,7 +15,8 @@ export function registerWs(app: FastifyInstance, deps: Deps): void {
     const room = rooms.get(mallId);
     if (!room || room.size === 0) return;
     const data = JSON.stringify(msg);
-    for (const ws of room) if (ws.readyState === ws.OPEN) ws.send(data);
+    // 對方剛好斷線時 send 會非同步丟錯（例如 ERR_INVALID_STATE）；吞掉就好，斷線的清理由 close 事件處理
+    for (const ws of room) if (ws.readyState === ws.OPEN) ws.send(data, () => {});
   });
 
   // 必須在 @fastify/websocket 載入「之後」才註冊路由，否則會被當成一般 HTTP 路由
@@ -42,6 +43,7 @@ export function registerWs(app: FastifyInstance, deps: Deps): void {
     if (!spectate) {
       service.addConnection(mallId, 1); // 有人在場：重要事件不必暫停時鐘
       if (user.role === "player") metrics.socketOpen(user.id);
+      service.memberConnected(mallId, user.id); // 記下「這座商場」的在場時間，同場夥伴看得到
     }
 
     // 連上線先給一份最新狀態（同時算「有在照顧」）；用戶端之後也可送 {"type":"sync"} 重新取得
@@ -65,16 +67,18 @@ export function registerWs(app: FastifyInstance, deps: Deps): void {
       if (!alive) return socket.terminate();
       alive = false;
       socket.ping();
+      if (!spectate) service.memberBeat(mallId, user.id);
     }, 30_000);
 
     socket.on("close", () => {
       clearInterval(heartbeat);
+      room.delete(socket); // 先離開房間，再通知其他人「某某離開了」，才不會把訊息送給正在關閉的這條連線
+      if (room.size === 0) rooms.delete(mallId);
       if (!spectate) {
         service.addConnection(mallId, -1);
         if (user.role === "player") metrics.socketClose(user.id);
+        service.memberDisconnected(mallId, user.id);
       }
-      room.delete(socket);
-      if (room.size === 0) rooms.delete(mallId);
     });
     socket.on("error", () => socket.terminate());
     });

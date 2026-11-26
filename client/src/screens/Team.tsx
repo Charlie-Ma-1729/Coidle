@@ -15,6 +15,13 @@ function ago(ts: number): string {
   return h < 24 ? `${h} 小時前` : `${Math.round(h / 24)} 天前`;
 }
 
+/** 這位成員在「這座商場」的在場狀態（開著別座商場不算在場） */
+export function presenceText(m: { online?: boolean; lastActiveAt?: number }, isMe = false): string {
+  if (isMe || m.online) return "🟢 現在在場";
+  if (m.lastActiveAt) return `上次在這座商場：${ago(m.lastActiveAt)}`;
+  return "還沒有在場紀錄";
+}
+
 /** part：團隊成員／邀請／動態（世界樞紐）、商場控制與帳號（設定視窗）、或全部（舊版整頁） */
 export function Team({ part = "all" }: { part?: "all" | "team" | "controls" }) {
   const info = mallInfo.value;
@@ -98,6 +105,9 @@ export function Team({ part = "all" }: { part?: "all" | "team" | "controls" }) {
               <div class="member" key={m.userId}>
                 <div>
                   <b>{m.displayName}</b> {m.isController && <Chip tone="green">{CONTROLLER_TITLE}</Chip>} {m.isOwner && <Chip tone="amber">創辦人</Chip>} {m.userId === user.value?.id && <Chip tone="pink">我</Chip>}
+                  <div class="small dim" title={m.lastActiveAt ? new Date(m.lastActiveAt).toLocaleString() : undefined}>
+                    {presenceText(m, m.userId === user.value?.id)}
+                  </div>
                 </div>
                 <div class="row" style={{ gap: "6px" }}>
                   <Chip tone="cyan">{roleName(m.role)}</Chip>

@@ -363,6 +363,10 @@ export const MIGRATIONS: string[] = [
   );
   CREATE INDEX idx_balance_day ON balance_daily(day);
   `,
+  // v15：成員「最後一次在這座商場」的時間（連上這座商場的 WebSocket 才算；在玩別座商場不算）。0＝還沒有紀錄
+  `
+  ALTER TABLE memberships ADD COLUMN last_active_at INTEGER NOT NULL DEFAULT 0;
+  `,
 ];
 
 export function openDb(path: string): Db {

@@ -151,12 +151,12 @@ export class Repo {
   members(mallId: number): MemberInfo[] {
     const rows = this.db
       .prepare(
-        `SELECT m.user_id, u.display_name, m.role, m.is_owner, m.joined_at, COALESCE(h.shares, 0) * 2 > (ma.total_shares - ma.treasury_shares) AS ctrl
+        `SELECT m.user_id, u.display_name, m.role, m.is_owner, m.joined_at, m.last_active_at, COALESCE(h.shares, 0) * 2 > (ma.total_shares - ma.treasury_shares) AS ctrl
          FROM memberships m JOIN users u ON u.id = m.user_id JOIN malls ma ON ma.id = m.mall_id
          LEFT JOIN holdings h ON h.mall_id = m.mall_id AND h.user_id = m.user_id
          WHERE m.mall_id = ? ORDER BY m.joined_at, m.user_id`,
       )
-      .all(mallId) as { user_id: number; display_name: string; role: RoleId; is_owner: number; joined_at: number; ctrl: number }[];
+      .all(mallId) as { user_id: number; display_name: string; role: RoleId; is_owner: number; joined_at: number; last_active_at: number; ctrl: number }[];
     return rows.map((r) => ({
       userId: r.user_id,
       displayName: r.display_name,
@@ -164,7 +164,12 @@ export class Repo {
       isOwner: r.is_owner === 1,
       isController: r.ctrl === 1,
       joinedAt: r.joined_at,
+      lastActiveAt: r.last_active_at,
     }));
+  }
+  /** 這位成員剛剛在這座商場（只往後記，不會倒退） */
+  touchMember(mallId: number, userId: number, now: number): void {
+    this.db.prepare("UPDATE memberships SET last_active_at = ? WHERE mall_id = ? AND user_id = ? AND last_active_at < ?").run(now, mallId, userId, now);
   }
   mallsOfUser(userId: number): { id: number; name: string; role: RoleId; is_owner: number }[] {
     return this.db
