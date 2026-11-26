@@ -9,6 +9,7 @@ import {
   complaintCost,
   defaultComplaintOption,
   guestTodoCount,
+  isHourOpen,
   isPaused,
   periodOf,
   ticksToRealMinutes,
@@ -56,7 +57,7 @@ function Stars({ n }: { n: number }) {
 
 export function WalkCard({ s }: { s: PublicMallState }) {
   const t = timeInfo(s.tick);
-  const open = t.hour >= s.hours.open && t.hour < s.hours.close;
+  const open = isHourOpen(s.hours.open, s.hours.close, t.hour);
   const cooldown = s.walk.nextTick - s.tick;
   const voices = s.walk.voices.filter((v) => v.expireTick >= s.tick);
   const period = periodOf(t.hour, t.offDay);

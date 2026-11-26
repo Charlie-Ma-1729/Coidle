@@ -31,7 +31,7 @@ npm run admin -- create-overseer | rotate-overseer-key | sandbox-mall <帳號> [
 ```
 
 ## ⚠ 環境陷阱
-1. **這個資料夾（`Z:\文件\github\Coidle`）就是 Ubuntu 伺服器在跑的那份**（網路共用）：`node_modules` 是 Linux 版，`.env`、`data/coidle.db` 是正式的。**這裡不要 `npm ci`／tsc／vitest／tsx**。改走 Windows 鏡像：`powershell -File scripts/mirror.ps1 [-Tests "a.test.ts b.test.tsx"] [-NoTsc]`（同步到 `%TEMP%\coidle-mirror`、必要時 `npm ci`、typecheck、跑指定測試）。要跑 tsx 腳本就 `cd` 進鏡像再執行上面的指令；vitest 別加 `--exclude`（會弄壞 `@coidle/shared` 別名）。
+1. **這個資料夾（`Z:\文件\github\Coidle`）就是 Ubuntu 伺服器在跑的那份**（網路共用）：`node_modules` 是 Linux 版，`.env`、`data/coidle.db` 是正式的。**這裡不要 `npm ci`／tsc／vitest／tsx**。改走 Windows 鏡像：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/mirror.ps1 [-Tests "a.test.ts b.test.tsx"] [-NoTsc]`（同步到 `%TEMP%\coidle-mirror`、必要時 `npm ci`、typecheck、跑指定測試）。要跑 tsx 腳本就 `cd` 進鏡像再執行上面的指令；vitest 別加 `--exclude`（會弄壞 `@coidle/shared` 別名）。
 2. 改完程式要上線：伺服器 `npm run build:client`＋`sudo systemctl restart coidle`（DB migration 啟動時套用）。**不要 commit `.env`／`.env.bak`／`data/`**（`.claude/settings.json` 已擋讀）。
 3. 看正式資料：複製 `data/coidle.db*` 到 scratchpad，用 `node:sqlite` 唯讀查；商場狀態在 `mall_state.state_json`，平衡數據在 `balance_daily`。
 4. 編輯用 Edit／Write 工具。批次改用 `python`（Bash 的 `python3` 是 Windows 佔位程式）並保留原換行；Git Bash 的 `sed -i` 會留下 `.msys*` 暫存檔；含引號的長 heredoc 容易解析失敗。

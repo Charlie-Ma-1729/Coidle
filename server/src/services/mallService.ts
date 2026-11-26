@@ -54,6 +54,7 @@ import {
   CONCEPT_BY_ID,
   type ConceptId,
   interactBlocker,
+  hoursRangeLabel,
   presetOfSpeed,
   speedPreset,
   tickAt,
@@ -101,7 +102,7 @@ export function describeCommand(s: MallState, cmd: Command, actor: string): stri
     case "setPrice":
       return `${actor} 調整了「${shopName(cmd.shopId)}」的售價`;
     case "setHours":
-      return `${actor} 把營業時間改為 ${cmd.open}:00–${cmd.close}:00`;
+      return `${actor} 把營業時間改為 ${hoursRangeLabel(cmd.open, cmd.close)}`;
     case "setConcept":
       return `${actor} 把商場的定位改為「${CONCEPT_BY_ID[cmd.id as ConceptId]?.name ?? "新定位"}」`;
     case "setRestock":

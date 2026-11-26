@@ -1,6 +1,7 @@
 import {
   CATEGORY_BY_ID,
   PRICE_MIN,
+  validHours,
   PRICE_HARD_MAX,
   CONCEPT_BY_ID,
   CONCEPT_COOLDOWN_TICKS,
@@ -71,8 +72,8 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
     }
 
     case "setHours": {
-      if (!isInt(cmd.open) || !isInt(cmd.close) || cmd.open < 0 || cmd.close > 24 || cmd.close - cmd.open < 4) {
-        return err("營業時間至少 4 小時，且須在 0–24 點之間");
+      if (!validHours(cmd.open, cmd.close)) {
+        return err("營業時間至少 4 小時、最多 24 小時；開門 0–23 點，打烊最晚隔天 05:00（可以跨午夜，例如 05:00–03:00）");
       }
       s.hours = { open: cmd.open, close: cmd.close };
       break;

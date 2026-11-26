@@ -1,4 +1,4 @@
-import { dayLedger, guestTodoCount, type PublicMallState } from "@coidle/shared";
+import { dayLedger, guestTodoCount, hoursRangeLabel, type PublicMallState } from "@coidle/shared";
 import { money, moneyShort } from "../../format";
 import type { HubId } from "../../stage/model";
 
@@ -12,7 +12,7 @@ export function hubSummary(s: PublicMallState, hub: HubId): Pill[] {
   switch (hub) {
     case "operate":
       return [
-        { label: "營業", value: `${String(s.hours.open).padStart(2, "0")}:00–${String(s.hours.close).padStart(2, "0")}:00` },
+        { label: "營業", value: hoursRangeLabel(s.hours.open, s.hours.close) },
         { label: "整潔", value: `${Math.round(s.cleanliness)}%` },
         { label: "設備", value: `${Math.round(s.equipment)}%` },
       ];

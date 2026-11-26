@@ -1,4 +1,4 @@
-import { LEVELS, dayLedger, fixedCostBreakdown, mallBreakdown, mallStars, periodOf, timeInfo } from "@coidle/shared";
+import { LEVELS, dayLedger, fixedCostBreakdown, hourLabel, isHourOpen, mallBreakdown, mallStars, periodOf, timeInfo } from "@coidle/shared";
 import { Card, Chip, Empty } from "../components/ui";
 import { clockText, money, moneyShort, num } from "../format";
 import { StatusMeters } from "../ui/StatusPanel";
@@ -14,7 +14,7 @@ export function FinanceSummary() {
   const s = state.value;
   if (!s) return null;
   const t = timeInfo(s.tick);
-  const open = t.hour >= s.hours.open && t.hour < s.hours.close;
+  const open = isHourOpen(s.hours.open, s.hours.close, t.hour);
   const period = periodOf(t.hour, t.offDay);
   const d = s.today;
   const lg = dayLedger(d);
@@ -29,7 +29,7 @@ export function FinanceSummary() {
       <div class="row">
         <Chip tone={t.offDay ? "pink" : "cyan"}>{t.holiday ?? (t.offDay ? "假日" : "平日")}</Chip>
         <Chip tone={period === "peak" ? "amber" : period === "quiet" ? "dim" : "green"}>{period === "peak" ? "尖峰時段" : period === "quiet" ? "離峰時段" : "一般時段"}</Chip>
-        <Chip tone={open ? "green" : "red"}>{open ? `營業中（至 ${s.hours.close}:00）` : `打烊中（${s.hours.open}:00 開）`}</Chip>
+        <Chip tone={open ? "green" : "red"}>{open ? `營業中（至 ${hourLabel(s.hours.close)}）` : `打烊中（${hourLabel(s.hours.open)} 開）`}</Chip>
         <Chip tone="amber">Lv.{s.level}</Chip>
         <Chip tone="pink">
           <Stars n={mallStars(s as never)} />
@@ -141,7 +141,7 @@ export function FinanceSummary() {
           {fc.closedHours > 0 && (
             <div class="sub">
               <span>
-                每天打烊 {fc.closedHours} 小時（{String(s.hours.close % 24).padStart(2, "0")}:00–{String(s.hours.open).padStart(2, "0")}:00），這段時間約花
+                每天打烊 {fc.closedHours} 小時（{hourLabel(s.hours.close)}–{hourLabel(s.hours.open)}），這段時間約花
               </span>
               <b>{money(fc.closedPerDay)}</b>
             </div>

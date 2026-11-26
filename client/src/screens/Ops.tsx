@@ -13,8 +13,13 @@ import {
   UTILITIES_PER_DAY,
   facilityScale,
   hourlyTraffic,
+  hourLabel,
   inspectionScore,
+  isHourOpen,
   isPaused,
+  MAX_CLOSE_HOUR,
+  MIN_OPEN_SPAN,
+  validHours,
   laborCostFactor,
   presetOfSpeed,
   techFx,
@@ -127,7 +132,10 @@ export function HoursCards() {
   const traffic = hourlyTraffic(weekend);
   const peak = Math.max(...traffic);
   const total = traffic.reduce((a, b) => a + b, 0);
-  const captured = traffic.reduce((a, v, h) => (h >= open && h < close ? a + v : a), 0);
+  const captured = traffic.reduce((a, v, h) => (isHourOpen(open, close, h) ? a + v : a), 0);
+  // 打烊時間可以選到隔天凌晨（05~03 這種跨午夜營業）；每天營業 4～24 小時
+  const closeChoices: number[] = [];
+  for (let c = open + MIN_OPEN_SPAN; c <= Math.min(MAX_CLOSE_HOUR, open + 24); c++) closeChoices.push(c);
   const nowHour = timeInfo(s.tick).hour;
   return (
     <>
@@ -172,7 +180,7 @@ export function HoursCards() {
           </div>
           <div class="hours-chart" aria-label="24 小時客流">
             {traffic.map((v, h) => (
-              <div key={h} class={`h ${h >= open && h < close ? "open" : ""}`} style={{ height: `${(v / peak) * 100}%`, outline: h === nowHour ? "1px solid var(--cyan)" : undefined }} />
+              <div key={h} class={`h ${isHourOpen(open, close, h) ? "open" : ""}`} style={{ height: `${(v / peak) * 100}%`, outline: h === nowHour ? "1px solid var(--cyan)" : undefined }} />
             ))}
           </div>
           <div class="hours-axis">
@@ -182,26 +190,34 @@ export function HoursCards() {
           </div>
           <div class="two-col">
             <Field label="開門">
-              <select value={open} onChange={(e) => setOpen(Number((e.target as HTMLSelectElement).value))}>
+              <select
+                value={open}
+                onChange={(e) => {
+                  const o = Number((e.target as HTMLSelectElement).value);
+                  setOpen(o);
+                  // 改開門時間後，打烊若變得不合法（太短或超過 24 小時），自動挪到最接近的合法值
+                  setClose((c) => Math.min(Math.max(c, o + MIN_OPEN_SPAN), Math.min(MAX_CLOSE_HOUR, o + 24)));
+                }}
+              >
                 {Array.from({ length: 24 }, (_, h) => (
                   <option key={h} value={h}>
-                    {String(h).padStart(2, "0")}:00
+                    {hourLabel(h)}
                   </option>
                 ))}
               </select>
             </Field>
             <Field label="打烊">
               <select value={close} onChange={(e) => setClose(Number((e.target as HTMLSelectElement).value))}>
-                {Array.from({ length: 24 }, (_, h) => h + 1).map((h) => (
+                {closeChoices.map((h) => (
                   <option key={h} value={h}>
-                    {String(h).padStart(2, "0")}:00
+                    {hourLabel(h, true)}
                   </option>
                 ))}
               </select>
             </Field>
           </div>
-          <p class="small dim">粉紅色是營業中的時段。尖峰時段沒開門就等於把客人送給別人；但開得越久，人事與水電也照算。</p>
-          <Btn kind="primary" disabled={open === s.hours.open && close === s.hours.close} onClick={() => run({ type: "setHours", open, close }, "營業時間已更新")}>
+          <p class="small dim">粉紅色是營業中的時段。尖峰時段沒開門就等於把客人送給別人；但開得越久，人事與水電也照算。打烊可以選到隔天凌晨（例如 05:00–03:00），深夜 22–05 點的薪資有 25% 加成。</p>
+          <Btn kind="primary" disabled={!validHours(open, close) || (open === s.hours.open && close === s.hours.close)}onClick={() => run({ type: "setHours", open, close }, "營業時間已更新")}>
             套用營業時間
           </Btn>
         </div>

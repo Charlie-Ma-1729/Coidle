@@ -1,5 +1,6 @@
 import { CATEGORY_BY_ID, CLEANING_COST_PER_DAY, MAINTENANCE_COST_PER_DAY, UTILITIES_PER_DAY } from "./data";
 import { facilityScale } from "./helpers";
+import { isHourOpen } from "./hours";
 import { RESERVE_UPKEEP_PER_DAY } from "./regulars";
 import { laborCostFactor } from "./tax";
 import { techFx } from "./tech";
@@ -187,7 +188,7 @@ export function shopLedger(s: Pick<MallState, "hours" | "tech" | "tick">, shop: 
   if (shop.day.lost >= 3) reasons.push({ tone: "warn", text: `${shop.day.lost} 組客人排不到位子（店太小或人手不足，可以升級）。` });
   if (shop.freshness < 50) reasons.push({ tone: "warn", text: `新鮮感只剩 ${Math.round(shop.freshness)}，客人覺得老氣，換新菜單或做活動可以補回來。` });
   if (reasons.length === 0) {
-    if (revenue === 0 && hour < s.hours.open) reasons.push({ tone: "info", text: "還沒開門，但薪資整天均攤，已經先累計了。" });
+    if (revenue === 0 && hour < s.hours.open && !isHourOpen(s.hours.open, s.hours.close, hour)) reasons.push({ tone: "info", text: "還沒開門，但薪資整天均攤，已經先累計了。" });
     else if (revenue > cost) reasons.push({ tone: "warn", text: `每份都有賺，但客人還不夠多，攤不平這間店每天 ${money(shopWagePerDay(s, shop))} 的薪資。${dayFraction < 0.9 ? "今天還沒結束，營收還在累積。" : "可以考慮促銷、換菜單或調整營業時間。"}` });
     else reasons.push({ tone: "info", text: "今天客人還少，營收還沒蓋過薪資。" });
   }

@@ -11,6 +11,7 @@ import {
   consumptionRate,
   corporateTax,
   invoiceCreditRate,
+  hoursRangeLabel,
   laborCostFactor,
   licenseOf,
   timeInfo,
@@ -155,7 +156,7 @@ function Rules({ s }: { s: PublicMallState }) {
             <b class="small">🧑‍💼 勞動與社會保險</b>
             <p class="small dim">
               雇主負擔約 {pct(EMPLOYER_SOCIAL_RATE * 100)} 的社會保險（健保、厚生年金、雇用保險、勞災），每月繳；6、12 月發獎金（約 0.4 個月薪資）。深夜（22 點後）與每天超過 14 小時的班次，薪資加成 25%。
-              目前營業 {s.hours.open}:00–{s.hours.close}:00，人事成本係數 ×{f.toFixed(2)}。
+              目前營業 {hoursRangeLabel(s.hours.open, s.hours.close)}，人事成本係數 ×{f.toFixed(2)}。
             </p>
           </div>
           <div>

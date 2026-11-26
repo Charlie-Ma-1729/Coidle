@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { EVENT_BY_ID, TICKS_PER_DAY, TICK_MINUTES, type MallState } from "@coidle/shared";
+import { EVENT_BY_ID, TICKS_PER_DAY, TICKS_PER_HOUR, TICK_MINUTES, type MallState } from "@coidle/shared";
 import { advanceTo, applyCommand, createInitialState, stepTick, timeInfo, type Command } from "./index";
+import { isOpen } from "./step";
 
 /** 2026-03-02（週一）凌晨 0 點（遊戲時鐘）對應的 tick，避開特殊月份事件 */
 const START = (Date.UTC(2026, 2, 2, 0, 0, 0) - 9 * 3_600_000) / (TICK_MINUTES * 60_000);
@@ -209,6 +210,22 @@ describe("commands", () => {
     const f1Slot = s.slots.find((x) => x.zone === "f1")!;
     expect(applyCommand(s, { type: "buildShop", slot: f1Slot.id, category: "fashion" }).ok).toBe(false);
     expect(applyCommand(s, { type: "setLease", shopId: s.shops[0]!.id, enabled: true }).ok).toBe(false);
+  });
+
+  it("overnight hours (05:00–03:00) accept the command and serve guests after midnight", () => {
+    let s = createInitialState(1, START);
+    expect(applyCommand(s, { type: "setHours", open: 5, close: 30 }).ok).toBe(false);
+    expect(applyCommand(s, { type: "setHours", open: 4, close: 29 }).ok).toBe(false);
+    s = apply(s, { type: "setHours", open: 5, close: 27 });
+    expect(s.hours).toEqual({ open: 5, close: 27 });
+    expect(isOpen(s, timeInfo(START + 1 * TICKS_PER_HOUR))).toBe(true); // 01:00
+    expect(isOpen(s, timeInfo(START + 3 * TICKS_PER_HOUR))).toBe(false); // 03:00
+    expect(isOpen(s, timeInfo(START + 12 * TICKS_PER_HOUR))).toBe(true);
+    // 午夜 0 點～3 點：新設定有客人上門，原本的 10–22 點沒有
+    const night = advanceTo(s, START + 3 * TICKS_PER_HOUR);
+    const dayOnly = advanceTo(createInitialState(1, START), START + 3 * TICKS_PER_HOUR);
+    expect(night.today.groups).toBeGreaterThan(0);
+    expect(dayOnly.today.groups).toBe(0);
   });
 
   it("can build in an empty B1 slot and the shop appears after construction", () => {

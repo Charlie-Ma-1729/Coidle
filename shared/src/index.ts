@@ -3,6 +3,7 @@ export * from "./game/data";
 export * from "./game/roles";
 export * from "./game/commands";
 export * from "./game/time";
+export * from "./game/hours";
 export * from "./game/calendar";
 export * from "./game/concept";
 export * from "./game/equity";

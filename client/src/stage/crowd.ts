@@ -66,7 +66,7 @@ export function hourWeight(minuteOfDay: number): number {
 
 export function isOpenAt(minuteOfDay: number, openHour: number, closeHour: number): boolean {
   const h = minuteOfDay / 60;
-  return h >= openHour && h < closeHour;
+  return (h >= openHour && h < closeHour) || (closeHour > 24 && h < closeHour - 24);
 }
 
 /** 每個真實秒鐘的顧客生成率（單店） */

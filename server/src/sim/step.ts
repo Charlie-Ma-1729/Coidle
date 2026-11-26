@@ -5,6 +5,7 @@ import {
   CLEANING_COST_PER_DAY,
   CONSUMPTION_STANDARD,
   techFx,
+  isHourOpen,
   techTrafficMult,
   cleaningCrew,
   extraCleaningCostPerTick,
@@ -150,7 +151,7 @@ export function stepTick(s: MallState, ctx: StepContext = { nobodyPresent: false
 }
 
 export function isOpen(s: MallState, time: TimeInfo): boolean {
-  return time.hour >= s.hours.open && time.hour < s.hours.close;
+  return isHourOpen(s.hours.open, s.hours.close, time.hour);
 }
 
 // ───────── 建造與進貨 ─────────
