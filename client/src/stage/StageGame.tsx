@@ -98,7 +98,7 @@ function StageGameInner() {
     else setHub({ id, tab });
   };
 
-  const { sceneRef } = useStage(host, {
+  const { sceneRef, failed: sceneFailed, retry: retryScene } = useStage(host, {
     floor,
     selected,
     panelOpen,
@@ -107,6 +107,7 @@ function StageGameInner() {
     cleaningLevel: model.cleaningLevel,
     openHour: model.openHour,
     closeHour: model.closeHour,
+    weekend: model.weekend,
     onTap: (slot) => {
       closeOverlays();
       setSelected(slot);
@@ -211,6 +212,14 @@ function StageGameInner() {
 
       <div class="st-banners">
         {!online.value && <div class="banner">連線中斷，正在重新連線…（畫面可能不是最新）</div>}
+        {sceneFailed && (
+          <div class="banner" role="alert">
+            商場畫面載入失敗{" "}
+            <button class="st-btn" onClick={retryScene}>
+              重新載入畫面
+            </button>
+          </div>
+        )}
         <ClockBanner />
       </div>
 

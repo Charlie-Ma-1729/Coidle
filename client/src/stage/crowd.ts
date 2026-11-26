@@ -3,7 +3,7 @@
  * 不影響伺服器帳目——數字以伺服器為準，這裡只負責「看起來有人」。
  * 純邏輯、不依賴 Pixi，可單元測試（輸入 rng 即可確定性重現）。
  */
-import { isWet, weatherTrafficAverage, type Weather } from "@coidle/shared";
+import { TIME_SCALE, hourlyTraffic, isWet, weatherTrafficAverage, type Weather } from "@coidle/shared";
 import { FURNITURE } from "./furniture";
 import { TILE, patrolEnds, pickEntrance, routeTo, type FloorPlan, type RoomRect } from "./floorplan";
 import { isShopActive, type StageShop } from "./model";
@@ -69,11 +69,80 @@ export function isOpenAt(minuteOfDay: number, openHour: number, closeHour: numbe
   return (h >= openHour && h < closeHour) || (closeHour > 24 && h < closeHour - 24);
 }
 
-/** 每個真實秒鐘的顧客生成率（單店） */
-export function spawnRatePerSec(shop: StageShop | null | undefined, minuteOfDay: number, openHour: number, closeHour: number): number {
+// ───────── 人潮量：依伺服器的真實來客曲線換算 ─────────
+// 伺服器每個遊戲小時抽出多少「團」客人（step.ts runCustomers），畫面就照同樣的比例與分布生成人。
+// 只換算比例，不影響帳目；VISUAL_SCALE 是讓畫面「看得出來有人」的示意放大倍數。
+
+/** 1 遊戲小時 = 幾個真實秒（遊戲時間 = 真實時間 × TIME_SCALE） */
+export const GAME_HOUR_REAL_SECONDS = 3600 / TIME_SCALE;
+/** 一團客人平均幾人（各客群 party 的粗略平均） */
+const AVG_PARTY = 2;
+/** 示意放大倍數：一般店面同時在場約 1～5 人 */
+export const VISUAL_SCALE = 4;
+/** 剛開店還沒有成交時的先驗：PRIOR_GROUPS 團／PRIOR_HOURS 小時（避免早上空蕩蕩） */
+const PRIOR_GROUPS = 4;
+const PRIOR_HOURS = 0.5;
+/** 熱身秒數：略大於「走進店＋停留＋走出去」的時間，開場就達到穩態人數 */
+export const WARMUP_SECONDS = 25;
+
+interface ShapeTable {
+  /** 營業時段內每個小時的相對流量（營業時段平均 = 1），依開店後第幾小時排列 */
+  perHour: number[];
+  openHour: number;
+}
+const shapeCache = new Map<string, ShapeTable>();
+
+function shapeTable(openHour: number, closeHour: number, weekend: boolean): ShapeTable {
+  const key = `${openHour}|${closeHour}|${weekend ? 1 : 0}`;
+  let t = shapeCache.get(key);
+  if (!t) {
+    const traffic = hourlyTraffic(weekend);
+    const raw: number[] = [];
+    for (let h = Math.floor(openHour); h < closeHour; h++) raw.push(traffic[h % 24] ?? 0);
+    const mean = raw.reduce((a, b) => a + b, 0) / Math.max(1, raw.length) || 1;
+    t = { perHour: raw.map((v) => v / mean), openHour: Math.floor(openHour) };
+    shapeCache.set(key, t);
+  }
+  return t;
+}
+
+/** 開店後經過的小時數（過午夜時連續計算） */
+function hoursSinceOpen(minuteOfDay: number, openHour: number): number {
+  let d = minuteOfDay / 60 - openHour;
+  if (d < 0) d += 24;
+  return d;
+}
+
+/** 此刻的相對流量：伺服器各客群的時段曲線加總，營業時段平均為 1；打烊為 0。weekend＝休息日（用假日曲線） */
+export function trafficShape(minuteOfDay: number, openHour: number, closeHour: number, weekend: boolean): number {
+  if (!isOpenAt(minuteOfDay, openHour, closeHour)) return 0;
+  const t = shapeTable(openHour, closeHour, weekend);
+  return t.perHour[Math.min(t.perHour.length - 1, Math.floor(hoursSinceOpen(minuteOfDay, openHour)))] ?? 1;
+}
+
+/** 開店到現在累計的「平均小時」（流量曲線的積分）：用來把當天累計成交換算成每平均小時的來客率 */
+export function trafficElapsed(minuteOfDay: number, openHour: number, closeHour: number, weekend: boolean): number {
+  const t = shapeTable(openHour, closeHour, weekend);
+  const d = Math.max(0, hoursSinceOpen(minuteOfDay, openHour));
+  const idx = Math.min(t.perHour.length, Math.floor(d));
+  let sum = 0;
+  for (let i = 0; i < idx; i++) sum += t.perHour[i] ?? 0;
+  if (idx < t.perHour.length) sum += (d - idx) * (t.perHour[idx] ?? 0);
+  return sum;
+}
+
+/** 每個真實秒鐘的顧客生成率（單店）。比例＝這家店當天的平均來客率 × 此刻的伺服器流量曲線 */
+export function spawnRatePerSec(
+  shop: StageShop | null | undefined,
+  minuteOfDay: number,
+  openHour: number,
+  closeHour: number,
+  weekend = false,
+): number {
   if (!isShopActive(shop)) return 0;
   if (!isOpenAt(minuteOfDay, openHour, closeHour)) return 0;
-  let rate = (0.05 + shop.todayGroups * 0.0014) * hourWeight(minuteOfDay);
+  const perAvgHour = (shop.todayGroups + PRIOR_GROUPS) / (trafficElapsed(minuteOfDay, openHour, closeHour, weekend) + PRIOR_HOURS);
+  let rate = ((perAvgHour * trafficShape(minuteOfDay, openHour, closeHour, weekend)) / GAME_HOUR_REAL_SECONDS) * AVG_PARTY * VISUAL_SCALE;
   if (shop.flags.includes("stockout")) rate *= 0.3;
   if (shop.flags.includes("stale")) rate *= 0.7;
   if (shop.flags.includes("complaint")) rate *= 0.85;
@@ -104,7 +173,7 @@ export class CrowdSim {
   }
 
   constructor(private cfg: CrowdConfig) {
-    this.max = cfg.maxAgents ?? 70;
+    this.max = cfg.maxAgents ?? 100;
   }
 
   /** 效能吃緊時調低人潮上限（已在場的人照常走完，只是不再生成新的） */
@@ -147,12 +216,20 @@ export class CrowdSim {
     for (let i = have.length - 1; i >= n; i--) this.agents.splice(this.agents.indexOf(have[i]!), 1);
   }
 
-  update(dt: number, shops: Map<number, StageShop | null>, minuteOfDay: number, openHour: number, closeHour: number): void {
+  /**
+   * 預先跑一段時間（0.2 秒步長）：新建或切回這層時，讓場上直接是穩態人數，不從空蕩蕩開始。
+   * 場上已有的人照常繼續走。
+   */
+  warmUp(seconds: number, shops: Map<number, StageShop | null>, minuteOfDay: number, openHour: number, closeHour: number, weekend = false): void {
+    for (let t = 0; t < seconds; t += 0.2) this.update(0.2, shops, minuteOfDay, openHour, closeHour, weekend);
+  }
+
+  update(dt: number, shops: Map<number, StageShop | null>, minuteOfDay: number, openHour: number, closeHour: number, weekend = false): void {
     const { plan } = this.cfg;
     // 生成
     for (const room of plan.rooms) {
       const shop = shops.get(room.slot);
-      const rate = spawnRatePerSec(shop, minuteOfDay, openHour, closeHour) * this.scale;
+      const rate = spawnRatePerSec(shop, minuteOfDay, openHour, closeHour, weekend) * this.scale;
       if (rate <= 0) continue;
       const acc = (this.acc.get(room.slot) ?? 0) + rate * dt;
       if (acc >= 1 && this.agents.length < this.max) {

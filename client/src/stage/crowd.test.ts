@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Weather } from "@coidle/shared";
-import { CrowdSim, UMBRELLA_RANGE, hourWeight, isOpenAt, makeRng, spawnRatePerSec } from "./crowd";
+import { CrowdSim, UMBRELLA_RANGE, WARMUP_SECONDS, hourWeight, isOpenAt, makeRng, spawnRatePerSec, trafficElapsed, trafficShape } from "./crowd";
 import { buildDemoModel } from "./fixtures";
 import { TILE, layoutFloor, roomOfSlot } from "./floorplan";
 import { isShopActive, type StageShop } from "./model";
@@ -216,5 +216,95 @@ describe("天氣對人潮的影響", () => {
     }
     expect(opened).toBeGreaterThan(0);
     expect(closed).toBeGreaterThan(0);
+  });
+});
+
+describe("人潮依伺服器的來客曲線", () => {
+  const open = f1.lots[0]!.shop!;
+
+  it("trafficShape：營業時段平均為 1，打烊為 0", () => {
+    for (const wk of [false, true]) {
+      let sum = 0;
+      for (let h = 10; h < 22; h++) sum += trafficShape(h * 60 + 30, 10, 22, wk);
+      expect(sum / 12).toBeCloseTo(1, 5);
+    }
+    expect(trafficShape(3 * 60, 10, 22, false)).toBe(0);
+    expect(trafficShape(22 * 60, 10, 22, false)).toBe(0);
+  });
+
+  it("平日與假日的時段分布不同；午餐、晚餐尖峰高於下午", () => {
+    const wd = [10, 12, 15, 19, 21].map((h) => trafficShape(h * 60 + 30, 10, 22, false));
+    const we = [10, 12, 15, 19, 21].map((h) => trafficShape(h * 60 + 30, 10, 22, true));
+    expect(wd).not.toEqual(we);
+    expect(wd[1]!).toBeGreaterThan(wd[2]!);
+    expect(wd[3]!).toBeGreaterThan(wd[2]!);
+  });
+
+  it("跨午夜的營業時間：累計小時連續不歸零", () => {
+    const a = trafficElapsed(23 * 60, 10, 26, false);
+    const b = trafficElapsed(60, 10, 26, false); // 凌晨 1:00
+    expect(b).toBeGreaterThan(a);
+  });
+
+  it("生成率看的是平均來客率，不會因為當天累計成交增加而愈晚愈擠", () => {
+    // 同一家店：每遊戲小時成交 10 團，到了 11 點（開店後 1 小時）與 19 點（開店後 9 小時）累計不同，
+    // 但比例一樣 → 扣掉曲線形狀後，每平均小時的生成率應該差不多
+    const rateAt = (h: number) => {
+      const groups = 10 * trafficElapsed(h * 60, 10, 22, false);
+      return spawnRatePerSec({ ...open, todayGroups: groups }, h * 60, 10, 22) / trafficShape(h * 60, 10, 22, false);
+    };
+    expect(rateAt(19) / rateAt(11)).toBeGreaterThan(0.7);
+    expect(rateAt(19) / rateAt(11)).toBeLessThan(1.3);
+  });
+
+  it("成交愈多人愈多；還沒成交時也有基本人潮（不會一早空蕩蕩）", () => {
+    const at = (g: number) => spawnRatePerSec({ ...open, todayGroups: g }, 11 * 60, 10, 22);
+    expect(at(0)).toBeGreaterThan(0);
+    expect(at(60)).toBeGreaterThan(at(10));
+    expect(at(10)).toBeGreaterThan(at(0));
+  });
+
+  it("假日用假日的曲線", () => {
+    const wd = spawnRatePerSec(open, 15 * 60, 10, 22, false);
+    const we = spawnRatePerSec(open, 15 * 60, 10, 22, true);
+    expect(we).not.toBeCloseTo(wd, 6);
+  });
+
+  it("warmUp：新建的人潮馬上就是穩態人數，不是從 0 開始", () => {
+    const plan = layoutFloor(f1.lots.map((l) => l.slot), { ground: true });
+    const shops = shopsOf(f1.lots);
+    const cold = new CrowdSim({ plan, rng: makeRng(11) });
+    expect(cold.agents.filter((a) => a.kind === "customer")).toHaveLength(0);
+    cold.warmUp(WARMUP_SECONDS, shops, 13 * 60, 10, 22);
+    const warmN = cold.agents.filter((a) => a.kind === "customer").length;
+    expect(warmN).toBeGreaterThan(3);
+    // 之後再跑一段，人數與熱身後同量級（沒有暴增也沒有歸零）
+    const samples: number[] = [];
+    for (let t = 0; t < 60; t += 0.2) {
+      cold.update(0.2, shops, 13 * 60, 10, 22);
+      samples.push(cold.agents.filter((a) => a.kind === "customer").length);
+    }
+    const mean = samples.reduce((a, b) => a + b, 0) / samples.length;
+    expect(warmN).toBeGreaterThan(mean * 0.4);
+    expect(warmN).toBeLessThan(mean * 2.5);
+  });
+
+  it("一般店面的平均在場人數約 1～6 人，且不超過上限", () => {
+    const plan = layoutFloor(f1.lots.map((l) => l.slot), { ground: true });
+    const shops = shopsOf(f1.lots);
+    const active = f1.lots.filter((l) => isShopActive(l.shop)).length;
+    const sim = new CrowdSim({ plan, rng: makeRng(5) });
+    sim.warmUp(WARMUP_SECONDS, shops, 13 * 60, 10, 22);
+    let sum = 0;
+    let n = 0;
+    for (let t = 0; t < 120; t += 0.2) {
+      sim.update(0.2, shops, 13 * 60, 10, 22);
+      sum += sim.agents.length;
+      n++;
+      expect(sim.agents.length).toBeLessThanOrEqual(100);
+    }
+    const perShop = sum / n / Math.max(1, active);
+    expect(perShop).toBeGreaterThan(0.8);
+    expect(perShop).toBeLessThan(6);
   });
 });

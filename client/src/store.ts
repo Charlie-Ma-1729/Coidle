@@ -70,19 +70,27 @@ export function errMsg(e: unknown): string {
 }
 
 export async function bootstrap(): Promise<void> {
-  try {
-    const me = await api.me();
-    user.value = me.user;
-    myMalls.value = me.malls;
-    const saved = Number(localStorage.getItem("coidle.mall"));
-    if (me.user.role === "overseer") return; // Overseer 登入後先進管理室，不自動進商場
-    if (saved && me.malls.some((m) => m.id === saved)) await openMall(saved);
-    else if (me.malls.length === 1 && me.malls[0]) await openMall(me.malls[0].id);
-  } catch {
-    user.value = null;
-  } finally {
-    authReady.value = true;
+  // 手機從背景回來（或冷啟動）時網路常常還沒恢復：網路錯誤（不是伺服器回的 HTTP 錯誤）先重試幾次，才當作未登入
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const me = await api.me();
+      user.value = me.user;
+      myMalls.value = me.malls;
+      const saved = Number(localStorage.getItem("coidle.mall"));
+      if (me.user.role === "overseer") break; // Overseer 登入後先進管理室，不自動進商場
+      if (saved && me.malls.some((m) => m.id === saved)) await openMall(saved);
+      else if (me.malls.length === 1 && me.malls[0]) await openMall(me.malls[0].id);
+      break;
+    } catch (e) {
+      if (!(e instanceof ApiError) && attempt < 3) {
+        await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+        continue;
+      }
+      user.value = null;
+      break;
+    }
   }
+  authReady.value = true;
 }
 
 export async function refreshMe(): Promise<void> {

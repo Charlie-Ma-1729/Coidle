@@ -2,7 +2,7 @@
 // 在正式環境會直接壞掉（畫面全黑）；這個模組換成不用 eval 的實作。一定要比 Application 先載入。
 import "pixi.js/unsafe-eval";
 import { Application, Container, Graphics, Sprite, Text } from "pixi.js";
-import { CrowdSim, makeRng, type Agent } from "./crowd";
+import { CrowdSim, WARMUP_SECONDS, makeRng, type Agent } from "./crowd";
 import { getFloorBackground } from "./background";
 import { cleanCrewSize, type Weather } from "@coidle/shared";
 import { CROWD_CAP, FPS_CAP, PerfGovernor, lampWithWeather, stageTint } from "./lighting";
@@ -28,6 +28,8 @@ import {
 export interface SceneEvents {
   /** 點到店面格（slot）；點到空白處為 null。clientX/Y 供 HUD 定位彈出面板 */
   onTap(slot: number | null, clientX: number, clientY: number): void;
+  /** WebGL 畫面已遺失（手機回前景時常見）：請上層銷毀這個場景並重建 */
+  onLost?(): void;
 }
 
 const FLAG_ICON: Record<ShopFlag, IconKey> = {
@@ -50,6 +52,16 @@ interface Clock {
   minute: number;
   open: number;
   close: number;
+  /** 休息日（週末或假日）：人潮用假日的時段曲線 */
+  weekend: boolean;
+}
+
+/** 每層樓各留一份人潮：切走再切回來人還在，只補跑離開的那段時間 */
+interface FloorCrowd {
+  crowd: CrowdSim;
+  plan: FloorPlan;
+  key: string;
+  leftAt: number;
 }
 
 export class StageScene {
@@ -77,11 +89,17 @@ export class StageScene {
   private vel = { x: 0, y: 0 };
   private lastMove = 0;
   private onVisibility: (() => void) | null = null;
+  private onPageShow: (() => void) | null = null;
+  private onContextLost: ((e: Event) => void) | null = null;
+  /** WebGL context 已遺失，等回到前景（或立刻）請上層重建 */
+  private lost = false;
+  private lostNotified = false;
 
   private floor: StageFloor | null = null;
   private plan: FloorPlan | null = null;
   private shops = new Map<number, StageShop | null>();
   private crowd: CrowdSim | null = null;
+  private crowds = new Map<string, FloorCrowd>();
   private agentSprites = new Map<number, Sprite>();
   private staffSprites: { s: Sprite; baseY: number; phase: number }[] = [];
   private markerSprites: { s: Sprite; baseY: number; phase: number }[] = [];
@@ -89,7 +107,7 @@ export class StageScene {
   private selected: number | null = null;
   private slotsKey = "";
   private roomSig = "";
-  private clock: Clock = { minute: 13 * 60, open: 10, close: 22 };
+  private clock: Clock = { minute: 13 * 60, open: 10, close: 22, weekend: false };
   private time = 0;
 
   private insetR = 0;
@@ -141,23 +159,78 @@ export class StageScene {
 
     app.ticker.add((t) => this.tick(t.deltaMS / 1000));
     // 分頁在背景時停掉 ticker（省電）；回來時 start() 會重設時間基準，不會一次補一大段
-    this.onVisibility = () => (document.hidden ? app.ticker.stop() : app.ticker.start());
+    // 手機在背景時系統可能回收 WebGL context，回來就是空白：偵測到就請上層整個重建場景
+    this.onContextLost = (e) => {
+      e.preventDefault();
+      this.lost = true;
+      if (!document.hidden) this.notifyLost();
+    };
+    app.canvas.addEventListener("webglcontextlost", this.onContextLost);
+    this.onVisibility = () => {
+      if (document.hidden) return app.ticker.stop();
+      this.resume();
+    };
+    this.onPageShow = () => {
+      if (!document.hidden) this.resume();
+    };
     document.addEventListener("visibilitychange", this.onVisibility);
+    window.addEventListener("pageshow", this.onPageShow);
     this.bindInput();
+  }
+
+  /** 回到前景：context 掉了就請上層重建，否則校正畫布大小並重啟 ticker */
+  private resume(): void {
+    if (this.destroyed || !this.app) return;
+    if (this.lost || this.contextIsLost()) {
+      this.lost = true;
+      this.notifyLost();
+      return;
+    }
+    this.app.resize();
+    this.app.ticker.start();
+  }
+
+  private contextIsLost(): boolean {
+    const gl = (this.app.renderer as unknown as { gl?: { isContextLost?: () => boolean } }).gl;
+    return !!gl?.isContextLost?.();
+  }
+
+  private notifyLost(): void {
+    if (this.lostNotified || this.destroyed) return;
+    this.lostNotified = true;
+    this.ev.onLost?.();
   }
 
   // ───────── 公開 API ─────────
 
   setFloor(floor: StageFloor): void {
     if (!this.app) return;
+    // 記下離開這層的時間：切回來時只補跑離開的那段，人不會消失
+    const prev = this.floor ? this.crowds.get(this.floor.id) : undefined;
+    if (prev) prev.leftAt = this.time;
     this.floor = floor;
-    this.plan = layoutFloor(
-      floor.lots.map((l) => l.slot),
-      { ground: floor.ground, links: floor.links },
-    );
-    this.slotsKey = planKey(floor);
-    this.crowd = new CrowdSim({ plan: this.plan, rng: makeRng(this.seed + floor.id.length * 7919), maxAgents: CROWD_CAP[this.perf.level] });
+    const key = planKey(floor);
+    this.slotsKey = key;
+    this.syncShops();
+    const cached = this.crowds.get(floor.id);
+    let away = WARMUP_SECONDS;
+    if (cached && cached.key === key) {
+      this.plan = cached.plan;
+      this.crowd = cached.crowd;
+      away = Math.min(WARMUP_SECONDS, Math.max(0, this.time - cached.leftAt));
+    } else {
+      // 第一次看這層，或店面格增減（擴建）：重排平面圖、重新生成人潮並熱身到穩態
+      this.plan = layoutFloor(
+        floor.lots.map((l) => l.slot),
+        { ground: floor.ground, links: floor.links },
+      );
+      this.crowd = new CrowdSim({ plan: this.plan, rng: makeRng(this.seed + floor.id.length * 7919), maxAgents: CROWD_CAP[this.perf.level] });
+      this.crowds.set(floor.id, { crowd: this.crowd, plan: this.plan, key, leftAt: this.time });
+    }
     this.crowd.setWeather(this.weather);
+    this.crowd.setMax(CROWD_CAP[this.perf.level]);
+    const { minute, open, close, weekend } = this.clock;
+    this.crowd.warmUp(away, this.shops, minute, open, close, weekend);
     this.rebuild();
     this.fit();
   }
@@ -190,8 +263,8 @@ export class StageScene {
     this.updateNight();
   }
 
-  setClock(minute: number, open: number, close: number): void {
-    this.clock = { minute, open, close };
+  setClock(minute: number, open: number, close: number, weekend = false): void {
+    this.clock = { minute, open, close, weekend };
     this.updateNight();
   }
 
@@ -262,7 +335,12 @@ export class StageScene {
     this.destroyed = true;
     this.disposeDom?.();
     if (this.onVisibility) document.removeEventListener("visibilitychange", this.onVisibility);
-    if (this.app) this.app.destroy(true, { children: true });
+    if (this.onPageShow) window.removeEventListener("pageshow", this.onPageShow);
+    if (this.app) {
+      if (this.onContextLost) this.app.canvas.removeEventListener("webglcontextlost", this.onContextLost);
+      this.app.destroy(true, { children: true });
+    }
+    this.crowds.clear();
   }
 
   // ───────── 建場景 ─────────
@@ -324,6 +402,8 @@ export class StageScene {
     }
     this.buildDynamic();
     this.updateSelect();
+    // 精靈剛被清空：馬上依目前人潮補回，不要等下一幀（切樓層、施工進度更新時才不會閃）
+    if (this.crowd) this.syncAgents(this.crowd.agents);
   }
 
   private syncShops(): void {
@@ -524,10 +604,10 @@ export class StageScene {
       }
       this.coast(dt);
     }
-    const { minute, open, close } = this.clock;
+    const { minute, open, close, weekend } = this.clock;
     this.fx.update(dt);
     this.crowd.ensureCleaners(cleanCrewSize(this.cleaningLevel, this.weather, this.floorHasProblems()));
-    this.crowd.update(Math.min(dt, 0.1), this.shops, minute, open, close);
+    this.crowd.update(Math.min(dt, 0.1), this.shops, minute, open, close, weekend);
     this.syncAgents(this.crowd.agents);
 
     for (const s of this.staffSprites) s.s.y = s.baseY + (Math.sin(this.time * 2 + s.phase) > 0.6 ? -1 : 0);

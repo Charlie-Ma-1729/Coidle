@@ -118,7 +118,7 @@ export function nextFlashDelay(kind: WeatherKind, rnd: number): number {
 /** 0 = 全開；1 = 人潮減到約六成；2 = 人潮減到約三分之一、幀率上限 30 */
 export type PerfLevel = 0 | 1 | 2;
 
-export const CROWD_CAP: Record<PerfLevel, number> = { 0: 70, 1: 40, 2: 24 };
+export const CROWD_CAP: Record<PerfLevel, number> = { 0: 100, 1: 56, 2: 30 };
 export const FPS_CAP: Record<PerfLevel, number> = { 0: 60, 1: 60, 2: 30 };
 
 export class PerfGovernor {

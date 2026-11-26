@@ -66,12 +66,15 @@ export function disconnectMall(): void {
   ws?.close();
 }
 
-// 回到前景時要一份最新快照（手機切回 App 很常見）
-document.addEventListener("visibilitychange", () => {
+// 回到前景時要一份最新快照（手機切回 App 很常見）；從 bfcache 還原（pageshow）、網路恢復（online）也一樣處理
+function refreshConnection(): void {
   if (document.visibilityState !== "visible" || currentMall === null) return;
   if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "sync" }));
   else if (!socket) {
     if (timer) clearTimeout(timer);
     open(currentMall);
   }
-});
+}
+document.addEventListener("visibilitychange", refreshConnection);
+window.addEventListener("pageshow", refreshConnection);
+window.addEventListener("online", refreshConnection);
