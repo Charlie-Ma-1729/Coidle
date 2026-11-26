@@ -37,9 +37,13 @@ export function Spark(props: { values: number[]; width?: number; height?: number
 export function PriceChart(props: { history: MarketHistory; mode?: "line" | "candle" }) {
   const { points, events, kind, prevClose } = props.history;
   if (points.length < 2) return <p class="st-hint">資料還不夠，等開盤走幾步再來看。</p>;
-  const candle = props.mode === "candle" && kind === "daily" && points.every((p) => p.open !== undefined) && points.length <= 160;
-  const lows = points.map((p) => (candle ? p.low! : p.price));
-  const highs = points.map((p) => (candle ? p.high! : p.price));
+  // 日 K：有 OHLC 的點（v2 開市後的交易日）畫成蠟燭；沒有 OHLC 的舊點（v1 每小時價）當成一條橫線的小蠟燭
+  const candle = props.mode === "candle" && kind === "daily" && points.filter((p) => p.open !== undefined).length >= 2 && points.length <= 160;
+  const op = (p: (typeof points)[number]) => p.open ?? p.price;
+  const hi_ = (p: (typeof points)[number]) => p.high ?? p.price;
+  const lo_ = (p: (typeof points)[number]) => p.low ?? p.price;
+  const lows = points.map((p) => (candle ? lo_(p) : p.price));
+  const highs = points.map((p) => (candle ? hi_(p) : p.price));
   let lo = Math.min(...lows);
   let hi = Math.max(...highs);
   if (kind === "intraday" && prevClose) {
@@ -62,15 +66,15 @@ export function PriceChart(props: { history: MarketHistory; mode?: "line" | "can
     <svg viewBox={`0 0 ${W} ${H}`} class="st-chart" role="img" aria-label={`${props.history.name} 的價格走勢，最高 ${hi.toLocaleString()}，最低 ${lo.toLocaleString()}`}>
       {candle ? (
         points.map((p, i) => {
-          const rise = p.price >= p.open!;
+          const rise = p.price >= op(p);
           const c = rise ? "var(--green)" : "var(--red)";
-          const top = y(Math.max(p.open!, p.price));
-          const bot = y(Math.min(p.open!, p.price));
+          const top = y(Math.max(op(p), p.price));
+          const bot = y(Math.min(op(p), p.price));
           return (
             <g key={p.at}>
-              <line x1={x(i)} x2={x(i)} y1={y(p.high!)} y2={y(p.low!)} style={{ stroke: c }} stroke-width="1" />
+              <line x1={x(i)} x2={x(i)} y1={y(hi_(p))} y2={y(lo_(p))} style={{ stroke: c }} stroke-width="1" />
               <rect x={x(i) - bw / 2} y={top} width={bw} height={Math.max(1, bot - top)} style={{ fill: c }} />
-              <title>{`${stamp(p.at, kind, false)}　開 ${p.open} 高 ${p.high} 低 ${p.low} 收 ${p.price}`}</title>
+              <title>{`${stamp(p.at, kind, false)}　開 ${op(p)} 高 ${hi_(p)} 低 ${lo_(p)} 收 ${p.price}`}</title>
             </g>
           );
         })
@@ -103,7 +107,7 @@ export function PriceChart(props: { history: MarketHistory; mode?: "line" | "can
       {events.map((e) => {
         const i = idxOf(e.at);
         if (i < 0) return null;
-        const cy = candle ? y(points[i]!.high!) - 6 : y(points[i]!.price);
+        const cy = candle ? y(hi_(points[i]!)) - 6 : y(points[i]!.price);
         return (
           <circle key={e.id} cx={x(i)} cy={cy} r="4.5" style={{ fill: e.pct >= 0 ? "var(--green)" : "var(--red)" }} stroke="#fff" stroke-width="1">
             <title>{`${stamp(e.at, kind, true)}　${e.text}（${e.pct >= 0 ? "+" : ""}${e.pct}%）`}</title>

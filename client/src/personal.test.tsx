@@ -119,6 +119,15 @@ function stubFetch() {
     if (path.endsWith("/order")) return ok({ id: 5, key: STOCK_GROUPS[0]!.key, name: STOCK_GROUPS[0]!.name, side: "buy", shares: 5, status: "open", createdAt: Date.now(), settledAt: null, price: null, note: "" });
     if (path === "/api/me/portfolio") return ok(portfolio);
     if (path.startsWith("/api/me/ledger")) return ok({ entries });
+    if (path.includes("/history") && path.includes("range=1m")) {
+      const points = Array.from({ length: 10 }, (_, i) => ({ at: Date.now() - (10 - i) * 86_400_000, price: 1000 + i, open: 995 + i, high: 1010 + i, low: 990 + i }));
+      return ok({ key: STOCK_GROUPS[0]!.key, name: STOCK_GROUPS[0]!.name, range: "1m", kind: "daily", points, prevClose: 995, events: [] });
+    }
+    if (path.includes("/history") && path.includes("range=all")) {
+      // 只有 v1 的舊點（沒有 OHLC）：不能畫 K 線，也不該出現 K 線按鈕
+      const points = Array.from({ length: 10 }, (_, i) => ({ at: Date.now() - (10 - i) * 86_400_000, price: 1000 + i }));
+      return ok({ key: STOCK_GROUPS[0]!.key, name: STOCK_GROUPS[0]!.name, range: "all", kind: "daily", points, prevClose: null, events: [] });
+    }
     if (path.includes("/history")) {
       const points = Array.from({ length: 24 }, (_, i) => ({ at: Date.now() - (24 - i) * 3_600_000, price: 1000 + i }));
       return ok({ key: STOCK_GROUPS[0]!.key, name: STOCK_GROUPS[0]!.name, range: "1d", kind: "intraday", points, prevClose: 995, events: [] });
@@ -247,6 +256,22 @@ describe("個人財務視窗", () => {
     expect(call.url.endsWith("/buy")).toBe(true);
     expect(call.body).toEqual({ shares: 5 });
     expect(calls.some((c) => c.url === `/api/market/${encodeURIComponent(STOCK_GROUPS[0]!.key)}/buy`)).toBe(false);
+  });
+
+  it("draws candlesticks when the K-line button is on, and hides the button when there is no OHLC data", async () => {
+    await open("market");
+    (container.querySelector(".st-stock") as HTMLElement).click();
+    await settle();
+    expect(buttons().some((b) => b.textContent?.trim() === "K 線")).toBe(false); // 今日是盤中折線，沒有 K 線
+    byText("1 個月").click();
+    await settle();
+    expect(container.querySelectorAll("svg.st-chart rect").length).toBe(0);
+    byText("K 線").click();
+    await settle();
+    expect(container.querySelectorAll("svg.st-chart rect").length).toBe(10);
+    byText("全部").click();
+    await settle();
+    expect(buttons().some((b) => b.textContent?.trim() === "K 線")).toBe(false); // 只有舊的每小時價，沒有 OHLC
   });
 
   it("offers a pre-order instead of buying while the market is closed", async () => {

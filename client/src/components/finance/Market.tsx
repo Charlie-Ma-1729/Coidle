@@ -401,7 +401,7 @@ function Detail(props: { row: MarketRow; view: MarketView; pf: PortfolioView; co
               {r.label}
             </button>
           ))}
-          {hist?.kind === "daily" && (
+          {hist?.kind === "daily" && hist.points.filter((p) => p.open !== undefined).length >= 2 && (
             <button class={`st-btn${mode === "candle" ? " on" : ""}`} aria-pressed={mode === "candle"} onClick={() => setMode(mode === "candle" ? "line" : "candle")}>
               K 線
             </button>
