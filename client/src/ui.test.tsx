@@ -244,6 +244,36 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).not.toContain("豬里肌");
   });
 
+  it("Recipe book shows the ingredients a dish was made from and can list it onto a fitting shop's menu", async () => {
+    let shopId = "";
+    store.state.value = publicState(1, (s) => {
+      const shop = s.shops.find((x) => x.category === "kushikatsu")!;
+      shopId = shop.id;
+      s.level = 2;
+      s.workshop.dishes.push({
+        id: "dsh1", name: "柑香酥衣串", icon: "🍢", group: "food", categories: ["kushikatsu"], recipeId: null, signature: false, quality: 70, appeal: {}, tags: [],
+        desc: "測試", madeTick: s.tick, madeAt: shop.name, picks: { base: "f_pork", season: "f_soy", method: "f_fry" }, novelty: 100, listedCount: 0,
+      });
+    });
+    const { Workshop } = await import("./screens/Workshop");
+    await mount(<Workshop />);
+    const click = async (text: string) => {
+      const b = (Array.from(container.querySelectorAll("button")) as HTMLButtonElement[]).find((x) => x.textContent?.trim() === text);
+      expect(b, text).toBeDefined();
+      b!.click();
+      await tick();
+    };
+    await click("📖 食譜本");
+    expect(container.textContent).toContain("主料：豬里肌");
+    expect(container.textContent).toContain("手法：酥炸");
+    await click("上架到…");
+    // 只列適合的店（串炸），並顯示它的菜單欄數與上架按鈕
+    expect(container.textContent).toContain(store.state.value!.shops.find((x) => x.id === shopId)!.name);
+    expect(container.textContent).toContain("菜單 0／");
+    expect(container.textContent).not.toContain("拉麵");
+    expect((Array.from(container.querySelectorAll("button")) as HTMLButtonElement[]).some((b) => b.textContent?.trim() === "上架")).toBe(true);
+  });
+
   it("Workshop opens on the shop it was pointed at (from the shop panel)", async () => {
     store.state.value = publicState(1, (s) => {
       const slot = s.slots.find((x) => x.zone === "f1" && !x.shopId)!;

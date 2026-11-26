@@ -299,6 +299,79 @@ function MenuView({ s, shop }: { s: PublicMallState; shop: Shop }) {
   );
 }
 
+/** 這道作品是用哪些素材搭出來的，例如「主料：豬里肌　調味：柑橘汁　手法：酥炸」 */
+function recipeLine(s: PublicMallState, d: Dish): string {
+  const slots = WORKSHOP_INFO[d.group].slots;
+  const parts = SLOT_KINDS.filter((k) => d.picks[k]).map((k) => `${slots[k]}：${ingName(s, d.picks[k])}`);
+  return parts.join("　");
+}
+
+/** 食譜本裡的一道作品：可以直接上架到適合的店（菜單滿了就選一道換掉） */
+function BookEntry({ s, d }: { s: PublicMallState; d: Dish }) {
+  const [open, setOpen] = useState(false);
+  const fitting = directShops(s).filter((x) => dishFitsCategory(d, x.category));
+  const listedIn = s.shops.filter((x) => x.menu.some((e) => e.dishId === d.id));
+  const free = fitting.filter((x) => !x.menu.some((e) => e.dishId === d.id));
+  return (
+    <div>
+      <div class="row between">
+        <b>
+          {d.icon} {d.name} {d.signature && <Chip tone="green">招牌</Chip>}
+        </b>
+        <span class="small">品質 {d.quality}</span>
+      </div>
+      <p class="small dim">{d.desc}（{d.madeAt}・{dateText(d.madeTick)}）</p>
+      <p class="small">🧾 {recipeLine(s, d) || "（沒有素材紀錄）"}</p>
+      {listedIn.length > 0 && <p class="small dim">上架中：{listedIn.map((x) => x.name).join("、")}</p>}
+      <div class="row">
+        <TagChips group={d.group} tags={d.tags} />
+        <AppealChips dish={d} />
+      </div>
+      <div class="row">
+        <Btn small kind="primary" disabled={free.length === 0} title={free.length === 0 ? "沒有適合的店，或已經在每間適合的店上架了" : ""} onClick={() => setOpen(!open)}>
+          {open ? "收起" : "上架到…"}
+        </Btn>
+        {listedIn.length === 0 && !d.signature && (
+          <Btn small onClick={() => run({ type: "discardDish", dishId: d.id })}>
+            丟掉
+          </Btn>
+        )}
+      </div>
+      {open && (
+        <div class="stack">
+          {free.map((x) => {
+            const slots = menuSlots(x.level);
+            const full = x.menu.length >= slots;
+            return (
+              <div key={x.id}>
+                <div class="row between small">
+                  <span>
+                    {floorTitle(zoneOfShop(s, x))}・<b>{x.name}</b>　菜單 {x.menu.length}／{slots}
+                  </span>
+                  {!full && (
+                    <Btn small kind="primary" onClick={() => run({ type: "listDish", shopId: x.id, dishId: d.id }, "上架了")}>
+                      上架
+                    </Btn>
+                  )}
+                </div>
+                {full && (
+                  <div class="row">
+                    {x.menu.map((e, i) => (
+                      <Btn key={e.dishId} small onClick={() => run({ type: "listDish", shopId: x.id, dishId: d.id, slotIndex: i }, "已換上去")}>
+                        換掉「{e.name}」
+                      </Btn>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Book({ s }: { s: PublicMallState }) {
   const dishes = s.workshop.dishes.slice().reverse();
   return (
@@ -308,24 +381,7 @@ function Book({ s }: { s: PublicMallState }) {
       ) : (
         <div class="stack">
           {dishes.map((d) => (
-            <div key={d.id}>
-              <div class="row between">
-                <b>
-                  {d.icon} {d.name} {d.signature && <Chip tone="green">招牌</Chip>}
-                </b>
-                <span class="small">品質 {d.quality}</span>
-              </div>
-              <p class="small dim">{d.desc}（{d.madeAt}・{dateText(d.madeTick)}）</p>
-              <div class="row">
-                <TagChips group={d.group} tags={d.tags} />
-                <AppealChips dish={d} />
-                {!d.signature && !s.shops.some((x) => x.menu.some((e) => e.dishId === d.id)) && (
-                  <Btn small onClick={() => run({ type: "discardDish", dishId: d.id })}>
-                    丟掉
-                  </Btn>
-                )}
-              </div>
-            </div>
+            <BookEntry key={d.id} s={s} d={d} />
           ))}
         </div>
       )}
