@@ -300,6 +300,7 @@ describe("a starting grant is one per player", () => {
     const a = make();
     const w = await world(a); // bob 是 A 的成員、自己開過 B（沒領起始資金），在 A 沒有股份
     expect(a.repo.sharesOf(w.A, w.bob.id)).toBe(0);
+    expect((await get(a, w.bob.cookie, `/api/malls/${w.A}`)).json().myShares).toBe(0); // 畫面據此顯示提示、藏起操作
     const cmd = { command: { type: "nope" } };
     const blocked = await post(a, w.bob.cookie, `/api/malls/${w.A}/commands`, cmd);
     expect(blocked.statusCode).toBe(403);

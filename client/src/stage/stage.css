@@ -126,6 +126,9 @@
 .cb-close { appearance: none; border: 0; background: none; color: var(--dim); font-size: 1rem; line-height: 1; padding: 4px 8px; cursor: pointer; margin-left: auto; }
 .cb-close:hover { color: var(--text); }
 
+/* 在這座商場持股 0：不能經營，藏起時間流速（暫停／追趕速度）；dock、擴建、店面面板由程式不渲染 */
+.st-nostake .st-seg { display: none; }
+
 /* 擴建 */
 .st-expand { position: absolute; z-index: 9; left: 64px; bottom: calc(var(--st-dock-h) + 20px + 52px); height: auto; padding: 6px 12px; flex-wrap: wrap; }
 .st-expand small { font-weight: 400; color: var(--dim); font-size: 0.72rem; }

@@ -290,6 +290,8 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
       name: mall.name,
       inviteCode: member && service.authorityOf(mallId) === member.user_id ? mall.invite_code : undefined,
       members: service.members(mallId),
+      // 自己在這座商場的股數（旁觀者沒有）；0 股不能經營，畫面據此顯示提示並藏起操作
+      myShares: member ? repo.sharesOf(mallId, member.user_id) : undefined,
     };
   });
 

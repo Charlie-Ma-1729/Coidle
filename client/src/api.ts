@@ -94,6 +94,8 @@ export interface MallInfo {
   name: string;
   inviteCode?: string;
   members: MemberInfo[];
+  /** 自己在這座商場的股數；0＝不能經營（旁觀者、舊伺服器沒有這個欄位） */
+  myShares?: number;
 }
 
 export const api = {

@@ -1,4 +1,4 @@
-import { signal } from "@preact/signals";
+import { computed, signal } from "@preact/signals";
 import { registerEvents, registerRegulars, type ActivityEntry, type Command, type MallSummary, type MeResponse, type PublicMallState, type WealthView } from "@coidle/shared";
 import { api, ApiError, setReadOnly, type ClockPatch, type MallInfo } from "./api";
 import type { PendingInvite } from "./ui/attention";
@@ -13,6 +13,20 @@ export const mallId = signal<number | null>(null);
 export const spectating = signal(false);
 export const mallInfo = signal<MallInfo | null>(null);
 export const state = signal<PublicMallState | null>(null);
+/** 在這座商場持股 0：只能看，不能經營（要先取得至少 1 股） */
+export const noShares = computed(() => mallInfo.value?.myShares === 0);
+
+/** 重新讀取商場資訊（股數、成員）；失敗就維持原樣 */
+export async function refreshMallInfo(): Promise<void> {
+  const id = mallId.value;
+  if (id === null) return;
+  try {
+    const info = await api.mall(id);
+    if (mallId.value === id) mallInfo.value = info;
+  } catch {
+    // ignore
+  }
+}
 export const activity = signal<ActivityEntry[]>([]);
 export const online = signal(false);
 export const busy = signal(false);

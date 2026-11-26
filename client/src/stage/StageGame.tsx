@@ -17,7 +17,7 @@ import { RealShopPanel } from "../ui/RealShopPanel";
 import { BuildSheet } from "../screens/BuildSheet";
 import { ShopSheet } from "../screens/ShopSheet";
 import { PersonalHost } from "../screens/Personal";
-import { invites, leaveMall, mallId, openPersonal, personalPage, worldFocus, mallInfo, myMalls, online, refreshInvites, run, setClock, spectating, state, user } from "../store";
+import { invites, leaveMall, mallId, openPersonal, personalPage, worldFocus, mallInfo, myMalls, noShares, online, refreshInvites, refreshMallInfo, run, setClock, spectating, state, user } from "../store";
 import { timeFlow, useLiveMinute } from "../serverTime";
 import { locateShop, toStageModel } from "./adapter";
 import type { AttentionItem, HubId } from "./model";
@@ -76,6 +76,14 @@ function StageGameInner() {
     lastReport.current = date;
   }, [s.reports.length, s.reports[s.reports.length - 1]?.date]);
 
+  // 在這座商場持股 0：只能看，不能經營（伺服器也會擋）。取得股份後自動解除，所以鎖住期間定時重讀股數
+  const noStake = noShares.value;
+  useEffect(() => {
+    if (!noStake) return;
+    const t = setInterval(() => void refreshMallInfo(), 10_000);
+    return () => clearInterval(t);
+  }, [noStake]);
+
   const floor = model.floors[Math.min(floorIdx, model.floors.length - 1)]!;
   const lot = selected !== null ? floor.lots.find((l) => l.slot === selected) : undefined;
   const locked = floor.lockedLevel != null;
@@ -94,6 +102,7 @@ function StageGameInner() {
   };
 
   const openHub =(id: HubId, tab?: string) => {
+    if (noStake) return;
     closeOverlays();
     setSelected(null);
     // 樞紐還沒開放 → 帶去「全部功能」，那裡會說明怎麼解鎖
@@ -114,6 +123,7 @@ function StageGameInner() {
     timeScale: timeFlow(s),
     onTap: (slot) => {
       closeOverlays();
+      if (noStake) return setSelected(null);
       setSelected(slot);
       const l = slot === null ? undefined : floor.lots.find((x) => x.slot === slot);
       if (l && !l.shop && floor.lockedLevel == null) setBuildSlot(slot);
@@ -135,6 +145,7 @@ function StageGameInner() {
   const act = (it: AttentionItem) => {
     setAttnOpen(false);
     const t = it.target;
+    if (noStake && t.kind !== "menu") return;
     switch (t.kind) {
       case "shop":
         return gotoShop(t.shopId);
@@ -155,7 +166,7 @@ function StageGameInner() {
 
   // 情境提示：視窗、面板、彈出層都沒開的時候才出現，一次一則
   const anyOverlay = !!hub || !!menuPage || !!personalPage.value || !!pending || attnOpen || statusOpen || reportOpen || panelOpen || buildSlot !== null || !!sheetShop || menuOpen || paused; // 暫停橫幅出現時，提示先不出現（避免兩個一起擠在畫面上）
-  const hint = anyOverlay
+  const hint = anyOverlay || noStake
     ? null
     : pickHint({
         s,
@@ -165,7 +176,7 @@ function StageGameInner() {
       });
 
   return (
-    <div class="st-root">
+    <div class={`st-root${noStake ? " st-nostake" : ""}`}>
       <div class="st-scene" ref={host} />
 
       {isOverseer && (
@@ -224,6 +235,21 @@ function StageGameInner() {
             </button>
           </div>
         )}
+        {noStake && (
+          <div class="banner" role="status">
+            你在這座商場還沒有股份，目前只能查看。至少要持有 1 股才能經營：到「設定 → 團隊」申請注資，或向股東購買股份。{" "}
+            <button
+              class="st-btn"
+              onClick={() => {
+                closeOverlays();
+                setSelected(null);
+                setMenuPage("settings");
+              }}
+            >
+              前往設定
+            </button>
+          </div>
+        )}
         <ClockBanner />
       </div>
 
@@ -244,7 +270,7 @@ function StageGameInner() {
 
       <ZoomControls onIn={() => sceneRef.current?.zoomBy(1.25)} onOut={() => sceneRef.current?.zoomBy(0.8)} onFit={() => sceneRef.current?.fit()} />
 
-      {floor.expand && (
+      {floor.expand && !noStake && (
         <button
           class="st-btn st-expand"
           disabled={!floor.expand.canBuy}
@@ -366,17 +392,19 @@ function StageGameInner() {
 
       {hint && <HintBar lifted={!!floor.expand} hint={hint} onDismiss={() => markSeen(u?.id, mallId.value, hint.id)} onDisableAll={() => disableHints(u?.id, mallId.value)} />}
 
-      <Dock
-        active={hub?.id ?? null}
-        badges={badges}
-        visible={visibleHubs}
-        onPick={(id) => {
-          const same = hub?.id === id;
-          closeOverlays();
-          setSelected(null);
-          if (!same) openHub(id);
-        }}
-      />
+      {!noStake && (
+        <Dock
+          active={hub?.id ?? null}
+          badges={badges}
+          visible={visibleHubs}
+          onPick={(id) => {
+            const same = hub?.id === id;
+            closeOverlays();
+            setSelected(null);
+            if (!same) openHub(id);
+          }}
+        />
+      )}
 
       {buildSlot !== null && (
         <BuildSheet
