@@ -378,25 +378,29 @@ describe("trading", () => {
     expect(a.repo.walletOf(poor.id)).toBe(0);
   });
 
-  it("gives every chart range its own data right after v2 starts, stitching the old hourly history in front", async () => {
+  it("backfills trading days before the v2 start so every range has its own data, for every stock", async () => {
     const a = make(OPEN_T); // 剛上線：v2 從現在才開始，沒有任何交易日
     a.service.market.tick();
     clock.t = OPEN_T + 12 * MIN;
     const h = (r: "1d" | "5d" | "1m" | "3m" | "all", key = KEY) => a.service.market.history(key, r);
-    const ranges = (["1d", "5d", "1m", "3m", "all"] as const).map((r) => h(r));
-    for (const x of ranges) {
-      expect(x.points.length).toBeGreaterThanOrEqual(2);
-      expect(x.points.every((p, i) => i === 0 || p.at >= x.points[i - 1]!.at)).toBe(true);
+    // 舊 16 檔與新上市的標的都一樣：往回推算
+    for (const key of [KEY, STOCK_GROUPS[STOCK_GROUPS.length - 1]!.key]) {
+      const ranges = (["1d", "5d", "1m", "3m", "all"] as const).map((r) => h(r, key));
+      for (const x of ranges) {
+        expect(x.points.length).toBeGreaterThanOrEqual(2);
+        expect(x.points.every((p, i) => i === 0 || p.at >= x.points[i - 1]!.at)).toBe(true);
+      }
+      const n = ranges.map((x) => x.points.length);
+      expect(n[0]).toBe(55); // 今日：往回推算的最後一個完整交易日
+      expect(n[1]).toBe(5 * 55);
+      expect(n[3]).toBeGreaterThan(n[2]!);
+      expect(n[4]).toBeGreaterThan(n[3]!);
+      for (const x of ranges.slice(2)) expect(x.points.every((p) => p.open !== undefined && p.high! >= p.low! && p.high! >= p.price && p.low! <= p.price)).toBe(true);
+      // 接得起來：往回推算的最後一天收盤＝v2 起點價格（開盤前的價格）
+      expect(ranges[4]!.points.at(-1)!.price).toBe(a.service.market.price(key));
     }
-    const n = ranges.map((x) => x.points.length);
-    expect(n[1]).toBeGreaterThan(n[0]!); // 5 日比今日多
-    expect(n[3]).toBeGreaterThan(n[2]!); // 3 個月比 1 個月多
-    expect(n[4]).toBeGreaterThanOrEqual(n[3]!);
-    expect(ranges[2]!.kind).toBe("daily");
-    expect(ranges[2]!.points.every((p) => p.open !== undefined && p.high! >= p.low!)).toBe(true); // 舊歷史也合成 K 線
-    // 新上市的標的沒有舊歷史：不會當掉，只是點數少
-    const fresh = STOCK_GROUPS[STOCK_GROUPS.length - 1]!.key;
-    expect(() => h("3m", fresh)).not.toThrow();
+    // 決定性：同樣的時間再問一次，結果一樣
+    expect(JSON.stringify(h("3m"))).toBe(JSON.stringify(h("3m")));
   });
 
   it("pays dividends on the ex-dividend day, taxed, once, and records them in the ledger", async () => {

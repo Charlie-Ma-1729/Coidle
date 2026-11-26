@@ -2,6 +2,7 @@ import { randomInt } from "node:crypto";
 import {
   AM_OPEN,
   KIND_LABEL,
+  TRADING_STEPS_PER_DAY,
   LEGACY_STOCK_COUNT,
   MARKET_DAILY_BUY_LIMIT,
   MARKET_FEE_RATE,
@@ -25,14 +26,15 @@ import {
   isTradingDay,
   lastOpenGstep,
   marketStatus,
-  msOfHour,
   nextOpenGstep,
   openOrdinal,
   realMsOfGstep,
   sellQuote,
   stepOfDayOf,
   stockGroupOf,
+  tradingDayAt,
   tradingDayBefore,
+  tradingDayIndex,
   type IndexQuote,
   type MarketHistory,
   type MarketNews,
@@ -57,9 +59,11 @@ const MAX_SHARES_PER_ORDER = 1_000_000;
 /** 每人同時最多幾張預約單 */
 const MAX_OPEN_ORDERS = 10;
 const SPARK_DAYS = 30;
-/** 5d＝最近 5 個交易日的盤中走勢；1m／3m＝最近 30／90 個遊戲日的日 K（不足的部分接 v1 舊歷史） */
+/** 5d＝最近 5 個交易日的盤中走勢；1m／3m＝最近 30／90 個遊戲日的日 K */
 const RANGE_DAYS = { "5d": 5 } as const;
 const RANGE_GAME_DAYS: Record<"1m" | "3m", number> = { "1m": 30, "3m": 90 };
+/** v2 起點之前往回推算幾個交易日的走勢（約半年）：讓每個區間一開始就有完整資料 */
+const BACKFILL_DAYS = 130;
 
 interface Quote {
   price: number;
@@ -70,11 +74,12 @@ interface Quote {
 /**
  * 股票市場 v2：玩家用個人錢包買賣虛構「集團」的股票。價格依東證的開市時間（遊戲內 JST）每真實 1 分鐘一步，
  * 由伺服器私有種子與時間決定（見 shared/src/game/market/），不存歷史；只存持倉、成交、預約單與配息紀錄。
- * v2 起點之前的歷史由 v1 引擎（每真實小時一點）提供，v2 從 v1 在切換點的狀態接續。
+ * v2 從 v1 在切換點的狀態接續（持倉與成本不受影響）；起點之前的走勢圖用同一個引擎往回推算（見 backfill）。
  */
 export class MarketService {
   private v1c: { engine: PriceEngine; anchorRealMs: number; anchorTick: number } | null = null;
   private v2c: { engine: PriceEngineV2; anchorRealMs: number; anchorTick: number; start: number } | null = null;
+  private bfc: { main: PriceEngineV2; engine: PriceEngineV2; n: number; adj: Map<string, number> } | null = null;
   private baseCache: { gstep: number; rows: Omit<MarketRow, "held">[]; indices: IndexQuote[] } | null = null;
   private readonly feedCache = new Map<number, MarketNews[]>();
   private lastDivDay: number | null = null;
@@ -137,6 +142,42 @@ export class MarketService {
     this.baseCache = null;
     this.feedCache.clear();
     return engine;
+  }
+
+  /**
+   * 起點之前的往回推算：同一個價格引擎從 BACKFILL_DAYS 個交易日前（基準價）開始走，
+   * 再把每檔的價格在對數上線性拉到「真正的起點價格」，所以走勢圖接得起來；
+   * 只用來畫圖（價格、買賣、持倉成本都不受影響），純函式、同樣的種子永遠同樣的結果。
+   */
+  private backfill(): { engine: PriceEngineV2; n: number; adj: Map<string, number> } {
+    const main = this.v2();
+    if (this.bfc && this.bfc.main === main) return this.bfc;
+    const sc = this.clock();
+    const startIdx = tradingDayIndex(main.startDay);
+    const n = Math.min(BACKFILL_DAYS, startIdx);
+    const engine = new PriceEngineV2(this.seed(), sc, { startRealMs: realMsOfGstep(gstepOf(tradingDayAt(startIdx - n), 0), sc), news: this.news });
+    const adj = new Map<string, number>();
+    for (const g of STOCK_GROUPS) {
+      const closeB = engine.candle(g.key, n - 1)?.close ?? 0;
+      const target = main.prevClose(g.key, 0) ?? closeB;
+      adj.set(g.key, closeB > 0 && target > 0 ? Math.log(target / closeB) : 0);
+    }
+    this.bfc = { main, engine, n, adj };
+    return this.bfc;
+  }
+
+  /** 第 j 個交易日（相對 v2 起點；負數＝往回推算的日子）這一檔的盤中價格 */
+  private dayPrices(key: string, j: number): { at: number; price: number }[] {
+    if (j >= 0) return this.v2().intradaySeries(key, j);
+    const b = this.backfill();
+    const t = b.n + j;
+    if (t < 0) return [];
+    const f = Math.exp((b.adj.get(key) ?? 0) * ((t + 1) / b.n));
+    return b.engine.intradaySeries(key, t).map((s) => ({ at: s.at, price: Math.max(MARKET_MIN_PRICE, Math.round(s.price * f)) }));
+  }
+
+  private dayOfJ(j: number): number {
+    return j >= 0 ? this.v2().dayOfIdx(j) : this.backfill().engine.dayOfIdx(this.backfill().n + j);
   }
 
   status(): MarketStatus {
@@ -353,45 +394,19 @@ export class MarketService {
     const gnow = gstepAt(nowMs, this.clock());
     const pos = this.nowPos(e);
     const clock = this.clock();
-    const startMs = this.startMs();
-    const legacy = STOCK_GROUPS.indexOf(g) < LEGACY_STOCK_COUNT;
     const today = dayOfGstep(gnow);
     type Pt = MarketHistory["points"][number];
-    const dayOfMs = (ms: number) => dayOfGstep(gstepAt(ms, clock));
-
-    // v2 起點之前的舊歷史：v1 每真實小時一個價（1 遊戲日 4 點）。新上市的標的沒有舊歷史。
-    const legacyHourly = (fromDay: number, untilMs: number): Pt[] => {
-      const out: Pt[] = [];
-      if (!legacy) return out;
-      const v1 = this.v1();
-      const end = hourOfMs(Math.min(nowMs, startMs));
-      for (let h = Math.max(0, hourOfMs(realMsOfGstep(gstepOf(fromDay, 0), clock))); h <= end; h++) {
-        const at = this.hourMs(h);
-        if (at >= untilMs) break;
-        out.push({ at, price: v1.priceAt(key, h) });
-      }
-      return out;
+    // 「現在」落在第幾個交易日：v2 還沒開始交易（起點後的第一個開盤之前）時，就是往回推算的最後一天
+    const lastJ = pos ? pos.i : -1;
+    const lastK = pos ? pos.k : TRADING_STEPS_PER_DAY - 1;
+    const firstJ = -this.backfill().n;
+    const series = (j: number) => this.dayPrices(key, j).slice(0, j === lastJ ? lastK + 1 : undefined);
+    const closeOf = (j: number): number | null => {
+      if (j < firstJ) return null;
+      if (j >= 0) return e.candle(key, j)?.close ?? null;
+      return this.dayPrices(key, j).at(-1)?.price ?? null;
     };
-    // 同一批舊點依遊戲日合成日 K（開＝前一日收盤，所以蠟燭是接起來的）
-    const legacyDaily = (fromDay: number, untilMs: number): Pt[] => {
-      const out: Pt[] = [];
-      let day = Number.NaN;
-      let cur: Pt | null = null;
-      for (const p of legacyHourly(fromDay, untilMs)) {
-        const d = dayOfMs(p.at);
-        if (d !== day || !cur) {
-          day = d;
-          cur = { at: p.at, price: p.price, open: out.length ? out[out.length - 1]!.price : p.price, high: p.price, low: p.price };
-          out.push(cur);
-        } else {
-          cur.at = p.at;
-          cur.price = p.price;
-          cur.high = Math.max(cur.high!, p.price);
-          cur.low = Math.min(cur.low!, p.price);
-        }
-      }
-      return out;
-    };
+    const prevCloseOf = (j: number): number | null => (j === 0 ? e.prevClose(key, 0) : closeOf(j - 1));
 
     let points: Pt[] = [];
     let prevClose: number | null = null;
@@ -400,60 +415,34 @@ export class MarketService {
     if (range === "1d" || range === "5d") {
       kind = "intraday";
       const days = range === "1d" ? 1 : RANGE_DAYS["5d"];
-      let have = 0;
-      const first = pos ? Math.max(0, pos.i - days + 1) : 0;
-      if (pos) {
-        for (let i = first; i <= pos.i; i++) {
-          const series = e.intradaySeries(key, i);
-          const upto = i === pos.i ? pos.k + 1 : series.length;
-          for (let k = 0; k < upto; k++) points.push(series[k]!);
-          have++;
-        }
-      }
-      // v2 才剛開始、交易日還不夠：前面接上舊的每小時價（只有 v1 有的 16 檔）
-      let prefix: Pt[] = [];
-      if (have < days) {
-        const anchorDay = pos ? e.dayOfIdx(first) : dayOfMs(Math.min(nowMs, startMs)) + 1;
-        prefix = legacyHourly(anchorDay - (days - have), points[0]?.at ?? Number.POSITIVE_INFINITY);
-      }
-      points = [...prefix, ...points];
-      if (pos && prefix.length === 0) prevClose = e.prevClose(key, first);
+      const first = Math.max(firstJ, lastJ - days + 1);
+      for (let j = first; j <= lastJ; j++) points.push(...series(j));
+      prevClose = prevCloseOf(first);
     } else {
       const fromDay = today - (range === "all" ? 100_000 : RANGE_GAME_DAYS[range]) + 1;
-      const v2: Pt[] = [];
-      if (pos) {
-        for (let i = pos.i; i >= 0 && e.dayOfIdx(i) >= fromDay; i--) {
-          const c = e.candle(key, i)!;
-          const at = realMsOfGstep(gstepOf(e.dayOfIdx(i), 154), clock);
-          if (i === pos.i) {
-            const pts = e.intradayPrices(key, i)!;
-            let hi = 0;
-            let lo = Number.MAX_SAFE_INTEGER;
-            for (let k = 0; k <= pos.k; k++) {
-              hi = Math.max(hi, pts[k]!);
-              lo = Math.min(lo, pts[k]!);
-            }
-            v2.push({ at: Math.min(at, nowMs), price: pts[pos.k]!, open: pts[0]!, high: hi, low: lo });
-          } else v2.push({ at, price: c.close, open: c.open, high: c.high, low: c.low });
+      for (let j = lastJ; j >= firstJ && this.dayOfJ(j) >= fromDay; j--) {
+        const pts = series(j);
+        if (pts.length === 0) continue;
+        let hi = 0;
+        let lo = Number.MAX_SAFE_INTEGER;
+        for (const s of pts) {
+          hi = Math.max(hi, s.price);
+          lo = Math.min(lo, s.price);
         }
-        v2.reverse();
-        prevClose = e.prevClose(key, pos.i);
+        const at = j === lastJ && pos ? Math.min(pts.at(-1)!.at, nowMs) : realMsOfGstep(gstepOf(this.dayOfJ(j), 154), clock);
+        points.push({ at, price: pts.at(-1)!.price, open: pts[0]!.price, high: hi, low: lo });
       }
-      points = [...legacyDaily(fromDay, v2[0]?.at ?? Number.POSITIVE_INFINITY), ...v2];
+      points.reverse();
+      prevClose = prevCloseOf(lastJ);
     }
     const firstAt = points[0]?.at ?? nowMs;
 
     const d0 = dayOfGstep(gstepAt(firstAt, clock));
     const events = e
       .newsOf(key, d0 - 1, dayOfGstep(gnow))
-      .filter((n) => gstepOf(n.day, n.stepOfDay) <= gnow && this.newsAt(n) >= Math.max(firstAt, startMs))
+      .filter((n) => gstepOf(n.day, n.stepOfDay) <= gnow && this.newsAt(n) >= firstAt)
       .map((n) => ({ id: n.id, at: this.newsAt(n), pct: n.pct, text: n.headline, body: n.body, scope: n.scope }));
     return { key, name: g.name, range, kind, points, prevClose, events };
-  }
-
-  /** v1 的第 h 小時的真實毫秒 */
-  private hourMs(h: number): number {
-    return msOfHour(h);
   }
 
   // ───────── 持倉 ─────────
