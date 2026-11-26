@@ -24,8 +24,9 @@ import {
   type Tasting,
 } from "@coidle/shared";
 import { Btn, Card, Chip, Empty, Meter } from "../components/ui";
-import { clockText, dateText, money, realDuration } from "../format";
+import { clockText, dateText, gameDeadline, gameDuration, money } from "../format";
 import { PERSONA_ICONS } from "../icons";
+import { PlayFlow } from "./workshop/PlayFlow";
 import { FLOOR_LABELS } from "../stage/adapter";
 import { run, state } from "../store";
 
@@ -179,6 +180,7 @@ function Research({ s, shop }: { s: PublicMallState; shop: Shop }) {
   const prev = ready ? s.workshop.tried[comboKey(shop.category, picks)] : undefined;
   const blocked = prev === "signature" || prev === "original" || prev === "flop";
   const skill = s.workshop.skill[shop.id] ?? 0;
+  const [playing, setPlaying] = useState(false);
 
   if (job) {
     const total = job.endTick - job.startTick;
@@ -189,7 +191,13 @@ function Research({ s, shop }: { s: PublicMallState; shop: Shop }) {
           <p class="small">
             {SLOT_KINDS.filter((k) => job.picks[k]).map((k) => `${info.slots[k]}：${ingName(s, job.picks[k])}`).join("　")}
           </p>
-          <Meter label="進度" value={done} hint={`還要 ${realDuration(job.endTick - s.tick, s.clock.speed, s.clock.lag)}（離線也會繼續）`} tone="cyan" />
+          <Meter label="進度" value={done} hint={`到${gameDeadline(job.endTick, s.tick)}（離線也會繼續）`} tone="cyan" />
+          {job.play && (
+            <p class="small dim">
+              🎮 手藝 {Math.round(job.play.score * 100)} 分（廚藝經驗 ＋{job.play.bonus}）
+              {Object.keys(job.play.tweak).length > 0 ? `；微調 ${Object.entries(job.play.tweak).map(([k, v]) => `${TAG_BY_ID[cat.group][k]?.name ?? k}${v > 0 ? "＋" : "－"}1`).join("、")}` : ""}
+            </p>
+          )}
           <div class="row">
             <Btn small kind="danger" onClick={() => run({ type: "cancelRnd", shopId: shop.id }, "已取消，退回一半費用")}>
               取消（退回一半）
@@ -197,6 +205,25 @@ function Research({ s, shop }: { s: PublicMallState; shop: Shop }) {
           </div>
         </div>
       </Card>
+    );
+  }
+
+  if (playing && ready) {
+    return (
+      <PlayFlow
+        s={s}
+        shop={shop}
+        group={cat.group}
+        picks={picks}
+        costs={chosen.map((c) => c.cost)}
+        mustTweak={blocked}
+        verb={info.verb}
+        onCancel={() => setPlaying(false)}
+        onStart={(play) => {
+          setPlaying(false);
+          void run({ type: "startRnd", shopId: shop.id, picks, ...(play ? { play } : {}) }, "開始研發！");
+        }}
+      />
     );
   }
 
@@ -219,13 +246,16 @@ function Research({ s, shop }: { s: PublicMallState; shop: Shop }) {
             </nav>
           </div>
         ))}
-        {prev && <p class="small">⚠️ 這個組合你試過了：{OUTCOME[prev].label}。{blocked ? "不能重複。" : "可以再試一次。"}</p>}
+        {prev && <p class="small">⚠️ 這個組合你試過了：{OUTCOME[prev].label}。{prev === "signature" ? "不能重複。" : blocked ? "要在手藝小遊戲的最後一關換個「微調」才能再試。" : "可以再試一次。"}</p>}
         <p class="small dim">
-          費用 {money(ready ? cost : RND_BASE_COST[cat.group])}　時間 {realDuration(picks.special ? RND_TICKS_SPECIAL : RND_TICKS, s.clock.speed, s.clock.lag)}
+          費用 {money(ready ? cost : RND_BASE_COST[cat.group])}　時間 {gameDuration(picks.special ? RND_TICKS_SPECIAL : RND_TICKS)}
         </p>
         <div class="row">
-          <Btn kind="primary" disabled={!ready || blocked || s.funds < cost} onClick={() => run({ type: "startRnd", shopId: shop.id, picks }, "開始研發！")}>
-            開始{info.verb}
+          <Btn kind="primary" disabled={!ready || prev === "signature" || s.funds < cost} onClick={() => setPlaying(true)} title="三關手藝小遊戲：排順序、節奏或穩定度、調味微調。玩得好有加成，也可以直接自動開始">
+            🎮 開始{info.verb}
+          </Btn>
+          <Btn small disabled={!ready || blocked || s.funds < cost} onClick={() => run({ type: "startRnd", shopId: shop.id, picks }, "開始研發！")} title="不玩小遊戲，沒有加成">
+            自動
           </Btn>
           <Btn small onClick={() => setPicks({})}>
             清空

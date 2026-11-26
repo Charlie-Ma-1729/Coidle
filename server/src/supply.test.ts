@@ -25,6 +25,13 @@ import {
   TICK_MINUTES,
   categoryHasStock,
   chosenSupplier,
+  consumableCostMult,
+  RUSH_PREMIUM,
+  restockPlan,
+  storageCap,
+  shockFill,
+  shocksStartingOnDay,
+  type WorldShock,
   playerAppeal,
   relDiscount,
   rivalAppealNow,
@@ -41,7 +48,8 @@ import { advanceTo, applyCommand, createInitialState, migrateState, stepTick, ty
 import { applyEffects, spawnEvent } from "./sim/events";
 import { createRng } from "./sim/rng";
 import { rivalsTick } from "./sim/rivals";
-import { deliveryTerms, pickSupplier, quoteOrder } from "./sim/suppliers";
+import { inventoryDaily } from "./sim/inventory";
+import { deliveryTerms, pickAlternative, pickSupplier, quoteOrder, suppliersTick } from "./sim/suppliers";
 import { placeOrder } from "./sim/step";
 
 const START = (Date.UTC(2027, 2, 2) - 9 * 3_600_000) / (TICK_MINUTES * 60_000);
@@ -64,11 +72,12 @@ function quiet(s: MallState): MallState {
 }
 
 describe("supplier data", () => {
-  it("every stocked category has a supply family; entertainment and services do not", () => {
-    for (const c of CATEGORIES) {
-      if (categoryHasStock(c)) expect(FAMILY_OF[c.id], c.id).toBeDefined();
-      else expect(FAMILY_OF[c.id], c.id).toBeUndefined();
-    }
+  it("every category on every floor has a supply family (services buy consumables)", () => {
+    for (const c of CATEGORIES) expect(FAMILY_OF[c.id], c.id).toBeDefined();
+    for (const fam of Object.values(FAMILY_OF)) expect(FAMILY_ORDER).toContain(fam);
+    // 每個區域都有業態用到供應商
+    const zones = new Set(CATEGORIES.map((c) => c.zone));
+    expect(zones.size).toBe(8);
   });
 
   it("each family has several visible suppliers plus one hidden newcomer", () => {
@@ -134,7 +143,10 @@ describe("ordering from suppliers", () => {
     const shop = shopOf(s, "kushikatsu");
     const st = sup(s, "meat_maru");
     const r0 = st.relationship;
-    for (let i = 0; i < 20; i++) placeOrder(s, shop, 50);
+    for (let i = 0; i < 20; i++) {
+      shop.incoming = []; // 倉庫有容量上限，每次下單前先清空在途
+      placeOrder(s, shop, 50);
+    }
     expect(st.relationship).toBeGreaterThan(r0);
     expect(st.orders).toBe(20);
     st.relationship = 85;
@@ -151,6 +163,7 @@ describe("ordering from suppliers", () => {
   it("a shortage delays and cuts deliveries, and the shortfall is not charged", () => {
     const s = createInitialState(1, START);
     s.funds = 10_000_000;
+    s.supply.autoFallback = false; // 沒開備援：缺的那 40% 就是缺了、也不收錢
     const shop = shopOf(s, "kushikatsu");
     const st = sup(s, "meat_maru");
     st.status = "shortage";
@@ -326,8 +339,11 @@ describe("supplier drama events", () => {
 
   it("switch effect moves to the best available alternative and ignores unavailable ones", () => {
     const s = createInitialState(1, START);
-    sup(s, "meat_kuro").status = "strike";
-    sup(s, "meat_kuro").statusUntil = s.tick + 1000;
+    // 把其餘備用都弄成不能出貨，只留山下食肉
+    for (const id of ["meat_kuro", "meat_ranch", "meat_wholesale"]) {
+      sup(s, id).status = "strike";
+      sup(s, id).statusUntil = s.tick + 1000;
+    }
     eff(s, [{ t: "supplierSwitch", family: "meat" }]);
     expect(s.supply.choice.meat).toBe("meat_yama"); // 唯一可用的備用
     sup(s, "meat_maru").contract = { lockedMult: 1, untilTick: s.tick + 1000 };
@@ -356,28 +372,129 @@ describe("supplier drama events", () => {
     expect(shopOf(s, "ramen").freshness).toBe(100);
   });
 
-  it("every drama event has a valid default, and shortages/strikes/bankruptcies pause the clock when nobody is around", () => {
+  it("every drama event has a valid default", () => {
     const drama = EVENTS.filter((e) => e.category === "supply" && (e.needsFamily || e.needsUndiscovered));
-    expect(drama.length).toBeGreaterThanOrEqual(8);
+    expect(drama.length).toBeGreaterThanOrEqual(5);
     for (const e of drama) {
       if (e.choice) expect(e.choice.options.some((o) => o.id === e.choice!.defaultOption), e.id).toBe(true);
     }
-    for (const id of ["seafood_shortage", "meat_strike", "sweets_bankrupt"]) expect(EVENT_BY_ID[id]!.attention, id).toBe("pause");
+    // 罷工、缺貨、倒閉改由全服供應衝擊負責，不再是各商場自己抽的事件
+    for (const id of ["seafood_shortage", "meat_strike", "sweets_bankrupt"]) expect(EVENT_BY_ID[id]).toBeUndefined();
   });
 
-  it("running a drama event through its default option has the intended effect", () => {
+  it("running a drama event through its option has the intended effect", () => {
     const s = createInitialState(1, START);
-    spawnEvent(s, EVENT_BY_ID.seafood_shortage!, createRng(1));
-    expect(s.pending.some((p) => p.defId === "seafood_shortage")).toBe(true);
-    const out = apply(s, { type: "resolveAllDefault" });
-    expect(sup(out, "sea_naniwa").status).toBe("shortage");
-    const s2 = createInitialState(1, START);
-    spawnEvent(s2, EVENT_BY_ID.meat_strike!, createRng(1));
-    s2.funds = 1_000_000;
-    const uid = s2.pending[0]!.uid;
-    const switched = apply(s2, { type: "resolveEvent", uid, optionId: "switch" });
+    spawnEvent(s, EVENT_BY_ID.meat_feud!, createRng(1));
+    s.funds = 1_000_000;
+    const uid = s.pending[0]!.uid;
+    const switched = apply(s, { type: "resolveEvent", uid, optionId: "side" });
     expect(switched.funds).toBe(1_000_000 - 15_000);
     expect(switched.supply.choice.meat).not.toBe("meat_maru");
+  });
+});
+
+describe("world supply shocks", () => {
+  const shocksOver = (days: number) => {
+    const out: WorldShock[] = [];
+    for (let d = 0; d < days; d++) out.push(...shocksStartingOnDay(d));
+    return out;
+  };
+
+  it("the schedule is deterministic and a pure function of the server tick", () => {
+    const a = shocksOver(60).map((x) => `${x.id}:${x.supplierId}:${x.kind}:${x.startTick}`);
+    const b = shocksOver(60).map((x) => `${x.id}:${x.supplierId}:${x.kind}:${x.startTick}`);
+    expect(a).toEqual(b);
+    expect(a.length).toBeGreaterThan(20);
+    for (const x of shocksOver(60)) {
+      expect(SUPPLIER_BY_ID[x.supplierId]).toBeDefined();
+      expect(x.warnTick).toBeLessThanOrEqual(x.startTick);
+      expect(x.endTick).toBeGreaterThan(x.startTick);
+      expect(x.fill).toBeGreaterThanOrEqual(0);
+      expect(x.fill).toBeLessThanOrEqual(1);
+    }
+    expect(new Set(shocksOver(200).map((x) => x.kind)).size).toBeGreaterThanOrEqual(6);
+  });
+
+  it("every mall that uses the same supplier is hit by the same shock", () => {
+    const sh = shocksOver(120).find((x) => x.kind === "strike")!;
+    const def = SUPPLIER_BY_ID[sh.supplierId]!;
+    const mk = () => {
+      const s = quiet(createInitialState(1, sh.startTick - 5));
+      s.supply.choice[def.family] = def.id;
+      sup(s, def.id).discovered = true;
+      s.tick = sh.startTick + 1;
+      suppliersTick(s);
+      return s;
+    };
+    const a = mk();
+    const b = mk();
+    for (const s of [a, b]) {
+      expect(sup(s, def.id).shock?.id).toBe(sh.id);
+      expect(sup(s, def.id).status).toBe("shortage");
+    }
+  });
+
+  it("a shock is announced in advance and ends on its own", () => {
+    const sh = shocksOver(120).find((x) => x.kind === "strike")!;
+    const def = SUPPLIER_BY_ID[sh.supplierId]!;
+    const s = quiet(createInitialState(1, sh.warnTick - 2));
+    s.supply.choice[def.family] = def.id;
+    sup(s, def.id).discovered = true;
+    s.tick = sh.warnTick;
+    suppliersTick(s);
+    expect(sup(s, def.id).shock?.id).toBe(sh.id);
+    expect(sup(s, def.id).status).toBe("ok"); // 預告期還能正常出貨
+    expect(s.log.some((l) => l.text.includes("預告"))).toBe(true);
+    s.tick = sh.endTick + 1;
+    suppliersTick(s);
+    expect(sup(s, def.id).shock).toBeNull();
+    expect(sup(s, def.id).status).toBe("ok");
+  });
+
+  it("during a shock, long contracts and good relationships get more of the supply", () => {
+    const sh = shocksOver(200).find((x) => x.kind === "strike")!;
+    const def = SUPPLIER_BY_ID[sh.supplierId]!;
+    const mk = (rel: number, contract: boolean) => {
+      const s = quiet(createInitialState(1, sh.startTick));
+      s.supply.choice[def.family] = def.id;
+      const st = sup(s, def.id);
+      st.discovered = true;
+      st.relationship = rel;
+      if (contract) st.contract = { lockedMult: 1, untilTick: s.tick + 10 * DAY };
+      s.tick = sh.startTick + 2;
+      suppliersTick(s);
+      const shop = s.shops.find((x) => FAMILY_OF[x.category] === def.family) ?? s.shops[0]!;
+      return deliveryTerms(s, shop, { def, st, spot: false }, 100).qty;
+    };
+    const none = mk(5, false);
+    const friend = mk(60, false);
+    const loyal = mk(90, false);
+    const contract = mk(5, true);
+    expect(none).toBeLessThan(friend);
+    expect(friend).toBeLessThan(loyal);
+    expect(loyal).toBeLessThanOrEqual(contract + 30);
+    expect(contract).toBeGreaterThan(none);
+    expect(none).toBe(Math.round(100 * shockFill(sh.fill, "none")));
+  });
+
+  it("services pay more for consumables while their supplier is in trouble", () => {
+    const s = quiet(createInitialState(1, START));
+    const base = consumableCostMult(s, "clinic");
+    const main = chosenSupplier(s, "medical")!;
+    main.st.shock = { id: "t", kind: "strike", warnTick: 0, startTick: 0, endTick: s.tick + 100, fill: 0.2 };
+    expect(consumableCostMult(s, "clinic")).toBeGreaterThan(base);
+    main.st.status = "closed";
+    main.st.statusUntil = s.tick + 50;
+    expect(consumableCostMult(s, "clinic")).toBeGreaterThan(base * 1.3);
+  });
+
+  it("old saves gain the new suppliers and families", () => {
+    const s = createInitialState(1, START);
+    s.supply.suppliers = s.supply.suppliers.filter((x) => SUPPLIER_BY_ID[x.id]!.family === "meat" || SUPPLIER_BY_ID[x.id]!.family === "seafood");
+    s.supply.choice = { meat: "meat_maru", seafood: "sea_naniwa" };
+    suppliersTick(s);
+    expect(s.supply.suppliers).toHaveLength(SUPPLIERS.length);
+    for (const fam of FAMILY_ORDER) expect(s.supply.choice[fam]).toBeDefined();
   });
 });
 
@@ -551,5 +668,128 @@ describe("migration", () => {
     expect(m.supply.suppliers).toHaveLength(SUPPLIERS.length);
     expect(m.rivals.list).toHaveLength(4);
     expect(Object.values(m.rivals.nextAt).every((t) => t > 700)).toBe(true);
+  });
+});
+
+describe("restock and inventory", () => {
+  const mk = () => quiet(createInitialState(1, START));
+  const incoming = (shop: { incoming: { qty: number }[] }) => shop.incoming.reduce((a, b) => a + b.qty, 0);
+  const strike = (s: MallState, id: string, fill = 0.2) => {
+    const st = sup(s, id);
+    st.shock = { id: "t", kind: "strike", warnTick: s.tick - 10, startTick: s.tick - 1, endTick: s.tick + 1000, fill };
+    st.status = "shortage";
+    st.statusUntil = s.tick + 1000;
+    st.relationship = 5;
+  };
+
+  it("orders are capped by the warehouse, and a full warehouse refuses more", () => {
+    const s = mk();
+    const shop = shopOf(s, "ramen");
+    shop.stock = storageCap(shop) - 10;
+    shop.incoming = [];
+    s.funds = 5_000_000;
+    expect(placeOrder(s, shop, 500)).toBe(true);
+    expect(shop.stock + incoming(shop)).toBeLessThanOrEqual(storageCap(shop));
+    expect(placeOrder(s, shop, 50)).toBe(false);
+    expect(shop.level).toBe(1);
+    expect(storageCap({ level: 3 })).toBeGreaterThan(storageCap({ level: 1 }));
+  });
+
+  it("a short main supplier's gap is filled from a backup when auto-fallback is on", () => {
+    const s = mk();
+    const shop = shopOf(s, "ramen");
+    shop.incoming = [];
+    s.funds = 5_000_000;
+    strike(s, "grain_yoneda", 0.2);
+    expect(placeOrder(s, shop, 200)).toBe(true);
+    expect(incoming(shop)).toBe(200);
+    expect(shop.incoming.length).toBe(2);
+    expect(Object.values(s.supply.suppliers).some((x) => x.id !== "grain_yoneda" && x.orders > 0)).toBe(true);
+
+    const s2 = mk();
+    const shop2 = shopOf(s2, "ramen");
+    shop2.incoming = [];
+    s2.funds = 5_000_000;
+    s2.supply.autoFallback = false;
+    strike(s2, "grain_yoneda", 0.2);
+    placeOrder(s2, shop2, 200);
+    expect(incoming(shop2)).toBe(40);
+    expect(shop2.day.short).toBe(160);
+  });
+
+  it("rush orders cost 30% more and arrive sooner", () => {
+    const a = mk();
+    const b = mk();
+    for (const s of [a, b]) {
+      shopOf(s, "ramen").incoming = [];
+      s.funds = 5_000_000;
+    }
+    placeOrder(a, shopOf(a, "ramen"), 100);
+    placeOrder(b, shopOf(b, "ramen"), 100, { rush: true });
+    const spentA = 5_000_000 - a.funds;
+    const spentB = 5_000_000 - b.funds;
+    expect(spentB / spentA).toBeGreaterThan(RUSH_PREMIUM - 0.05);
+    expect(spentB / spentA).toBeLessThan(RUSH_PREMIUM + 0.05);
+    expect(shopOf(b, "ramen").incoming[0]!.arriveTick).toBeLessThan(shopOf(a, "ramen").incoming[0]!.arriveTick);
+    // 指令
+    const c = mk();
+    c.funds = 5_000_000;
+    const out = apply(c, { type: "orderStock", shopId: shopOf(c, "ramen").id, qty: 50, rush: true });
+    expect(out.log.some((l) => l.text.includes("急件"))).toBe(true);
+  });
+
+  it("smart restock plans from daily sales and lead time, and stocks up before a warned shock", () => {
+    const s = mk();
+    const shop = shopOf(s, "ramen");
+    shop.avgDaily = 200;
+    expect(restockPlan(s, shop)).toMatchObject({ min: shop.restock.min, target: shop.restock.target }); // 固定規則
+    shop.restock.smart = true;
+    const base = restockPlan(s, shop);
+    expect(base.min).toBeGreaterThan(0);
+    expect(base.target).toBeGreaterThan(base.min);
+    expect(base.target).toBeLessThanOrEqual(storageCap(shop));
+    const st = sup(s, "grain_yoneda");
+    st.shock = { id: "w", kind: "strike", warnTick: s.tick, startTick: s.tick + 200, endTick: s.tick + 1200, fill: 0.2 };
+    const warned = restockPlan(s, shop);
+    expect(warned.target).toBeGreaterThan(base.target);
+    expect(warned.notes.join("")).toContain("預告");
+    shop.restock.preShock = false;
+    expect(restockPlan(s, shop).target).toBe(base.target);
+    // 慢慢賣的店備貨少
+    shop.avgDaily = 40;
+    expect(restockPlan(s, shop).target).toBeLessThan(base.target);
+  });
+
+  it("only hoarded stock spoils, perishables fastest, and daily sales average updates", () => {
+    const s = mk();
+    const shop = shopOf(s, "ramen");
+    shop.stock = 100;
+    shop.day.units = 100;
+    inventoryDaily(s);
+    expect(shop.stock).toBe(100); // 正常周轉不壞
+    expect(shop.avgDaily).toBe(100);
+    shop.stock = 700;
+    shop.day.units = 100;
+    inventoryDaily(s);
+    expect(shop.stock).toBeLessThan(700);
+    expect(shop.day.waste).toBeGreaterThan(0);
+    expect(shop.avgDaily!).toBeCloseTo(100, 5);
+  });
+
+  it("a preferred backup supplier is used for gap fills and fallback; invalid choices are refused", () => {
+    const s = mk();
+    expect(pickAlternative(s, "grain", "grain_yoneda")?.def.id).not.toBe("grain_roho");
+    let t = apply(s, { type: "setSupplyPrefs", backup: { family: "grain", supplierId: "grain_roho" } });
+    expect(pickAlternative(t, "grain", "grain_yoneda")?.def.id).toBe("grain_roho");
+    expect(fails(t, { type: "setSupplyPrefs", backup: { family: "grain", supplierId: "grain_yoneda" } })).toBe(true); // 主力不能當備用
+    expect(fails(t, { type: "setSupplyPrefs", backup: { family: "grain", supplierId: "meat_maru" } })).toBe(true);
+    expect(fails(t, { type: "setSupplyPrefs", backup: { family: "grain", supplierId: "grain_organic" } })).toBe(true); // 還不認識
+    t = apply(t, { type: "setSupplyPrefs", backup: { family: "grain", supplierId: null } });
+    expect(t.supply.backup?.grain).toBeUndefined();
+    // 首選備用自己也出事時，改挑別的
+    sup(t, "grain_roho").status = "strike";
+    sup(t, "grain_roho").statusUntil = t.tick + 100;
+    const u = apply(t, { type: "setSupplyPrefs", backup: { family: "grain", supplierId: "grain_roho" } });
+    expect(pickAlternative(u, "grain", "grain_yoneda")?.def.id).not.toBe("grain_roho");
   });
 });

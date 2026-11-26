@@ -120,6 +120,11 @@
 .st-banners .clock-banner { background: linear-gradient(rgba(255, 200, 87, 0.12), rgba(255, 200, 87, 0.12)), var(--st-panel); }
 .st-banners .clock-banner.event { background: linear-gradient(rgba(255, 107, 107, 0.14), rgba(255, 107, 107, 0.14)), var(--st-panel); }
 .st-banners .banner { background: linear-gradient(rgba(255, 107, 107, 0.18), rgba(255, 107, 107, 0.18)), var(--st-panel); }
+/* 單純暫停：一排小提示（可點 ✕ 關掉），不佔畫面 */
+.st-banners .clock-banner.pause-chip { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; justify-self: start; max-width: 100%; padding: 5px 6px 5px 12px; font-size: 0.82rem; }
+.st-banners .clock-banner.pause-chip .small { line-height: 1.35; }
+.cb-close { appearance: none; border: 0; background: none; color: var(--dim); font-size: 1rem; line-height: 1; padding: 4px 8px; cursor: pointer; margin-left: auto; }
+.cb-close:hover { color: var(--text); }
 
 /* 擴建 */
 .st-expand { position: absolute; z-index: 9; left: 64px; bottom: calc(var(--st-dock-h) + 24px); height: auto; padding: 6px 12px; flex-wrap: wrap; }

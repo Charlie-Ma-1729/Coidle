@@ -1,3 +1,4 @@
+import { EXTRA_REGULARS, REGULAR_KIND_OF } from "./regularsExtra";
 import type { RegularDef } from "./types";
 
 // 常客名冊。名字與人物全部虛構；語氣帶一點下町人情味。
@@ -7,8 +8,8 @@ export const REGULAR_START_AFFINITY = 10;
 export const GREET_COOLDOWN_TICKS = 72; // 6 遊戲小時
 export const GIFT_COOLDOWN_TICKS = 288; // 1 遊戲日
 export const GIFT_COST = 3_000;
+/** 已停用：專屬座位不符合現實。舊存檔的專屬座位會在日結時退費（RESERVE_FEE）並取消；維持費常數保留給舊的帳務計算 */
 export const RESERVE_FEE = 20_000;
-export const RESERVE_MIN_AFFINITY = 40;
 export const RESERVE_UPKEEP_PER_DAY = 2_000;
 /** 親密度達到這個值就是「熟客粉絲」：每日替商場帶來一點口碑 */
 export const FAN_AFFINITY = 60;
@@ -424,6 +425,10 @@ export const REGULARS: RegularDef[] = [
     ],
   },
 ];
+
+// 原本的熟客補上類型，再加上新樓層的熟客
+for (const r of REGULARS) if (!r.kind && REGULAR_KIND_OF[r.id]) r.kind = REGULAR_KIND_OF[r.id];
+REGULARS.push(...EXTRA_REGULARS);
 
 export const REGULAR_BY_ID = Object.fromEntries(REGULARS.map((r) => [r.id, r])) as Record<string, RegularDef>;
 

@@ -1,6 +1,6 @@
 import { CATEGORIES, PERSONA_BY_ID, ZONE_BY_ID, isCategoryAvailable, licenseOf, type PersonaId } from "@coidle/shared";
 import { Btn, Chip, Sheet } from "../components/ui";
-import { money, realDuration } from "../format";
+import { gameDuration, money } from "../format";
 import { categoryIcon, PERSONA_ICONS } from "../icons";
 import { run, state } from "../store";
 
@@ -28,7 +28,7 @@ export function BuildSheet({ slotId, onClose }: { slotId: number; onClose: () =>
             <div>
               <b>{c.name}</b> {have > 0 && <Chip tone="dim">已有 {have} 間</Chip>}
               <div class="small dim">
-                客單價約 {money(c.refPrice)}・施工 {realDuration(c.buildTicks + (lic?.extraTicks ?? 0), s.clock.speed, s.clock.lag)}
+                客單價約 {money(c.refPrice)}・施工 {gameDuration(c.buildTicks + (lic?.extraTicks ?? 0))}
               </div>
               {lic && (
                 <div class="small dim">

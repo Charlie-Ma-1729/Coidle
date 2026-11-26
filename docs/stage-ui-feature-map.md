@@ -39,6 +39,7 @@
 | `resolveAllDefault` | 待辦中心 →「全部照預設」按鈕 | 現有在頂部 `ClockBanner`（暫停橫幅），橫幅保留，待辦中心加同一顆 |
 | `resolveInbox` | 客人 → 客訴與評價；店面氣泡也能點進來 | |
 | `setGuestPrefs` | 客人 → 客訴與評價 →「處理偏好」 | |
+| `legalAction` / `setInsurance` | 客人 → 法務（法律糾紛卡、賠償責任保險） | 日本民事程序，見 `docs/japan-law.md` |
 | `walkFloor` / `walkAct` | 客人 → 巡場 | 後續可做成玩家頭像走動 |
 | `regularAction` | 客人 → 常客 | 後續可做成場景 NPC |
 | `startRnd` / `cancelRnd` / `tastingAction` / `listDish` / `unlistDish` / `discardDish` | 開發 → 研發工坊 | 試吃待決在待辦中心與 🧪 徽章 |
@@ -78,6 +79,7 @@
 | `Floor`（樓層） | **場景本體** | |
 | `ShopSheet` / `BuildSheet` | 店面面板／空地開店 | |
 | `Guests` | 客人 → 客訴與評價 | |
+| `Legal` | 客人 → 法務（案件、保險、過去的案件） | 糾紛也會出現在待辦中心（紅色） |
 | `Regulars` | 客人 → 常客 | |
 | `Workshop` | 開發 → 研發工坊 | |
 | `Tech` | 開發 → 科技 | |

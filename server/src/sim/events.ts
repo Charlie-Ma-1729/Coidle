@@ -1,5 +1,6 @@
 import { EVENTS, EVENT_BY_ID, FAMILY_ORDER, PERSONA_BY_ID, familyShopCount, weatherAllows, weatherNeedOf, type EffectSpec, type EventDef, type MallState, type PersonaId } from "@coidle/shared";
 import type { Rng } from "./rng";
+import { applyLegalRisk } from "./legal";
 import { noteSeen } from "./meta";
 import { addLog, isZoneUnlocked, nextId } from "./state";
 import {
@@ -90,6 +91,9 @@ export function applyEffects(s: MallState, effects: EffectSpec[], rng: Rng): voi
         break;
       case "supplierDiscover":
         applySupplierDiscover(s, rng);
+        break;
+      case "legalRisk":
+        applyLegalRisk(s, e.kind, e.p, rng);
         break;
       case "familyFreshness":
         applyFamilyFreshness(s, e.family, e.amount);

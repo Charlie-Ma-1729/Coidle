@@ -19,6 +19,7 @@ import {
   type TradeResult,
   dayOfGstep,
   gstepAt,
+  STEPS_PER_DAY,
   stepOfDayOf,
   EVENT_BY_ID,
   INSPECTIONS,
@@ -35,6 +36,7 @@ import {
   ZONE_BY_ID,
   ROLE_IDS,
   categoryHasStock,
+  publicPatrol,
   mallScore,
   mallStars,
   isPaused,
@@ -108,8 +110,10 @@ export interface Notifier {
 }
 
 export function toPublic(s: MallState, serverTick?: number): PublicMallState {
-  const { seed: _seed, cooldowns: _cooldowns, grievances: _grievances, ...rest } = s;
-  return serverTick === undefined ? rest : { ...rest, serverTick };
+  const { seed: _seed, cooldowns: _cooldowns, grievances: _grievances, patrol, ...rest } = s;
+  // 巡店：還沒被發現的問題不能外流；只有線索的問題不透露種類與嚴重度
+  const open = patrol ? { ...rest, patrol: publicPatrol(patrol) } : rest;
+  return serverTick === undefined ? open : { ...open, serverTick };
 }
 
 /** 把指令轉成給隊友看的動態文字 */
@@ -127,7 +131,7 @@ export function describeCommand(s: MallState, cmd: Command, actor: string): stri
     case "setRestock":
       return `${actor} 修改了「${shopName(cmd.shopId)}」的自動補貨規則`;
     case "orderStock":
-      return `${actor} 為「${shopName(cmd.shopId)}」手動進貨 ${cmd.qty} 份`;
+      return `${actor} 為「${shopName(cmd.shopId)}」${cmd.rush ? "急件" : "手動"}進貨 ${cmd.qty} 份`;
     case "setCleaning":
       return `${actor} 把清潔等級調到 ${cmd.level}`;
     case "setMaintenance":
@@ -150,6 +154,16 @@ export function describeCommand(s: MallState, cmd: Command, actor: string): stri
       const item = s.inbox.find((i) => i.uid === cmd.uid);
       return item?.kind === "review" ? `${actor} 回覆了一則評價` : `${actor} 處理了一則客訴`;
     }
+    case "patrolStart":
+      return `${actor} 開始巡店`;
+    case "patrolInspect":
+    case "patrolChat":
+    case "patrolDeepen":
+      return null; // 巡店中的檢查動作不洗版團隊動態
+    case "patrolFix":
+      return `${actor} 處理了一個巡店發現的問題`;
+    case "patrolEnd":
+      return `${actor} 結束了巡店`;
     case "walkFloor":
       return `${actor} 巡了一圈場`;
     case "walkAct":
@@ -162,8 +176,16 @@ export function describeCommand(s: MallState, cmd: Command, actor: string): stri
       return `${actor} 和「${SUPPLIER_BY_ID[cmd.supplierId]?.name ?? "供應商"}」簽了 ${cmd.days} 天長約`;
     case "cancelContract":
       return `${actor} 提前解除了與「${SUPPLIER_BY_ID[cmd.supplierId]?.name ?? "供應商"}」的長約`;
+    case "regularVoice":
+      return `${actor} 回應了熟客的一則話`;
+    case "setMembership":
+      return `${actor} 調整了會員點數的回饋率`;
+    case "legalAction":
+      return `${actor} 處理了一件法律糾紛`;
+    case "setInsurance":
+      return `${actor} 調整了賠償責任保險`;
     case "setSupplyPrefs":
-      return `${actor} 調整了供應商的自動備援設定`;
+      return `${actor} 調整了供應商的自動備援${cmd.backup ? "與首選備用供應商" : ""}設定`;
     case "rivalIntel":
       return `${actor} 派人打探了「${RIVAL_BY_ID[cmd.rivalId]?.name ?? "對手"}」`;
     case "rivalPact":
@@ -191,6 +213,8 @@ export function describeCommand(s: MallState, cmd: Command, actor: string): stri
       return null;
     case "startTech":
       return `${actor} 開始研發科技「${TECH_BY_ID[cmd.id]?.name ?? "新科技"}」`;
+    case "techExperiment":
+      return `${actor} 處理了一個科研實驗事件`;
     case "cancelTech":
       return `${actor} 取消了科技「${TECH_BY_ID[cmd.id]?.name ?? "新科技"}」的研發`;
     case "signTenant": {
@@ -219,7 +243,7 @@ export function describeCommand(s: MallState, cmd: Command, actor: string): stri
       return null;
     case "regularAction": {
       const name = REGULAR_BY_ID[cmd.regularId]?.name ?? "常客";
-      const verb = { greet: "聊了聊", remember: "記住了喜好", gift: "送了小禮", reserve: "保留了專屬座位", unreserve: "取消了專屬座位" }[cmd.action];
+      const verb = { greet: "聊了聊", remember: "記住了喜好", gift: "送了小禮" }[cmd.action];
       return `${actor} 和常客「${name}」${cmd.action === "greet" ? verb : `：${verb}`}`;
     }
   }
@@ -1525,7 +1549,7 @@ export class MallService {
     this.market.tick();
     const g = gstepAt(this.now(), this.serverClock);
     const day = dayOfGstep(g);
-    if (stepOfDayOf(g) < 160 || this.lastSnapshotDay === day) return;
+    if (stepOfDayOf(g) < (STEPS_PER_DAY * 2) / 3 || this.lastSnapshotDay === day) return; // 16:00
     for (const id of this.repo.playerIds()) {
       if (this.repo.hasWealthSnapshot(id, day)) continue;
       try {

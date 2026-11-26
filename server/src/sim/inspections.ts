@@ -11,6 +11,7 @@ import {
   SUSPEND_TICKS,
   inspectionOutcome,
   inspectionScore,
+  issueInspectionPenalty,
   prepOption,
   type InspectionKind,
   type InspectionNotice,
@@ -108,7 +109,8 @@ export function runDueInspections(s: MallState): void {
 
 export function resolveInspection(s: MallState, kind: InspectionKind, prep: InspectionPrep | null, surprise: boolean): void {
   const def = INSPECTIONS[kind];
-  const score = inspectionScore(kind, s.cleanliness, s.equipment);
+  // 巡店沒處理的相關問題（衛生死角、消防不良……）直接扣分
+  const score = Math.max(0, inspectionScore(kind, s.cleanliness, s.equipment) - issueInspectionPenalty(s.patrol, kind));
   const outcome = inspectionOutcome(score);
   const info = OUTCOME_INFO[outcome];
 

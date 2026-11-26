@@ -35,8 +35,8 @@ export const FEATURES: FeatureDef[] = [
   // 客人
   { id: "guests", hub: "guests", tab: null, label: "客人", unlockHint: "", visible: always },
   { id: "guests.inbox", hub: "guests", tab: "inbox", label: "客訴與評價", unlockHint: "", visible: always },
-  { id: "guests.regulars", hub: "guests", tab: "regulars", label: "常客", unlockHint: "第一位常客上門之後出現", visible: (s) => s.regulars.some((r) => r.met) },
-  { id: "guests.walk", hub: "guests", tab: "walk", label: "巡場", unlockHint: "", visible: always },
+  { id: "guests.regulars", hub: "guests", tab: "regulars", label: "熟客", unlockHint: "第一位熟客上門之後出現", visible: (s) => s.regulars.some((r) => r.met) },
+  { id: "guests.walk", hub: "guests", tab: "walk", label: "巡店", unlockHint: "", visible: always },
   // 開發
   { id: "develop", hub: "develop", tab: null, label: "開發", unlockHint: "", visible: always },
   { id: "develop.workshop", hub: "develop", tab: "workshop", label: "研發工坊", unlockHint: "", visible: always },

@@ -22,6 +22,11 @@ import {
   WORKSHOP_INFO,
   comboKey,
   dishFitsCategory,
+  nextPlaySeed,
+  playDifficulty,
+  scorePlay,
+  tweakKey,
+  type PlayInput,
   ingredientFitsCategory,
   menuSlots,
   rndCostOf,
@@ -120,6 +125,7 @@ const NEW_INGREDIENT_BATCH = 3;
 
 /** 把達成條件的素材與線索加進玩家的筆記（只增不減，可重複呼叫） */
 export function syncWorkshop(s: MallState): void {
+  playSeedOf(s); // 小遊戲的關卡種子（舊存檔補上）
   const ws = s.workshop;
   const silent = ws.ingredients.length === 0;
   const known = new Set(ws.ingredients.map((x) => x.id));
@@ -223,10 +229,13 @@ function autoName(group: CategoryGroup, picks: Picks): string {
   return `${w("season")}${w("method")}${w("base")}${WORKSHOP_INFO[group].suffix}`;
 }
 
-export function evaluate(category: string, picks: Picks, skill: number, rng: Rng, discovered: string[]): EvalResult {
+export function evaluate(category: string, picks: Picks, skill: number, rng: Rng, discovered: string[], play?: { score: number; tweak: Record<string, number> }): EvalResult {
   const group = CATEGORY_BY_ID[category]?.group ?? "food";
   const tagDefs = TAG_BY_ID[group];
   const totals = tagTotals(picks);
+  // 調味：小遊戲裡玩家依線索微調的特性（最多兩個、各 ±1）
+  for (const [tag, v] of Object.entries(play?.tweak ?? {})) totals[tag] = (totals[tag] ?? 0) + v;
+  const playQ = Math.round((play?.score ?? 0) * 3); // 做得好的人，成品品質多幾分
   const base = { recipe: null as RecipeData | null, totals, clue: null as string | null };
   const top = Object.entries(totals)
     .sort((a, b) => b[1] - a[1])
@@ -246,7 +255,7 @@ export function evaluate(category: string, picks: Picks, skill: number, rng: Rng
       ...base,
       outcome: "signature",
       recipe: r,
-      quality: clamp(Math.round(r.quality + Math.min(6, skill * 1.5) + rng.gauss() * 1.5), 50, 98),
+      quality: clamp(Math.round(r.quality + Math.min(6, skill * 1.5) + rng.gauss() * 1.5) + playQ, 50, 98),
       appeal: { ...r.appeal },
       tags: Object.keys(r.need),
       feedback: ["試吃的人都愣住了——這就是那個「傳說中的味道」！"],
@@ -264,7 +273,7 @@ export function evaluate(category: string, picks: Picks, skill: number, rng: Rng
 
   // 普通創作
   const grades = SLOT_KINDS.reduce((a, k) => a + ((picks[k] && INGREDIENT_BY_ID[picks[k]!]?.grade) || 1) - 1, 0);
-  const quality = clamp(Math.round(36 + 4 * Math.min(4, top.length) + 3 * grades + 2 * skill + rng.gauss() * 2), 30, 68);
+  const quality = clamp(Math.round(36 + 4 * Math.min(4, top.length) + 3 * grades + 2 * skill + rng.gauss() * 2) + playQ, 30, 68);
   const appeal: Partial<Record<PersonaId, number>> = {};
   for (const p of PERSONA_IDS) {
     let a = 0;
@@ -303,7 +312,14 @@ function pickData(s: MallState, category: string, group: CategoryGroup, picks: P
   return { ok: true, list };
 }
 
-export function startRnd(s: MallState, shopId: string, picks: Picks): GuestResult {
+/** 目前小遊戲的關卡種子（第一次用到時補上；用不同於引擎亂數的鹽，不會洩漏引擎的亂數流） */
+export function playSeedOf(s: MallState): number {
+  const ws = s.workshop;
+  if (ws.playSeed === undefined) ws.playSeed = nextPlaySeed(s.seed ^ 0x51a7e1, 1);
+  return ws.playSeed;
+}
+
+export function startRnd(s: MallState, shopId: string, picks: Picks, play?: PlayInput): GuestResult {
   const shop = s.shops.find((x) => x.id === shopId);
   const cat = shop && CATEGORY_BY_ID[shop.category];
   if (!shop || !cat) return { ok: false, error: "找不到這間店" };
@@ -311,7 +327,10 @@ export function startRnd(s: MallState, shopId: string, picks: Picks): GuestResul
   if (s.workshop.jobs.some((j) => j.shopId === shopId)) return { ok: false, error: "這間店正在研發，等完成再開始下一件" };
   const pd = pickData(s, shop.category, cat.group, picks);
   if (!pd.ok) return pd;
-  const sig = comboKey(shop.category, picks);
+  // 小遊戲：用伺服器的關卡重新計分，只認算出來的分數；關卡過期或沒玩就當自動（沒有加成）
+  const seed = playSeedOf(s);
+  const result = scorePlay(cat.group, picks.method, playDifficulty(pd.list.map((d) => d.cost)), seed, play);
+  const sig = comboKey(shop.category, picks) + tweakKey(result?.tweak);
   const prev = s.workshop.tried[sig];
   if (prev === "signature") return { ok: false, error: "這個組合已經做出招牌了，直接去食譜本上架吧" };
   if (prev === "original") return { ok: false, error: "這個組合你試過了（做出的是普通創作），換個搭配吧" };
@@ -322,9 +341,11 @@ export function startRnd(s: MallState, shopId: string, picks: Picks): GuestResul
   s.today.purchases += cost;
   const ticks = picks.special ? RND_TICKS_SPECIAL : RND_TICKS;
   const job: RndJob = { uid: nextId(s, "rnd"), shopId, picks: { ...picks }, startTick: s.tick, endTick: s.tick + ticks, cost, sig };
+  if (result) job.play = { score: Math.round(result.score * 1000) / 1000, bonus: result.bonus, tweak: result.tweak };
   s.workshop.jobs.push(job);
-  addLog(s, "info", `🧪 「${shop.name}」開始${WORKSHOP_INFO[cat.group].verb}。`);
-  return { ok: true, note: `開始研發（花 ${cost}）` };
+  s.workshop.playSeed = nextPlaySeed(seed, (s.tick + 1) >>> 0); // 每次開始研發就換一份新關卡
+  addLog(s, "info", `🧪 「${shop.name}」開始${WORKSHOP_INFO[cat.group].verb}${result ? `（手藝 ${Math.round(result.score * 100)} 分，加成 +${result.bonus}）` : play ? "（關卡已更新，這次沒有小遊戲加成）" : ""}。`);
+  return { ok: true, note: `開始研發（花 ${cost}）${result ? `，手藝 ${Math.round(result.score * 100)} 分` : ""}` };
 }
 
 export function cancelRnd(s: MallState, shopId: string): GuestResult {
@@ -362,7 +383,7 @@ function resolveJob(s: MallState, job: RndJob, rng: Rng): void {
   const cat = shop && CATEGORY_BY_ID[shop.category];
   if (!shop || !cat) return;
   const first = !(job.sig in ws.tried);
-  const res = evaluate(shop.category, job.picks, chefLevel(s, shop), rng, ws.discovered);
+  const res = evaluate(shop.category, job.picks, chefLevel(s, shop) + (job.play?.bonus ?? 0), rng, ws.discovered, job.play);
   ws.tried[job.sig] = res.outcome;
   bump(s, "research");
   if (res.outcome === "signature") bump(s, "signatures");

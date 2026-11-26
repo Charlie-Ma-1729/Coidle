@@ -7,6 +7,10 @@ import {
   CATEGORY_BY_ID,
   EVENT_BY_ID,
   FAMILY_ORDER,
+  LEGAL_KINDS,
+  LEGAL_STAGES,
+  REGULAR_BY_ID,
+  SHOCK_KINDS,
   INSPECTIONS,
   STARTER_QUESTS,
   SUPPLY_FAMILIES,
@@ -16,10 +20,9 @@ import {
   chosenSupplier,
   familyShopCount,
   leaseEnabled,
-  ticksToRealMinutes,
   type PublicMallState,
 } from "@coidle/shared";
-import { money } from "../format";
+import { gameDeadline, gameDeadlineAtMs, money } from "../format";
 import type { AttentionItem, HubId, Severity } from "../stage/model";
 
 const SEVERITY_ORDER: Record<Severity, number> = { urgent: 0, decision: 1, opportunity: 2, info: 3 };
@@ -29,11 +32,6 @@ const MAX_INBOX_ITEMS = 4;
 
 /** 同時暫停營業的店達到這個數量，就在待辦中心合併成一項 */
 export const CLOSED_MERGE_AT = 3;
-
-function within(s: PublicMallState, tick: number): string {
-  const mins = Math.max(0, Math.round(ticksToRealMinutes(tick - s.tick, s.clock.speed, s.clock.lag)));
-  return mins >= 60 ? `${Math.round(mins / 6) / 10} 小時` : `${mins} 分鐘`;
-}
 
 const clip = (t: string, n: number): string => (t.length > n ? `${t.slice(0, n)}…` : t);
 
@@ -67,11 +65,11 @@ export function buildAttention(s: PublicMallState, userId?: string | number | nu
   const mergeClosed = closedShops.length >= CLOSED_MERGE_AT;
   if (mergeClosed) {
     const latest = Math.max(...closedShops.map((x) => x.closedUntilTick));
-    add({ id: "closed:many", severity: "urgent", icon: "wrench", title: `${closedShops.length} 間店暫停營業中`, detail: `最晚約 ${within(s, latest)}後恢復。`, cta: "看看", target: { kind: "hub", hub: "operate", tab: "facility" } });
+    add({ id: "closed:many", severity: "urgent", icon: "wrench", title: `${closedShops.length} 間店暫停營業中`, detail: `最晚${gameDeadline(latest, s.tick)}恢復。`, cta: "看看", target: { kind: "hub", hub: "operate", tab: "facility" } });
   }
   for (const sh of s.shops) {
     if (sh.closedUntilTick > s.tick) {
-      if (!mergeClosed) add({ id: `closed:${sh.id}`, severity: "urgent", icon: "wrench", title: `「${sh.name}」暫停營業中`, detail: `預計 ${within(s, sh.closedUntilTick)}後恢復。`, cta: "看看", target: { kind: "shop", shopId: sh.id } });
+      if (!mergeClosed) add({ id: `closed:${sh.id}`, severity: "urgent", icon: "wrench", title: `「${sh.name}」暫停營業中`, detail: `預計${gameDeadline(sh.closedUntilTick, s.tick)}恢復。`, cta: "看看", target: { kind: "shop", shopId: sh.id } });
     } else if (sh.mode === "direct" && sh.stock < 1 && ["food", "retail"].includes(CATEGORY_BY_ID[sh.category]?.group ?? "")) {
       add({ id: `stockout:${sh.id}`, severity: "urgent", icon: "box", title: `「${sh.name}」缺貨中`, detail: "沒有庫存就賣不出去。", cta: "補貨", target: { kind: "shop", shopId: sh.id } });
     }
@@ -80,8 +78,21 @@ export function buildAttention(s: PublicMallState, userId?: string | number | nu
   for (const fam of FAMILY_ORDER) {
     if (familyShopCount(s, fam) === 0) continue;
     const c = chosenSupplier(s, fam);
-    if (c && c.st.status !== "ok" && c.st.statusUntil > s.tick) {
-      const label = { shortage: "出貨吃緊", strike: "罷工中", closed: "已倒閉", cold: "和你鬧翻了" }[c.st.status];
+    const sh = c?.st.shock && c.st.shock.endTick > s.tick ? c.st.shock : null;
+    if (c && sh && sh.startTick > s.tick) {
+      // 全服供應衝擊的預告：趁還沒生效，囤貨、換供應商或簽長約
+      const k = SHOCK_KINDS[sh.kind];
+      add({
+        id: `supplier-warn:${fam}`,
+        severity: "decision",
+        icon: "box",
+        title: `${k.icon}「${c.def.name}」${k.warnText || `即將${k.label}`}`,
+        detail: `${SUPPLY_FAMILIES[fam].name}的主力供應商，約${gameDeadline(sh.startTick, s.tick)}起受影響（全服同步）。可以先囤貨、簽長約或換供應商。`,
+        cta: "看供應商",
+        target: { kind: "hub", hub: "operate", tab: "supply" },
+      });
+    } else if (c && c.st.status !== "ok" && c.st.statusUntil > s.tick) {
+      const label = sh ? `${SHOCK_KINDS[sh.kind].label}中` : { shortage: "出貨吃緊", strike: "罷工中", closed: "已倒閉", cold: "和你鬧翻了" }[c.st.status];
       add({
         id: `supplier:${fam}`,
         severity: c.st.status === "shortage" ? "decision" : "urgent",
@@ -98,7 +109,7 @@ export function buildAttention(s: PublicMallState, userId?: string | number | nu
   for (const n of s.inspections.pending) {
     if (s.clock.holds.events.includes(n.uid)) continue; // 已因此暫停的稽查，頂部橫幅有顯示
     const def = INSPECTIONS[n.kind];
-    add({ id: `inspection:${n.uid}`, severity: "decision", icon: "event", title: `${def.authority}預告：${def.name}`, detail: `約 ${within(s, n.inspectTick)}後到訪。${n.prep === null ? "還沒備戰。" : "已備戰。"}`, cta: n.prep === null ? "備戰" : "看看", target: { kind: "inspection", uid: n.uid } });
+    add({ id: `inspection:${n.uid}`, severity: "decision", icon: "event", title: `${def.authority}預告：${def.name}`, detail: `${gameDeadline(n.inspectTick, s.tick)} 到訪。${n.prep === null ? "還沒備戰。" : "已備戰。"}`, cta: n.prep === null ? "備戰" : "看看", target: { kind: "inspection", uid: n.uid } });
   }
 
   for (const p of s.pending) {
@@ -110,7 +121,7 @@ export function buildAttention(s: PublicMallState, userId?: string | number | nu
       severity: "decision",
       icon: def.category === "guest" ? "face" : "event",
       title: def.title,
-      detail: `${within(s, p.deadlineTick)}內回覆；沒回應就會「${dflt ?? "套用預設"}」。`,
+      detail: `${gameDeadline(p.deadlineTick, s.tick)} 前回覆；沒回應就會「${dflt ?? "套用預設"}」。`,
       cta: "決定",
       target: { kind: "event", uid: p.uid },
     });
@@ -132,6 +143,33 @@ export function buildAttention(s: PublicMallState, userId?: string | number | nu
   });
   if (inbox.length > MAX_INBOX_ITEMS) {
     add({ id: "inbox:more", severity: "decision", icon: "face", title: `還有 ${inbox.length - MAX_INBOX_ITEMS} 件客人的事等你`, detail: "客訴與評價。", cta: "去看看", target: { kind: "hub", hub: "guests", tab: "inbox" } });
+  }
+
+  // 熟客想對你說的話（意見、人生大事）：回應能加深關係，沒回會覺得被忽略
+  for (const v of s.voices ?? []) {
+    add({
+      id: `voice:${v.uid}`,
+      severity: "opportunity",
+      icon: "face",
+      title: `🏮 ${REGULAR_BY_ID[v.regularId]?.name ?? "熟客"}有話想說`,
+      detail: clip(v.text, 36),
+      cta: "回應",
+      target: { kind: "hub", hub: "guests", tab: "inbox" },
+    });
+  }
+
+  // 法律糾紛：每一件都是要你決定的大事（逾期會依處理偏好自動應對）
+  for (const c of s.legal?.cases ?? []) {
+    const def = LEGAL_KINDS[c.kind];
+    add({
+      id: `legal:${c.uid}`,
+      severity: "urgent",
+      icon: "event",
+      title: `⚖️ ${c.shopName}・${def.label}`,
+      detail: `${LEGAL_STAGES[c.stage].label}・請求 ${money(c.claim)}，${gameDeadline(c.deadlineTick, s.tick)} 前回應。`,
+      cta: "處理",
+      target: { kind: "hub", hub: "guests", tab: "inbox" },
+    });
   }
 
   const due30 = billsDueWithin(s, 30 * 288);
@@ -157,13 +195,15 @@ export function buildAttention(s: PublicMallState, userId?: string | number | nu
   }
 
   for (const inv of invites) {
-    const hrs = Math.max(0, Math.ceil((inv.until - nowMs) / 3_600_000));
+    // 邀請的期限是真實時間；換算成伺服器時間軸上的遊戲時間來顯示
+    const base = s.serverTick ?? s.tick;
+    const left = inv.until - nowMs;
     add({
       id: `alliance:${inv.id}`,
       severity: "decision",
       icon: "lease",
       title: `「${clip(inv.partnerName, 12)}」邀請你們聯名`,
-      detail: hrs > 0 ? `約 ${hrs} 小時內回覆；沒回覆視為婉拒。` : "邀請快失效了。",
+      detail: left > 0 ? `${gameDeadlineAtMs(inv.until, nowMs, base)} 前回覆；沒回覆視為婉拒。` : "邀請快失效了。",
       cta: "回覆",
       target: { kind: "hub", hub: "world", tab: "dir" },
     });

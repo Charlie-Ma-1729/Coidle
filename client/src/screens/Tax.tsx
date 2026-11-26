@@ -18,7 +18,7 @@ import {
   type PublicMallState,
 } from "@coidle/shared";
 import { Card, Chip, Empty } from "../components/ui";
-import { dateText, money, moneyShort, pct, realDuration } from "../format";
+import { dateText, gameDeadline, money, moneyShort, pct } from "../format";
 import { categoryIcon } from "../icons";
 import { state } from "../store";
 
@@ -65,7 +65,7 @@ function Bills({ s }: { s: PublicMallState }) {
               return (
                 <li key={b.uid}>
                   <time>
-                    {late ? <Chip tone="red">逾期</Chip> : `約 ${realDuration(b.dueTick - s.tick, s.clock.speed, s.clock.lag)}後`}
+                    {late ? <Chip tone="red">逾期</Chip> : `${gameDeadline(b.dueTick, s.tick)} 前`}
                   </time>
                   <span>
                     {OBLIGATION_NAMES[b.kind].icon} {b.label}：<b>{money(billOutstanding(b))}</b>

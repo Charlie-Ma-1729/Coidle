@@ -1,7 +1,7 @@
 // DOM 環境在 beforeAll 才載入（而不是用 @vitest-environment）：
 // 在網路磁碟上載入 happy-dom 要將近 1 分鐘，會撞到 vitest 寫死的 60 秒 worker 啟動逾時。
 import { render } from "preact";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { TICKS_PER_DAY, TICK_MINUTES, type PublicMallState } from "@coidle/shared";
 import { advanceTo, createInitialState } from "../../server/src/sim";
 
@@ -450,6 +450,7 @@ describe("screens render with real simulated state", () => {
     });
     adminApi.get = (async (url: string) => {
       if (url === "/events") return { events: [], catalog: [{ id: "built_in_1", title: "內建事件甲", category: "crowd", hasChoice: true, source: "builtin" }] };
+      if (url === "/supply-shocks") return { tick: 100, shocks: [{ id: "1.0", supplierId: "meat_maru", supplier: "丸三精肉", family: "肉類", kind: "strike", label: "罷工", icon: "✊", warnTick: 90, startTick: 120, endTick: 600, fill: 0.2, priceMult: null, phase: "warning" }] };
       if (url === "/npc") return { settings: { auto: true, activity: 1, baseProbPerHour: 1 / 72 }, npcs: [{ id: "harbor", publicKey: "m:9000", baseName: "潮見廣場", entry: { name: "潮見廣場", level: 2, stars: 3, score: 40, localRep: 50, touristHeat: 50, revenue30: 12_000_000, shops: 20, stockouts: 0 }, override: null, expiresAt: 0, pending: [], actions24h: 0, recent: [] }] };
       return { actions: [] };
     }) as typeof adminApi.get;
@@ -486,6 +487,9 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).toContain("寫一個隨機事件");
     expect(container.textContent).toContain("調整天氣");
     expect(container.textContent).toContain("[內建] 內建事件甲");
+    expect(container.textContent).toContain("全服供應衝擊");
+    expect(container.textContent).toContain("丸三精肉");
+    expect(container.textContent).toContain("預告中");
     const sent: { url: string; body: unknown }[] = [];
     adminApi.post = (async (url: string, body: unknown) => {
       sent.push({ url, body });
@@ -606,6 +610,94 @@ describe("screens render with real simulated state", () => {
     expect(lagNow(sandbox)).toBe(5);
   });
 
+  it("useLiveMinute：tick 之間逐分鐘往前（每 10 秒 1 分鐘）、最多 +4、暫停就停住、新 tick 重算", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"] });
+    try {
+      const { useLiveMinute, useLiveExtra } = await import("./serverTime");
+      const { useState } = await import("preact/hooks"); // 動態載入：DOM 環境要先就緒（見檔頭說明）
+      const base = publicState(1);
+      base.serverTick = base.tick;
+      base.clock.holds.manual = false;
+      let setS: (s: PublicMallState) => void = () => {};
+      function Probe() {
+        const [st, set] = useState(base);
+        setS = set;
+        return <b>{useLiveMinute(st, 600 + (st.tick - base.tick) * 5)}</b>;
+      }
+      const push = async (s: PublicMallState) => {
+        store.state.value = s; // 全站共用的時間模型從 store 的狀態更新
+        setS(s);
+        await tick();
+      };
+      const holds = (manual: boolean, tickAdd = 0) => ({ ...base, tick: base.tick + tickAdd, clock: { ...base.clock, holds: { ...base.clock.holds, manual } } });
+      const advance = async (ms: number) => {
+        vi.advanceTimersByTime(ms);
+        await tick();
+      };
+      store.state.value = base;
+      await mount(<Probe />);
+      expect(container.textContent).toBe("600");
+      await new Promise((r) => setTimeout(r, 60)); // 等 preact 的 effect 跑完（setInterval 才會登記）
+      await advance(10_000);
+      expect(container.textContent).toBe("601");
+      // 暫停：同一個 tick、時鐘暫停 → 停住
+      await push(holds(true));
+      await advance(30_000);
+      expect(container.textContent).toBe("601");
+      // 繼續：再 10 秒 +1
+      await push(holds(false));
+      await advance(10_000);
+      expect(container.textContent).toBe("602");
+      // 最多內插 4 分鐘，不會跑到下一個 tick（605）
+      await advance(120_000);
+      expect(container.textContent).toBe("604");
+      // 兩個地方（主畫面時鐘、設定頁）同時顯示，永遠一樣
+      function Both() {
+        const m = useLiveMinute(store.state.value!, 600);
+        const e = useLiveExtra(store.state.value!);
+        return <i>{`${m}|${600 + e}`}</i>;
+      }
+      render(<Both />, container);
+      await tick();
+      const [x, y] = (container.textContent ?? "").split("|");
+      expect(x).toBe(y);
+      render(<Probe />, container);
+      await tick();
+      // 新的 tick 一來，從它的整 5 分重新開始（不會倒退）
+      await push(holds(false, 1));
+      expect(container.textContent).toBe("605");
+      await advance(10_000);
+      expect(container.textContent).toBe("606");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("fullTimeText／serverExtraMinutes：時間顯示到分鐘（tick 之後內插 0–4 分）", async () => {
+    const { fullTimeText, serverExtraMinutes } = await import("./serverTime");
+    const tick = START + 12 * 14 + 6; // 任意 tick
+    const base = fullTimeText(tick);
+    expect(Number(base.slice(-2)) % 5).toBe(0); // 沒內插時仍是整 5 分
+    const plus3 = fullTimeText(tick, 3);
+    expect(Number(plus3.slice(-2)) - Number(base.slice(-2))).toBe(3); // 同一小時內多 3 分
+    const s = publicState(1);
+    expect(serverExtraMinutes({ ...s, serverTick: undefined })).toBe(0); // 測試商場沒有伺服器時間
+    // 剛收到狀態：0；真實過了 25 秒（＝2.5 遊戲分鐘）→ 2
+    const st = { ...s, serverTick: s.tick };
+    const { state } = await import("./store");
+    state.value = st;
+    const t0 = Date.now();
+    expect(serverExtraMinutes(st, t0)).toBe(0);
+    expect(serverExtraMinutes(st, t0 + 25_000)).toBe(2);
+    expect(serverExtraMinutes(st, t0 + 50_000)).toBe(0); // 滿一個 tick（5 分）進位到下一個 tick
+  });
+
+  it("HUD 時鐘顯示到分鐘", async () => {
+    const { hhmm } = await import("./ui/Hud");
+    expect(hhmm(14 * 60 + 37)).toBe("14:37");
+    expect(hhmm(9 * 60 + 5)).toBe("09:05");
+  });
+
   it("timeFlow：暫停 0、落後追趕＝追趕速度、已追上 1；測試商場照自己的流速（畫面人物依此暫停／加速）", async () => {
     const { timeFlow } = await import("./serverTime");
     const s = publicState(1);
@@ -659,6 +751,31 @@ describe("screens render with real simulated state", () => {
     await mount(<ClockBanner />);
     expect(container.textContent).toContain("時間已暫停");
     expect(container.textContent).toContain("恢復");
+  });
+
+  it("ClockBanner：單純暫停是可關掉的小提示；暫停結束再暫停會重新提示；事件暫停不能關", async () => {
+    const { ClockBanner } = await import("./components/ClockBanner");
+    const paused = () =>
+      publicState(1, (s) => {
+        s.clock.holds.manual = true;
+      });
+    store.state.value = paused();
+    await mount(<ClockBanner />);
+    const chip = container.querySelector(".pause-chip");
+    expect(chip).not.toBeNull();
+    (container.querySelector(".cb-close") as HTMLButtonElement).click();
+    await tick();
+    expect(container.textContent).toBe(""); // 點掉後不再顯示
+    // 還是暫停中：仍然關著
+    store.state.value = paused();
+    await tick();
+    expect(container.textContent).toBe("");
+    // 時間繼續後再暫停：重新提示
+    store.state.value = publicState(1);
+    await tick();
+    store.state.value = paused();
+    await tick();
+    expect(container.querySelector(".pause-chip")).not.toBeNull();
   });
 
   it("ClockBanner lists the event that paused the clock with its options", async () => {
@@ -721,7 +838,7 @@ describe("screens render with real simulated state", () => {
     expect(container.textContent).not.toContain("海外直輸肉品"); // 還沒發現的不洩漏名字
     expect(container.textContent).toContain("簽 7 天");
     expect(container.textContent).toContain("免費"); // 主力出不了貨，換人免費
-    expect(container.textContent).toContain("自動向備用供應商買現貨");
+    expect(container.textContent).toContain("自動向備用供應商補缺口");
   });
 
   it("Suppliers shows contracts and disables switching while one is active", async () => {
@@ -784,7 +901,7 @@ describe("screens render with real simulated state", () => {
     await mount(<Marketing />);
     expect(container.textContent).toContain("促銷疲勞");
     expect(container.textContent).toContain("新活動效果約 70%");
-    expect(container.textContent).toContain("進行中・還有約");
+    expect(container.textContent).toContain("進行中・到遊戲時間");
     expect(container.textContent).toContain("至今接待 42 組客人");
     expect(container.textContent).toContain("排程中");
     expect(container.textContent).toContain("取消（退回 ¥120,000）");
@@ -877,16 +994,19 @@ describe("screens render with real simulated state", () => {
     });
     const { Regulars } = await import("./screens/Regulars");
     await mount(<Regulars />);
-    expect(container.textContent).toContain("常客（1/");
+    expect(container.textContent).toContain("熟客（1/");
     expect(container.textContent).toContain("阿富叔");
     expect(container.textContent).toContain("愛去");
     expect(container.textContent).toContain("來過 9 次");
-    expect(container.textContent).toContain("❤ 熟客");
+    expect(container.textContent).toContain("老主顧"); // 親密度 72 的階段
+    expect(container.textContent).toContain("鄰里長者"); // 熟客類型
+    expect(container.textContent).toContain("會員制"); // 會員卡片
+    expect(container.textContent).toContain("熟客想對你說"); // 意見與人生大事
     expect(container.textContent).toContain("故事 2/2");
     expect(container.textContent).toContain("愛吃沾醬多一點"); // 記住喜好之後才看得到
     expect(container.textContent).toContain("招呼");
     expect(container.textContent).toContain("送小禮");
-    expect(container.textContent).toContain("專屬座位");
+    expect(container.textContent).not.toContain("專屬座位"); // 不符合現實，已移除
     expect(container.textContent).toContain("還沒遇見的人");
     expect(container.textContent).toContain("每天傍晚推著小推車"); // 未遇見者的線索文字（在 details 內）
     // 沒遇見的人的名字不會洩漏
@@ -910,8 +1030,9 @@ describe("screens render with real simulated state", () => {
     storyBtn.click();
     await tick();
     expect(container.textContent).toContain("親密度達到 30 解鎖");
-    const reserve = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("專屬座位")) as HTMLButtonElement;
-    expect(reserve.disabled).toBe(true); // 親密度不足
+    expect(container.textContent).not.toContain("專屬座位");
+    expect(container.textContent).toContain("初見"); // 親密度 12 還在「初見」階段，顯示階段名稱
+    expect(container.textContent).toContain("上班族");
   });
 
   it("Guests shows an empty inbox, a walk cooldown hint and the stance picker", async () => {
@@ -1135,11 +1256,13 @@ describe("format helpers", () => {
     expect(f.money(1234567)).toBe("¥1,234,567");
     expect(f.moneyShort(12_345_678)).toBe("¥12.3M");
     expect(f.moneyShort(-250_000)).toBe("-¥250k");
-    expect(f.realDuration(144)).toBe("約 2 小時"); // 144 ticks = 12 遊戲小時 = 2 真實小時（4 小時＝1 遊戲日）
-    expect(f.realDuration(12)).toBe("約 10 分鐘");
-    // 落後伺服器時：以追趕速度走完追趕段，之後 1×（lag=600、6×：前 720 個 tick 約 100 分鐘＝1.7 小時）
-    expect(f.realDuration(720, 6, 600)).toBe("約 1.7 小時");
-    expect(f.realDuration(288, 6, 0)).toBe("約 4 小時"); // 已追上：追趕速度不影響
+    // 一律是遊戲時間（1 tick＝5 遊戲分鐘、288 tick＝1 遊戲日），不隨追趕速度或落後而變
+    expect(f.gameDuration(144)).toBe("約 12 遊戲小時");
+    expect(f.gameDuration(6)).toBe("約 30 遊戲分鐘");
+    expect(f.gameDuration(720)).toBe("約 2.5 遊戲日");
+    // 截止時間：同一遊戲日只寫鐘點，跨日帶日期
+    expect(f.gameDeadline(100, 50)).toMatch(/^遊戲時間 \d\d:\d\d$/);
+    expect(f.gameDeadline(100 + 288, 50)).toMatch(/^遊戲時間 \d\d\/\d\d 週. \d\d:\d\d$/);
     expect(f.lagText(288 * 3)).toBe("3 遊戲日");
     expect(f.lagText(144)).toBe("12 遊戲小時");
   });
@@ -1193,6 +1316,80 @@ describe("stage UI panels with real state", () => {
     expect(call.body.command.type).toBe("setPrice");
     expect(call.body.command.shopId).toBe(shop.id);
     expect(call.body.command.price).toBeGreaterThan(shop.price);
+  });
+
+  it("PlayFlow: 自動開始不帶 play；玩完三關後帶著關卡種子與輸入送出", async () => {
+    store.state.value = publicState(0, (s) => {
+      s.workshop.playSeed = 4242;
+    });
+    const shop = store.state.value!.shops.find((x) => x.mode === "direct")!;
+    const { PlayFlow } = await import("./screens/workshop/PlayFlow");
+    const { makeLevel, stageSeed, sequenceAnswer } = await import("@coidle/shared");
+    const started: unknown[] = [];
+    const node = (
+      <PlayFlow s={store.state.value!} shop={shop} group="food" picks={{ base: "f_pork", season: "f_citrus", method: "f_fry" }} costs={[1000, 1000, 1000]} mustTweak={false} verb="研發" onStart={(p) => started.push(p)} onCancel={() => {}} />
+    );
+    await mount(node);
+    const btn = (t: string) => Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes(t)) as HTMLButtonElement;
+    expect(container.textContent).toContain("手藝小遊戲");
+    btn("直接自動開始").click();
+    expect(started).toEqual([undefined]);
+
+    // 第 1 關：照正解排序
+    const lv = makeLevel("sequence", stageSeed(4242, 0), "food", 0);
+    if (lv.kind !== "sequence") throw new Error("kind");
+    for (const id of sequenceAnswer(lv)) {
+      const it = lv.items.find((x) => x.id === id)!;
+      btn(`${it.label}（${it.minutes} 分）`).click();
+      await tick();
+    }
+    btn("就這樣排").click();
+    await tick();
+    expect(container.textContent).toContain("2.");
+    // 第 2、3 關略過
+    btn("略過這一關").click();
+    await tick();
+    expect(container.textContent).toContain("手藝");
+  });
+
+  it("Tech: 立項可調整資源分配，送出 startTech 帶 plan；實驗事件送出 techExperiment 帶判讀答案", async () => {
+    store.state.value = publicState(1, (s) => {
+      s.funds = 50_000_000;
+    });
+    stubFetch(() => store.state.value);
+    const { Tech } = await import("./screens/Tech");
+    await mount(<Tech />);
+    const find = (t: string) => Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.trim() === t) as HTMLButtonElement | undefined;
+    find("立項")!.click();
+    await tick();
+    expect(container.textContent).toContain("速度");
+    expect(container.textContent).toContain("嚴謹");
+    expect(container.textContent).toContain("節約");
+    find("立項研發")!.click();
+    await tick();
+    await tick();
+    const call = calls.find((c) => c.url.endsWith("/commands"))!;
+    expect(call.body.command.type).toBe("startTech");
+    const plan = call.body.command.plan;
+    expect(plan.speed + plan.rigor + plan.thrift).toBe(100);
+
+    const { TECH_EXP_BY_ID } = await import("@coidle/shared");
+    const ps = publicState(1);
+    ps.funds = 50_000_000;
+    ps.tech.jobs.push({ id: "t_app", startTick: ps.tick - 100, endTick: ps.tick + 100, cost: 4_000_000, plan: { speed: 34, rigor: 33, thrift: 33 }, points: 0.5, exp: { uid: "tx1", kind: "anomaly", deadlineTick: ps.tick + 80 }, expDone: false, seed: 42 });
+    store.state.value = ps;
+    stubFetch(() => store.state.value);
+    await mount(<Tech />);
+    expect(container.textContent).toContain(TECH_EXP_BY_ID["anomaly"]!.label);
+    const opt = TECH_EXP_BY_ID["anomaly"]!.options[0]!;
+    const optBtn = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.trim().startsWith(opt.label)) as HTMLButtonElement;
+    optBtn.click();
+    await tick();
+    await tick();
+    const c2 = calls.find((c) => c.url.endsWith("/commands"))!;
+    expect(c2.body.command.type).toBe("techExperiment");
+    expect(c2.body.command.optionId).toBe(opt.id);
+    expect(c2.body.command.analysis).toBeUndefined(); // 沒做判讀就不帶答案
   });
 
   it("RealShopPanel 翻新升級要先確認：取消不送出、確定才送出 upgradeShop", async () => {
@@ -1293,6 +1490,144 @@ describe("stage UI panels with real state", () => {
     await tick();
     const call = calls.find((c) => c.url.endsWith("/commands"))!;
     expect(call.body.command).toMatchObject({ type: "orderStock", shopId: shop.id, qty: 50 });
+  });
+
+  it("Legal shows open cases with laws, stage and options, insurance and past cases; buttons send commands", async () => {
+    store.state.value = publicState(0, (s) => {
+      const shop = s.shops[0]!;
+      s.legal = {
+        cases: [
+          {
+            uid: "lw1",
+            kind: "food_poison",
+            shopId: shop.id,
+            shopName: shop.name,
+            plaintiff: "田島さん",
+            claim: 500_000,
+            stage: "demand",
+            createdTick: s.tick,
+            stageTick: s.tick,
+            deadlineTick: s.tick + 1000,
+            evidence: 60,
+            lawyer: false,
+            insured: 0,
+            tone: "angry",
+            history: [{ tick: s.tick, text: "内容証明郵便が届いた" }],
+          },
+        ],
+        closed: [{ uid: "lw0", kind: "allergy", shopName: "舊案件店", plaintiff: "森川様", claim: 100_000, paid: 80_000, insurer: 0, lawyerFee: 0, closedTick: 0, result: "結案", outcome: "settled" }],
+        insurance: 0,
+        nextAt: 0,
+        totalPaid: 80_000,
+        totalInsured: 0,
+      };
+    });
+    stubFetch(() => store.state.value);
+    const { Legal } = await import("./screens/Legal");
+    await mount(<Legal />);
+    const text = container.textContent ?? "";
+    expect(text).toContain("法律糾紛（1）");
+    expect(text).toContain("食物中毒");
+    expect(text).toContain("食品衛生法");
+    expect(text).toContain("民事調停"); // 進度條
+    expect(text).toContain("請求 ¥500,000");
+    expect(text).toContain("未投保");
+    expect(text).toContain("我方證據力");
+    expect(text).toContain("誠意道歉並支付示談金");
+    expect(text).toContain("委任律師交涉");
+    expect(text).toContain("過去的案件");
+    expect(text).toContain("舊案件店");
+    expect(text).toContain("施設・PL 賠償責任保險");
+    const settle = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("誠意道歉並支付示談金")) as HTMLElement;
+    settle.click();
+    await tick();
+    await tick();
+    expect(calls.find((c) => c.url.endsWith("/commands"))!.body.command).toMatchObject({ type: "legalAction", uid: "lw1", optionId: "settle" });
+    calls.length = 0;
+    const ins = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("完整")) as HTMLElement;
+    ins.click();
+    await tick();
+    await tick();
+    expect(calls.find((c) => c.url.endsWith("/commands"))!.body.command).toMatchObject({ type: "setInsurance", level: 2 });
+  });
+
+  it("an open lawsuit shows up as an urgent attention item and in the guest todo count", async () => {
+    const { buildAttention } = await import("./ui/attention");
+    const { guestTodoCount } = await import("@coidle/shared");
+    const st = publicState(0, (s) => {
+      const shop = s.shops[0]!;
+      s.legal = { cases: [{ uid: "lw1", kind: "injury", shopId: shop.id, shopName: shop.name, plaintiff: "三浦様", claim: 800_000, stage: "mediation", createdTick: s.tick, stageTick: s.tick, deadlineTick: s.tick + 500, evidence: 50, lawyer: true, insured: 1, tone: null, history: [] }], closed: [], insurance: 1, nextAt: 0, totalPaid: 0, totalInsured: 0 };
+    });
+    const items = buildAttention(st);
+    const it = items.find((x) => x.id === "legal:lw1");
+    expect(it?.severity).toBe("urgent");
+    expect(it?.title).toContain("設施事故");
+    expect(guestTodoCount(st)).toBeGreaterThanOrEqual(1);
+  });
+
+  it("Patrol shows the start button, hides undiscovered problems, lists hints and confirmed problems with fix options, and sends commands", async () => {
+    store.state.value = publicState(0, (st) => {
+      const shop = st.shops[0]!;
+      st.patrol = {
+        issues: [
+          { uid: "pi1", kind: "unknown", shopId: shop.id, spot: "back", severity: 0, bornTick: st.tick, worsenedTick: st.tick, status: "hinted", hint: "角落有股說不上來的味道。" },
+          { uid: "pi2", kind: "gas_oil", shopId: shop.id, spot: "equip", severity: 3, bornTick: st.tick, worsenedTick: st.tick, status: "confirmed" },
+        ],
+        session: { startTick: st.tick, expireTick: st.tick + 30, ap: 2, apMax: 3, checked: [`${shop.id}:floor`], chats: 0, found: 1, fixed: 0, spent: 0 },
+        nextTick: 0,
+        xp: 10,
+        foundTotal: 2,
+        fixedTotal: 1,
+        incidents: 0,
+        cleared: {},
+        report: null,
+      };
+    });
+    stubFetch(() => store.state.value);
+    const { Patrol } = await import("./screens/Patrol");
+    await mount(<Patrol s={store.state.value!} />);
+    const text = container.textContent ?? "";
+    expect(text).toContain("巡店");
+    expect(text).toContain("行動力");
+    expect(text).toContain("各店檢查點");
+    expect(text).toContain("角落有股說不上來的味道"); // 線索
+    expect(text).toContain("油煙・瓦斯隱患"); // 已查明的問題
+    expect(text).toContain("立刻處理");
+    expect(text).toContain("請專業處理");
+    expect(text).toContain("結束這趟");
+    expect(text).not.toContain("hygiene_corner");
+    const deepen = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("查明（1 點）")) as HTMLElement;
+    deepen.click();
+    await tick();
+    await tick();
+    expect(calls.find((c) => c.url.endsWith("/commands"))!.body.command).toMatchObject({ type: "patrolDeepen", issueId: "pi1" });
+    calls.length = 0;
+    const fix = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("立刻處理（")) as HTMLElement;
+    fix.click();
+    await tick();
+    await tick();
+    expect(calls.find((c) => c.url.endsWith("/commands"))!.body.command).toMatchObject({ type: "patrolFix", issueId: "pi2", option: "now" });
+    calls.length = 0;
+    const spot = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("🔍")) as HTMLElement;
+    spot.click();
+    await tick();
+    await tick();
+    expect(calls.find((c) => c.url.endsWith("/commands"))!.body.command).toMatchObject({ type: "patrolInspect" });
+  });
+
+  it("Patrol without a session offers to start, and the guest hub tabs are the new ones", async () => {
+    store.state.value = publicState(0, () => {});
+    stubFetch(() => store.state.value);
+    const { Patrol } = await import("./screens/Patrol");
+    await mount(<Patrol s={store.state.value!} />);
+    expect(container.textContent).toContain("開始巡店");
+    expect(container.textContent).not.toContain("各店檢查點");
+    expect(container.textContent).toContain("目前沒有已知的問題");
+    const start = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("開始巡店")) as HTMLElement;
+    start.click();
+    await tick();
+    await tick();
+    expect(calls.find((c) => c.url.endsWith("/commands"))!.body.command).toMatchObject({ type: "patrolStart" });
   });
 
   it("RealShopPanel: locked floors explain the unlock level; building lots show progress", async () => {

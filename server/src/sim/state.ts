@@ -36,6 +36,7 @@ import {
   type WorkshopState,
   type ShopDayStats,
   type Slot,
+  memberTrafficMult,
 } from "@coidle/shared";
 import { initialRegulars } from "./regulars";
 import { timeInfo } from "./time";
@@ -242,7 +243,7 @@ export function trafficMult(s: MallState, persona: PersonaId, tick: number): num
   for (const mod of s.modifiers) {
     if (mod.kind === "traffic" && mod.endTick > tick && (mod.persona === "all" || mod.persona === persona)) m *= mod.mult;
   }
-  return m * weatherTraffic(weatherNow(s), persona) * calendarTraffic(dayOfTick(tick), persona) * conceptTraffic(s.concept?.id, persona);
+  return m * weatherTraffic(weatherNow(s), persona) * calendarTraffic(dayOfTick(tick), persona) * conceptTraffic(s.concept?.id, persona) * memberTrafficMult(s.members);
 }
 
 /** 有效品質：等級決定上限，新鮮感過低會打折（新鮮感 20 時打 6 折）；菜單上的招牌與新品再加分 */

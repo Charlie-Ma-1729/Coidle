@@ -12,7 +12,6 @@ import {
   isHourOpen,
   isPaused,
   periodOf,
-  ticksToRealMinutes,
   timeInfo,
   type InboxItem,
   type PublicMallState,
@@ -20,9 +19,10 @@ import {
 } from "@coidle/shared";
 import { EventChoiceCard } from "../components/EventCards";
 import { Btn, Card, Chip, Empty } from "../components/ui";
-import { money, realDuration } from "../format";
+import { gameDeadline, gameDuration, money } from "../format";
 import { PERSONA_ICONS } from "../icons";
 import { run, state } from "../store";
+import { Legal } from "./Legal";
 import { Regulars } from "./Regulars";
 
 const MOOD: Record<WalkVoice["mood"], { icon: string; label: string; tone: "green" | "amber" | "red" | "cyan" }> = {
@@ -41,11 +41,6 @@ const PERSONA_NAME: Record<string, string> = {
   couple: "情侶",
 };
 
-function remaining(s: PublicMallState, deadlineTick: number): string {
-  const mins = Math.max(0, Math.round(ticksToRealMinutes(deadlineTick - s.tick, s.clock.speed, s.clock.lag)));
-  return mins >= 60 ? `${Math.round(mins / 6) / 10} 小時` : `${mins} 分鐘`;
-}
-
 function Stars({ n }: { n: number }) {
   return (
     <span class="stars" aria-label={`${n} 顆星`}>
@@ -55,7 +50,7 @@ function Stars({ n }: { n: number }) {
   );
 }
 
-export function WalkCard({ s }: { s: PublicMallState }) {
+export function WalkCard({ s, bare }: { s: PublicMallState; bare?: boolean }) {
   const t = timeInfo(s.tick);
   const open = isHourOpen(s.hours.open, s.hours.close, t.hour);
   const cooldown = s.walk.nextTick - s.tick;
@@ -66,20 +61,22 @@ export function WalkCard({ s }: { s: PublicMallState }) {
     : isPaused(s.clock)
       ? "時間暫停中。"
       : cooldown > 0
-        ? `剛巡過場，約 ${realDuration(cooldown, s.clock.speed, s.clock.lag).replace("約 ", "")}後客人換一批再來。`
+        ? `剛巡過場，約 ${gameDuration(cooldown).replace("約 ", "")}後客人換一批再來。`
         : period === "peak"
           ? "現在是尖峰時段，客人最多、狀況也最多。"
           : "聽聽此刻店裡客人在說什麼。";
   return (
     <Card
-      title="🚶 巡場"
+      title={bare ? "🗣️ 客人的心聲" : "🚶 巡場"}
       right={
-        <Btn kind="primary" small disabled={!open || cooldown > 0} onClick={() => run({ type: "walkFloor" })}>
-          巡一圈
-        </Btn>
+        bare ? undefined : (
+          <Btn kind="primary" small disabled={!open || cooldown > 0} onClick={() => run({ type: "walkFloor" })}>
+            巡一圈
+          </Btn>
+        )
       }
     >
-      <p class="small dim">{hint}</p>
+      <p class="small dim">{bare ? "巡店時用各店的「聊聊」聽客人說話，聽到的心聲會出現在這裡，可以當場回應。" : hint}</p>
       {voices.length === 0 ? (
         <Empty>{open ? "還沒巡場，或客人都已離開。" : "打烊了。"}</Empty>
       ) : (
@@ -130,7 +127,7 @@ function ComplaintCard({ s, item }: { s: PublicMallState; item: InboxItem }) {
         <h4>
           {cause?.icon} 客訴・{cause?.label}
         </h4>
-        <span class="small dim">{remaining(s, item.deadlineTick)}內處理</span>
+        <span class="small dim">{gameDeadline(item.deadlineTick, s.tick)} 前處理</span>
       </div>
       <div class="row">
         <span>{PERSONA_ICONS[item.persona]}</span>
@@ -145,6 +142,11 @@ function ComplaintCard({ s, item }: { s: PublicMallState; item: InboxItem }) {
       </div>
       <p class="quote">「{item.text}」</p>
       {tone && <p class="small dim">{tone.hint}</p>}
+      {item.cause && ["dirty", "facility", "quality", "price"].includes(item.cause) && item.tone !== "sincere" && (
+        <p class="small" style={{ color: "var(--amber, #d89b00)" }}>
+          ⚖️ 嚴重客訴處理不當（尤其是拒絕、逾時沒回），有機會升級成法律糾紛。
+        </p>
+      )}
       <div class="row">
         {COMPLAINT_OPTIONS.map((o) => {
           const cost = complaintCost(o.id, price);
@@ -169,7 +171,7 @@ function ReviewCard({ s, item }: { s: PublicMallState; item: InboxItem }) {
         <h4>
           <Stars n={item.stars ?? 3} /> 網路評價
         </h4>
-        <span class="small dim">{remaining(s, item.deadlineTick)}內可回覆</span>
+        <span class="small dim">{gameDeadline(item.deadlineTick, s.tick)} 前可回覆</span>
       </div>
       <p class="small dim">
         {PERSONA_ICONS[item.persona]} {PERSONA_NAME[item.persona]}
@@ -266,6 +268,7 @@ export function Guests() {
     <>
       <WalkCard s={s} />
       <TodoCard s={s} />
+      <Legal />
       <Regulars />
       <div class="grid two">
         <ReviewLog s={s} />

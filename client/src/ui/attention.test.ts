@@ -238,7 +238,7 @@ describe("跨商場待辦", () => {
     const it = items.find((i) => i.id === "alliance:5")!;
     expect(it.severity).toBe("decision");
     expect(it.title).toContain("月見百貨");
-    expect(it.detail).toContain("5 小時");
+    expect(it.detail).toMatch(/^遊戲時間 .+ 前回覆/); // 真實期限換算成遊戲時間顯示，不再寫「N 小時」
     expect(it.target).toEqual({ kind: "hub", hub: "world", tab: "dir" });
     expect(hubBadges(items).world).toBe(1);
     expect(buildAttention(stateAt(0), 1, [], NOW).some((i) => i.id.startsWith("alliance:"))).toBe(false);

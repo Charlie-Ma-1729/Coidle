@@ -48,7 +48,7 @@ npm run admin -- create-overseer | rotate-overseer-key | sandbox-mall <帳號> [
 - 改規則或數字後：跑機器人模擬確認，結論寫進 `docs/balance-report.md`（開頭有「速查」，新結論加在對應章節）。
 
 ## 文件（按需讀；大檔用 Grep，別整檔讀）
-`docs/` 下：`stock-market`（股市 v2：開市時間、引擎、40 檔、預約單、配息、法人入股）、`market-news`（消息庫格式與審核）、`talent-roster`（藝人名冊內容池）、`group-ma`（集團／併購／入股設計）、`future-industries`（未來產業提案）、`balance-report`（平衡紀錄，先讀開頭速查）、`cross-mall`（時間軸＋聯名／貿易／搶客／NPC，14KB）、`stage-ui-feature-map`（畫面對照，17KB）、`stage-ui-dev`、`overseer`（管理室／稽核／指標／sandbox）、`roadmap-extensions`（未來玩法必須遵守的不變量）、`equity`、`calendar`、`weather`、`japan-law`、`tech-leasing`、`concept`、`content-expansion`（業態）、`goals-achievements`、`ai-content`、`accounts-admin-onboarding`；部署看 `deploy/README.md`。
+`docs/` 下：`workshop-play`（研發小遊戲：工坊三關手藝＋科技立項／實驗事件／數據判讀、伺服器重放驗證）、`regulars-patrol`（熟客 45 位與類型／階段／意見、會員制點數卡、巡店隱藏問題與行動點）、`supply`（供應商 84 家 14 族、全服供應衝擊、補貨／倉儲／損耗／智慧補貨）、`stock-market`（股市 v2：開市時間、引擎、40 檔、預約單、配息、法人入股）、`market-news`（消息庫格式與審核）、`talent-roster`（藝人名冊內容池）、`group-ma`（集團／併購／入股設計）、`future-industries`（未來產業提案）、`balance-report`（平衡紀錄，先讀開頭速查）、`cross-mall`（時間軸＋聯名／貿易／搶客／NPC，14KB）、`stage-ui-feature-map`（畫面對照，17KB）、`stage-ui-dev`、`overseer`（管理室／稽核／指標／sandbox）、`roadmap-extensions`（未來玩法必須遵守的不變量）、`equity`、`calendar`、`weather`、`japan-law`、`tech-leasing`、`concept`、`content-expansion`（業態）、`goals-achievements`、`ai-content`、`accounts-admin-onboarding`；部署看 `deploy/README.md`。
 
 ## 省 token
 - 先 Grep 再 offset/limit 讀片段：`mallService.ts`（67KB）、`routes.ts`（50KB）、`repo.ts`（48KB）、`data.ts`（44KB）、`types.ts`（33KB）、`client/src/ui.test.tsx`（73KB）。

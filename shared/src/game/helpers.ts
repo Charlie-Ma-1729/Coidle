@@ -32,10 +32,10 @@ export function unitCostOf(category: string, supplyMultiplier = 1): number {
   return Math.max(1, Math.ceil(cat.refPrice * cat.costRatio * supplyMultiplier));
 }
 
-/** 客人那邊有幾件事等你處理：收件匣（客訴、評價）＋面對客人的突發事件 */
-export function guestTodoCount(s: Pick<MallState, "inbox" | "pending">): number {
+/** 客人那邊有幾件事等你處理：收件匣（客訴、評價）＋面對客人的突發事件＋進行中的法律糾紛 */
+export function guestTodoCount(s: Pick<MallState, "inbox" | "pending" | "legal" | "voices">): number {
   const guestEvents = s.pending.filter((p) => EVENT_BY_ID[p.defId]?.category === "guest").length;
-  return s.inbox.length + guestEvents;
+  return s.inbox.length + guestEvents + (s.legal?.cases.length ?? 0) + (s.voices?.length ?? 0);
 }
 
 /** 這個業態現在每份的實際進貨成本（全域行情 × 主力供應商價格） */

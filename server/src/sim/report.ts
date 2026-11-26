@@ -62,6 +62,17 @@ export function buildReport(s: MallState): DailyReport {
   if (d.regularVisits > 0) notes.push(`常客造訪 ${d.regularVisits} 次。`);
   for (const n of d.regularNotes.slice(0, 3)) notes.push(n);
   if (d.complaints > 0) notes.push(`收到 ${d.complaints} 則客訴。`);
+  if ((d.legalCost ?? 0) > 0) notes.push(`⚖️ 法律糾紛支出 ${fmt(d.legalCost ?? 0)}（和解金、判決金、律師費，已扣掉保險給付）。`);
+  if (s.patrol) {
+    const known = s.patrol.issues.filter((i) => i.status !== "hidden");
+    const worst = known.slice().sort((a, b) => b.severity - a.severity)[0];
+    if (known.length > 0) notes.push(`🚶 已知還沒處理的問題 ${known.length} 件${worst && worst.severity >= 4 ? "，其中有嚴重的，再不處理就要出事了" : ""}。`);
+  }
+  if (s.members && s.members.count > 0) {
+    const m = s.members;
+    notes.push(`🪪 會員 ${m.count.toLocaleString("en-US")} 人，今天發出點數 ${fmt(s.today.memberIssued ?? 0)}、兌換 ${fmt(s.today.memberCost ?? 0)}（未使用點數累計 ${fmt(m.points)}）。`);
+  }
+  for (const c of s.legal?.cases ?? []) notes.push(`⚖️ 「${c.shopName}」的糾紛還在處理中，記得在期限內回應。`);
   if (d.reviews > 0) notes.push(`網路上多了 ${d.reviews} 則評價，平均 ${(d.starsSum / d.reviews).toFixed(1)} 顆星。`);
   if (d.events.length > 0) notes.push(`今日事件：${d.events.join("、")}。`);
 

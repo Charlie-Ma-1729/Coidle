@@ -1,3 +1,4 @@
+import { useEffect, useState } from "preact/hooks";
 import { EVENT_BY_ID, INTERACT_MAX_LAG_TICKS, TICKS_PER_DAY, catchUpMinutes, isPaused } from "@coidle/shared";
 import { lagText } from "../format";
 import { lagNow, useTicker } from "../serverTime";
@@ -12,6 +13,12 @@ const LAG_QUIET = TICKS_PER_DAY / 4;
 export function ClockBanner() {
   useTicker(10_000);
   const s = state.value;
+  // 單純暫停（手動／久未上線）只是小提示，可以點掉；每次打開畫面時若是暫停的就會跳出來，暫停結束後再暫停也會重新提示
+  const [pauseDismissed, setPauseDismissed] = useState(false);
+  const paused = s ? isPaused(s.clock) : false;
+  useEffect(() => {
+    if (!paused) setPauseDismissed(false);
+  }, [paused]);
   if (!s) return null;
   const lag = lagNow(s);
   if (!isPaused(s.clock)) {
@@ -72,18 +79,20 @@ export function ClockBanner() {
     );
   }
 
+  if (pauseDismissed) return null;
   return (
-    <div class="clock-banner">
-      <div class="cb-head">
-        <b>⏸ 時間已暫停</b>
-        <span class="small dim">
-          {c.holds.idle ? "因為太久沒有人上線而自動暫停。" : "營業、成本、事件都停在原地，不會有任何損失。"}
-          {lag >= LAG_QUIET ? `伺服器時間繼續走，目前已落後 ${lagText(lag)}，恢復後會自動追趕。` : ""}
-        </span>
-      </div>
+    <div class="clock-banner pause-chip" role="status">
+      <b>⏸ 時間已暫停</b>
+      <span class="small dim">
+        {c.holds.idle ? "太久沒人上線，已自動暫停。" : "營業、成本、事件都停著，不會有損失。"}
+        {lag >= LAG_QUIET ? `落後伺服器 ${lagText(lag)}，恢復後會自動追趕。` : ""}
+      </span>
       <Btn small kind="primary" onClick={() => setClock({ paused: false }, "時間繼續")}>
         ▶ 恢復
       </Btn>
+      <button class="cb-close" type="button" aria-label="關閉提示" title="關閉提示" onClick={() => setPauseDismissed(true)}>
+        ✕
+      </button>
     </div>
   );
 }

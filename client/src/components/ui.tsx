@@ -16,8 +16,12 @@ export function Card(props: { title?: ComponentChildren; right?: ComponentChildr
   );
 }
 
-export function Chip(props: { children: ComponentChildren; tone?: "pink" | "cyan" | "amber" | "green" | "red" | "dim" }) {
-  return <span class={`chip chip-${props.tone ?? "dim"}`}>{props.children}</span>;
+export function Chip(props: { children: ComponentChildren; tone?: "pink" | "cyan" | "amber" | "green" | "red" | "dim"; title?: string }) {
+  return (
+    <span class={`chip chip-${props.tone ?? "dim"}`} title={props.title}>
+      {props.children}
+    </span>
+  );
 }
 
 /** 0–100 的橫條。tone 預設依數值自動著色。 */

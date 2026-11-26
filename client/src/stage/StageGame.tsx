@@ -18,7 +18,7 @@ import { BuildSheet } from "../screens/BuildSheet";
 import { ShopSheet } from "../screens/ShopSheet";
 import { PersonalHost } from "../screens/Personal";
 import { invites, leaveMall, mallId, openPersonal, personalPage, worldFocus, mallInfo, myMalls, online, refreshInvites, run, setClock, spectating, state, user } from "../store";
-import { timeFlow } from "../serverTime";
+import { timeFlow, useLiveMinute } from "../serverTime";
 import { locateShop, toStageModel } from "./adapter";
 import type { AttentionItem, HubId } from "./model";
 import { useStage } from "./useStage";
@@ -42,6 +42,8 @@ function StageGameInner() {
   const info = mallInfo.value;
   const pendingInvites = invites.value;
   const model = useMemo(() => ({ ...toStageModel(s, u?.id, pendingInvites), mallName: info?.name ?? "" }), [s, u?.id, info?.name, pendingInvites]);
+  // 逐分鐘的時間：tick 之間依流速內插（暫停就停住），HUD 時鐘與場景的日夜光線都用它
+  const liveMinute = useLiveMinute(s, model.minuteOfDay);
 
   // 聯名邀請不在遊戲狀態裡：收到新信（mailCount 變動）時，以及每分鐘，重新讀一次
   useEffect(() => {
@@ -103,7 +105,7 @@ function StageGameInner() {
     floor,
     selected,
     panelOpen,
-    minuteOfDay: model.minuteOfDay,
+    minuteOfDay: liveMinute,
     weather: model.weather,
     cleaningLevel: model.cleaningLevel,
     openHour: model.openHour,
@@ -181,7 +183,7 @@ function StageGameInner() {
         todayProfit={model.todayProfit}
         dateLabel={model.dateLabel}
         dateBadge={model.dateBadge}
-        minuteOfDay={model.minuteOfDay}
+        minuteOfDay={liveMinute}
         speeds={SPEEDS}
         speed={paused ? 0 : 1}
         onSpeed={(id) => void setClock({ paused: id === 0 }, id === 0 ? "時間已暫停" : "時間繼續")}

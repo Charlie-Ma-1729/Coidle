@@ -3,8 +3,14 @@ import {
   CATEGORY_BY_ID,
   MAX_SHOP_LEVEL,
   REFRESH_COST,
+  RUSH_PREMIUM,
+  SHOCK_KINDS,
+  SMART_COVER_DAYS,
   SUPPLY_LEAD_TICKS,
   SUPPLY_LOT,
+  coverDays,
+  restockPlan,
+  storageCap,
   UPGRADE_BASE_COST,
   UPGRADE_TICKS,
   categoryHasStock,
@@ -17,7 +23,7 @@ import {
   PRICE_HARD_MAX,
 } from "@coidle/shared";
 import { Btn, Card, Chip, Field, Meter, Sheet } from "../components/ui";
-import { money, num, realDuration } from "../format";
+import { gameDuration, money, num } from "../format";
 import { categoryIcon } from "../icons";
 import { run, state } from "../store";
 
@@ -47,7 +53,7 @@ export function ShopSheet({ shopId, onClose }: { shopId: string; onClose: () => 
   }, [shop?.price]);
   useEffect(() => {
     if (shop) setRule(shop.restock);
-  }, [shop?.restock.enabled, shop?.restock.min, shop?.restock.target, shop?.restock.dailyBudget]);
+  }, [shop?.restock.enabled, shop?.restock.min, shop?.restock.target, shop?.restock.dailyBudget, shop?.restock.smart, shop?.restock.coverDays, shop?.restock.preShock]);
 
   if (!s || !shop) {
     return (
@@ -69,7 +75,18 @@ export function ShopSheet({ shopId, onClose }: { shopId: string; onClose: () => 
   const upgradeCost = UPGRADE_BASE_COST * shop.level;
   const refreshCost = REFRESH_COST * shop.level;
   const ruleChanged =
-    rule.enabled !== shop.restock.enabled || rule.min !== shop.restock.min || rule.target !== shop.restock.target || rule.dailyBudget !== shop.restock.dailyBudget;
+    rule.enabled !== shop.restock.enabled ||
+    rule.min !== shop.restock.min ||
+    rule.target !== shop.restock.target ||
+    rule.dailyBudget !== shop.restock.dailyBudget ||
+    !!rule.smart !== !!shop.restock.smart ||
+    (rule.coverDays ?? SMART_COVER_DAYS) !== (shop.restock.coverDays ?? SMART_COVER_DAYS) ||
+    (rule.preShock !== false) !== (shop.restock.preShock !== false);
+  const cap = storageCap(shop);
+  const have = shop.stock + incoming;
+  const cover = coverDays(shop);
+  const plan = stocked ? restockPlan(s, { ...shop, restock: rule }) : null;
+  const mainShock = main?.st.shock && main.st.shock.endTick > s.tick ? main.st.shock : null;
   const outOfRange = !Number.isFinite(price) || price < PRICE_MIN || price > PRICE_HARD_MAX;
   const priceTone = price > cat.refPrice * 1.3 ? "amber" : price < cat.refPrice * 0.8 ? "cyan" : "green";
 
@@ -145,23 +162,58 @@ export function ShopSheet({ shopId, onClose }: { shopId: string; onClose: () => 
                 {main && (
                   <p class="small dim">
                     進貨：{main.def.name}
-                    {main.st.status !== "ok" && main.st.statusUntil > s.tick ? `（${{ shortage: "出貨吃緊", strike: "罷工中", closed: "已倒閉", cold: "鬧翻了" }[main.st.status]}）` : ""}
+                    {main.st.status !== "ok" && main.st.statusUntil > s.tick ? `（${mainShock ? SHOCK_KINDS[mainShock.kind].label : { shortage: "出貨吃緊", strike: "罷工中", closed: "已倒閉", cold: "鬧翻了" }[main.st.status]}）` : ""}
                     ・每份 {money(uc)}
                   </p>
                 )}
-                {incoming > 0 && <p class="small dim">在途 {num(incoming)} 份（約 {realDuration(SUPPLY_LEAD_TICKS, s.clock.speed, s.clock.lag)}內送到）</p>}
+                {mainShock && (
+                  <p class="small" style={{ color: "var(--amber, #d89b00)" }}>
+                    {SHOCK_KINDS[mainShock.kind].icon} {mainShock.startTick > s.tick ? `供應商預告：${SHOCK_KINDS[mainShock.kind].warnText || SHOCK_KINDS[mainShock.kind].label}` : `供應商${SHOCK_KINDS[mainShock.kind].label}中`}。{rule.smart && rule.preShock !== false ? "智慧補貨已提前加大備貨。" : "可以先多備一些貨，或開啟智慧補貨。"}
+                  </p>
+                )}
+                <Meter label={`倉庫（容量 ${num(cap)} 份，含在途）`} value={Math.min(100, (have / cap) * 100)} hint={`${num(have)} / ${num(cap)}`} tone={have >= cap ? "red" : "cyan"} />
+                <div class="row small" style={{ gap: "6px" }}>
+                  {cover !== null && <Chip tone={cover < 1 ? "red" : cover < 1.5 ? "amber" : "green"}>夠賣約 {cover.toFixed(1)} 天</Chip>}
+                  {shop.avgDaily !== undefined && <span class="dim">日均賣出 {num(Math.round(shop.avgDaily))} 份</span>}
+                  {(shop.day.waste ?? 0) > 0 && <Chip tone="amber">今天放壞 {num(shop.day.waste ?? 0)} 份</Chip>}
+                  {(shop.day.short ?? 0) > 0 && <Chip tone="red">今天缺口 {num(shop.day.short ?? 0)} 份沒補到</Chip>}
+                </div>
+                {incoming > 0 && <p class="small dim">在途 {num(incoming)} 份（約{gameDuration(SUPPLY_LEAD_TICKS)}內送到，依供應商而異）</p>}
                 <label class="row">
                   <input type="checkbox" checked={rule.enabled} onChange={(e) => setRule({ ...rule, enabled: (e.target as HTMLInputElement).checked })} />
                   <span>啟用自動補貨</span>
                 </label>
-                <div class="two-col">
-                  <Field label="低於此量就補">
-                    <NumberInput value={rule.min} onChange={(v) => setRule({ ...rule, min: v })} step={SUPPLY_LOT} />
-                  </Field>
-                  <Field label="補到">
-                    <NumberInput value={rule.target} onChange={(v) => setRule({ ...rule, target: v })} step={SUPPLY_LOT} />
-                  </Field>
-                </div>
+                <label class="row">
+                  <input type="checkbox" checked={!!rule.smart} onChange={(e) => setRule({ ...rule, smart: (e.target as HTMLInputElement).checked })} />
+                  <span>智慧補貨：依日均銷量與供應商交期自動決定下限與目標</span>
+                </label>
+                {rule.smart ? (
+                  <>
+                    <div class="two-col">
+                      <Field label="備貨天數" hint="備太多會放壞（易腐品）、佔倉庫">
+                        <NumberInput value={rule.coverDays ?? SMART_COVER_DAYS} onChange={(v) => setRule({ ...rule, coverDays: v })} step={0.5} min={1} />
+                      </Field>
+                      <label class="row" style={{ alignSelf: "end" }}>
+                        <input type="checkbox" checked={rule.preShock !== false} onChange={(e) => setRule({ ...rule, preShock: (e.target as HTMLInputElement).checked })} />
+                        <span>預告時先囤貨</span>
+                      </label>
+                    </div>
+                    {plan && (
+                      <p class="small dim">
+                        目前規則：低於 <b>{num(plan.min)}</b> 就補、補到 <b>{num(plan.target)}</b>。{plan.notes.join("；")}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <div class="two-col">
+                    <Field label="低於此量就補">
+                      <NumberInput value={rule.min} onChange={(v) => setRule({ ...rule, min: v })} step={SUPPLY_LOT} />
+                    </Field>
+                    <Field label="補到">
+                      <NumberInput value={rule.target} onChange={(v) => setRule({ ...rule, target: v })} step={SUPPLY_LOT} />
+                    </Field>
+                  </div>
+                )}
                 <Field label="每日採購預算上限" hint={`約可買 ${num(rule.dailyBudget / Math.max(1, uc))} 份`}>
                   <NumberInput value={rule.dailyBudget} onChange={(v) => setRule({ ...rule, dailyBudget: v })} step={10000} />
                 </Field>
@@ -171,8 +223,16 @@ export function ShopSheet({ shopId, onClose }: { shopId: string; onClose: () => 
                 <div class="row">
                   <span class="small dim">手動進貨：</span>
                   {[50, 200, 500].map((q) => (
-                    <Btn key={q} small onClick={() => run({ type: "orderStock", shopId: shop.id, qty: q }, `已訂購 ${q} 份`)}>
+                    <Btn key={q} small disabled={have >= cap} onClick={() => run({ type: "orderStock", shopId: shop.id, qty: q }, `已訂購 ${q} 份`)}>
                       +{q}（{money(uc * q)}）
+                    </Btn>
+                  ))}
+                </div>
+                <div class="row">
+                  <span class="small dim" title="貴三成、交期縮短，適合臨時缺貨">急件：</span>
+                  {[50, 200].map((q) => (
+                    <Btn key={q} small disabled={have >= cap} onClick={() => run({ type: "orderStock", shopId: shop.id, qty: q, rush: true }, `已下急件 ${q} 份`)}>
+                      +{q}（{money(Math.ceil(uc * RUSH_PREMIUM) * q)}）
                     </Btn>
                   ))}
                 </div>
@@ -194,9 +254,9 @@ export function ShopSheet({ shopId, onClose }: { shopId: string; onClose: () => 
       <Card title="🔨 翻新升級">
         <div class="stack">
           <p class="small dim">
-            升級提升品質、容量與滿意度（Lv.{shop.level} → Lv.{Math.min(MAX_SHOP_LEVEL, shop.level + 1)}），施工 {realDuration(UPGRADE_TICKS, s.clock.speed, s.clock.lag)}；店內人事成本同步增加。
+            升級提升品質、容量與滿意度（Lv.{shop.level} → Lv.{Math.min(MAX_SHOP_LEVEL, shop.level + 1)}），施工{gameDuration(UPGRADE_TICKS)}；店內人事成本同步增加。
           </p>
-          <Btn kind="primary" disabled={shop.level >= MAX_SHOP_LEVEL || upgrading} onClick={() => confirm(`把「${shop.name}」翻新升級到 Lv.${shop.level + 1}？\n費用 ${money(upgradeCost)}，現在就會扣款；施工約 ${realDuration(UPGRADE_TICKS, s.clock.speed, s.clock.lag)}，店內人事成本也會增加。`) && run({ type: "upgradeShop", shopId: shop.id }, "開始翻新")}>
+          <Btn kind="primary" disabled={shop.level >= MAX_SHOP_LEVEL || upgrading} onClick={() => confirm(`把「${shop.name}」翻新升級到 Lv.${shop.level + 1}？\n費用 ${money(upgradeCost)}，現在就會扣款；施工${gameDuration(UPGRADE_TICKS)}，店內人事成本也會增加。`) && run({ type: "upgradeShop", shopId: shop.id }, "開始翻新")}>
             {shop.level >= MAX_SHOP_LEVEL ? "已達最高等級" : upgrading ? "翻新中…" : `升級（${money(upgradeCost)}）`}
           </Btn>
         </div>

@@ -14,13 +14,12 @@ import {
   rivalAppealNow,
   rivalMult,
   rivalScore,
-  ticksToRealMinutes,
   type PersonaId,
   type PublicMallState,
   type RivalState,
 } from "@coidle/shared";
 import { Btn, Card, Chip, Empty, Meter } from "../components/ui";
-import { clockText, dateText, money } from "../format";
+import { clockText, dateText, gameDeadline, money } from "../format";
 import { PERSONA_ICONS } from "../icons";
 import { mallInfo, run, state } from "../store";
 
@@ -29,11 +28,6 @@ const STANCE = [
   { id: "neutral" as const, label: "對等", hint: "不自動出手，自己看著辦" },
   { id: "aggressive" as const, label: "進攻", hint: `自動反擊，衝擊減半還打響名號（花 ${money(RIVAL_AUTO_AGGRESSIVE_COST)}）` },
 ];
-
-function left(s: PublicMallState, tick: number): string {
-  const m = Math.max(1, Math.round(ticksToRealMinutes(tick - s.tick, s.clock.speed, s.clock.lag)));
-  return m >= 60 ? `約 ${Math.round(m / 6) / 10} 小時` : `約 ${m} 分鐘`;
-}
 
 function Ranking({ s }: { s: PublicMallState }) {
   const mine = playerScore(s);
@@ -133,7 +127,7 @@ function RivalCard({ s, r }: { s: PublicMallState; r: RivalState }) {
         <p class="small">
           {intel ? (
             <>
-              情報：衝擊{c.factor < 1 ? "（已被反制削弱）" : ""}，還剩{left(s, c.endTick)}；
+              情報：衝擊{c.factor < 1 ? "（已被反制削弱）" : ""}，持續到{gameDeadline(c.endTick, s.tick)}；
               {Object.entries(c.boost)
                 .filter(([, v]) => v !== 0)
                 .map(([p, v]) => `${PERSONA_ICONS[p]}${(v as number) > 0 ? "+" : ""}${Math.round((v as number) * c.factor)}`)

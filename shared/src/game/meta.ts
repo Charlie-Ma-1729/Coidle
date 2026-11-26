@@ -250,7 +250,7 @@ export const STARTER_QUESTS: StarterQuest[] = [
   { id: "q_price", icon: "🏷️", name: "調整一次售價", hint: "在店面詳情改價格：定太高客人跑掉，定太低又賺不到。", reward: 50_000, check: (s) => cmd(s, "setPrice") },
   { id: "q_hours", icon: "🕒", name: "設定營業時間", hint: "到底部「營運 → 營業時間」看客流曲線，把營業時間調到尖峰時段。", reward: 50_000, check: (s) => cmd(s, "setHours") },
   { id: "q_stock", icon: "📦", name: "設定補貨或手動進貨", hint: "缺貨會讓客人白跑一趟。在店面詳情設定自動補貨，或手動進一批。", reward: 50_000, check: (s) => cmd(s, "setRestock") || cmd(s, "orderStock") },
-  { id: "q_walk", icon: "🚶", name: "巡場一次", hint: "到「客人」分頁按「巡場」，聽聽此刻店裡客人的心聲。", reward: 50_000, check: (s) => cmd(s, "walkFloor") },
+  { id: "q_walk", icon: "🚶", name: "巡店一次", hint: "到「客人」分頁的「巡店」開始巡店：用行動點檢查各店的角落，找出還沒爆發的問題。", reward: 50_000, check: (s) => cmd(s, "patrolStart") || cmd(s, "walkFloor") },
   { id: "q_report", icon: "📰", name: "迎接第一份日報", hint: "每個遊戲日結束會出一份日報（標準流速約 6 個真實小時）。回來看看賺了多少。", reward: 50_000, check: (s) => s.reports.length >= 1 },
   { id: "q_build", icon: "🏗️", name: "開一間新店", hint: "點場景裡的空地招商開店。業態越多元，整體客流越大。", reward: 100_000, check: (s) => cmd(s, "buildShop") },
   { id: "q_promo", icon: "📣", name: "辦一場優惠活動", hint: "到底部「營運 → 行銷」排一場活動，客流會增加，客人也更滿意。", reward: 50_000, check: (s) => cmd(s, "schedulePromo") },

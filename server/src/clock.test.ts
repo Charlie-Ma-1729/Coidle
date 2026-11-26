@@ -456,7 +456,8 @@ describe("pause on important events (service level)", () => {
     a.clock.t += 50 * HOUR;
     a.service.tickAll();
     expect(a.service.getState(id, false).tick).toBe(frozen.tick);
-    expect(a.service.getState(id, false).pending.length).toBe(1);
+    expect(a.service.getState(id, false).pending.length).toBe(frozen.pending.length); // 待決事件不會流失
+    expect(frozen.pending.length).toBeGreaterThanOrEqual(1);
 
     // 有人來處理：採預設並恢復
     const r = await call(a, owner, "POST", `/api/malls/${id}/commands`, { command: { type: "resolveAllDefault" } });

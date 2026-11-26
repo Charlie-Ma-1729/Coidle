@@ -12,8 +12,8 @@ const HUB_PLAN: Record<Exclude<HubId, "operate">, { title: string; tabs: { tab: 
     title: "客人",
     tabs: [
       { tab: { id: "inbox", label: "客訴與評價" }, from: ["客人（Guests）：客訴、評價、客人事件", "處理偏好（離線時自動處理）"], note: "待辦中心的「決定」類項目也會出現在這裡。" },
-      { tab: { id: "regulars", label: "常客" }, from: ["常客（Regulars）：好感度、故事、預約座位"], note: "常客會以有名字的 NPC 在場景裡走動，點他就開這頁。" },
-      { tab: { id: "walk", label: "巡場" }, from: ["巡場（walk）：聽客人的聲音"], note: "改成玩家頭像在走道上走動，走到店面觸發。" },
+      { tab: { id: "regulars", label: "熟客" }, from: ["常客（Regulars）：好感度、故事（專屬座位已移除）"], note: "常客會以有名字的 NPC 在場景裡走動，點他就開這頁。" },
+      { tab: { id: "walk", label: "巡店" }, from: ["巡場（walk）：聽客人的聲音"], note: "改成帶行動點逐店檢查隱藏問題的玩法（Patrol）；客人心聲併入「聊聊」。" },
     ],
   },
   develop: {

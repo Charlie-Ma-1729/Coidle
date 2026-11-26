@@ -1,4 +1,5 @@
-import { EVENT_BY_ID, ticksToRealMinutes, type PendingChoice, type PublicMallState } from "@coidle/shared";
+import { EVENT_BY_ID, type PendingChoice, type PublicMallState } from "@coidle/shared";
+import { gameDeadline } from "../format";
 import { run } from "../store";
 import { Btn } from "./ui";
 
@@ -6,12 +7,11 @@ import { Btn } from "./ui";
 export function EventChoiceCard({ s, p }: { s: PublicMallState; p: PendingChoice }) {
   const def = EVENT_BY_ID[p.defId];
   if (!def?.choice) return null;
-  const mins = Math.max(0, Math.round(ticksToRealMinutes(p.deadlineTick - s.tick, s.clock.speed, s.clock.lag)));
   const defaultLabel = def.choice.options.find((o) => o.id === def.choice!.defaultOption)?.label;
   return (
     <div class="alert">
       <h4>
-        {def.category === "guest" ? "🙋" : "⚡"} {def.title} <span class="dim small">（{mins >= 60 ? `${Math.round(mins / 6) / 10} 小時` : `${mins} 分鐘`}內回覆）</span>
+        {def.category === "guest" ? "🙋" : "⚡"} {def.title} <span class="dim small">（{gameDeadline(p.deadlineTick, s.tick)} 前回覆）</span>
       </h4>
       <p class="small">{def.text}</p>
       <div class="row">

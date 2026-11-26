@@ -1,4 +1,4 @@
-import type { RestockRule, SlotKind } from "./types";
+import type { PlayInput, RestockRule, SlotKind, TechPlan } from "./types";
 
 /** 玩家指令：前端送出、伺服器驗證並套用 */
 export type Command =
@@ -8,7 +8,7 @@ export type Command =
   /** 概念定位：第一次免費，之後要付費並有冷卻 */
   | { type: "setConcept"; id: string }
   | { type: "setRestock"; shopId: string; rule: Partial<RestockRule> }
-  | { type: "orderStock"; shopId: string; qty: number }
+  | { type: "orderStock"; shopId: string; qty: number; /** 急件：貴三成、交期縮短 */ rush?: boolean }
   | { type: "setCleaning"; level: 0 | 1 | 2 }
   | { type: "setMaintenance"; level: 0 | 1 | 2 }
   | { type: "buildShop"; slot: number; category: string }
@@ -21,6 +21,12 @@ export type Command =
   /** 處理收件匣的客訴／評價；optionId 是客訴處理方式或評價回覆方式 */
   | { type: "resolveInbox"; uid: string; optionId: string }
   /** 巡場：聽聽此刻店裡客人的心聲 */
+  | { type: "patrolStart" }
+  | { type: "patrolInspect"; shopId: string; spot: string }
+  | { type: "patrolChat"; shopId: string }
+  | { type: "patrolDeepen"; issueId: string }
+  | { type: "patrolFix"; issueId: string; option: "now" | "schedule" | "pro" }
+  | { type: "patrolEnd" }
   | { type: "walkFloor" }
   | { type: "walkAct"; voiceId: string; optionId: string }
   /** 排程優惠活動；省略 startTick 代表現在開始。預算在排程時付掉，開始前取消會全額退回。 */
@@ -32,16 +38,20 @@ export type Command =
   | { type: "chooseSupplier"; family: string; supplierId: string }
   | { type: "signContract"; supplierId: string; days: number }
   | { type: "cancelContract"; supplierId: string }
-  | { type: "setSupplyPrefs"; autoFallback?: boolean }
+  | { type: "legalAction"; uid: string; optionId: string }
+  | { type: "setInsurance"; level: number }
+  | { type: "setSupplyPrefs"; autoFallback?: boolean; /** 指定某類貨品的首選備用供應商；supplierId 為 null＝取消指定 */ backup?: { family: string; supplierId: string | null } }
   /** 商戰：刺探情報、簽合作協議、反制活動、商戰姿態 */
   | { type: "rivalIntel"; rivalId: string }
   | { type: "rivalPact"; rivalId: string }
   | { type: "rivalCounter"; rivalId: string }
   | { type: "setRivalStance"; stance: "defend" | "neutral" | "aggressive" }
   /** 和常客互動：招呼、記住喜好、送小禮、保留／取消專屬座位 */
-  | { type: "regularAction"; regularId: string; action: "greet" | "remember" | "gift" | "reserve" | "unreserve" }
+  | { type: "regularAction"; regularId: string; action: "greet" | "remember" | "gift" }
+  | { type: "regularVoice"; uid: string; optionId: string }
+  | { type: "setMembership"; rate: number }
   /** 研發工坊：開始研發（每間店同時一件）、取消、處理試吃結果、菜單上下架 */
-  | { type: "startRnd"; shopId: string; picks: Partial<Record<SlotKind, string>> }
+  | { type: "startRnd"; shopId: string; picks: Partial<Record<SlotKind, string>>; /** 小遊戲的輸入（沒有＝自動，不加成） */ play?: PlayInput }
   | { type: "cancelRnd"; shopId: string }
   | { type: "tastingAction"; uid: string; action: "list" | "keep" | "discard"; slotIndex?: number }
   | { type: "listDish"; shopId: string; dishId: string; slotIndex?: number }
@@ -49,7 +59,8 @@ export type Command =
   | { type: "discardDish"; dishId: string }
   | { type: "setGuestPrefs"; complaintStance?: "soft" | "balanced" | "firm"; autoReplyReviews?: boolean }
   /** 科技樹：研發、取消（退回一半費用） */
-  | { type: "startTech"; id: string }
+  | { type: "startTech"; id: string; /** 立項配置（沒有＝標準） */ plan?: TechPlan }
+  | { type: "techExperiment"; id: string; optionId: string; /** 數據判讀的答案（沒有＝沒判讀） */ analysis?: number[] }
   | { type: "cancelTech"; id: string }
   /** 招商：簽約（可指定店面）、還價（租金加幾成）、婉拒、處理續約、提前解約 */
   | { type: "signTenant"; candidateId: string; slot?: number }

@@ -80,6 +80,12 @@ export interface RestockRule {
   target: number;
   /** 每日採購預算上限 */
   dailyBudget: number;
+  /** 智慧補貨：依這間店的日均銷量、供應商交期與供應狀況自動決定下限與目標（舊存檔沒有＝固定規則） */
+  smart?: boolean;
+  /** 智慧補貨要備幾天份的貨（預設 2.5） */
+  coverDays?: number;
+  /** 智慧補貨：供應商預告要出事（或行情要飆漲）時，先多囤一點（預設開） */
+  preShock?: boolean;
 }
 
 export interface ShopDayStats {
@@ -92,6 +98,10 @@ export interface ShopDayStats {
   priceWalks?: number;
   /** 今天賣出的貨（或服務耗材）的成本：份數 × 單位成本（舊存檔沒有） */
   cost?: number;
+  /** 今天放太久壞掉的貨（舊存檔沒有） */
+  waste?: number;
+  /** 下單時供應商沒能湊齊、也沒補到的份數（舊存檔沒有） */
+  short?: number;
 }
 
 export interface Shop {
@@ -108,6 +118,8 @@ export interface Shop {
   stock: number;
   incoming: { arriveTick: number; qty: number }[];
   restock: RestockRule;
+  /** 日均銷量（近幾天的移動平均，份／日）；智慧補貨與庫存天數用（舊存檔沒有） */
+  avgDaily?: number;
   spentToday: number;
   /** 出租模式：每日租金與營收抽成比例 */
   rent: number;
@@ -160,7 +172,9 @@ export type EffectSpec =
   | { t: "supplierSwitch"; family: SupplyFamily }
   | { t: "supplierNegotiate"; family: SupplyFamily }
   | { t: "supplierDiscover" }
-  | { t: "familyFreshness"; family: SupplyFamily; amount: number };
+  | { t: "familyFreshness"; family: SupplyFamily; amount: number }
+  // ── 法律風險：有機率（p）讓某個業態相關的店惹上官司（日本法規，見 shared/legal.ts）
+  | { t: "legalRisk"; kind: LegalKind; p: number };
 
 export type EventCategory =
   | "weather"
@@ -241,6 +255,12 @@ export interface DayStats {
   purchases: number;
   fixed: number;
   repairs: number;
+  /** 其中今天兌換的會員點數（也算在 repairs 裡；舊存檔沒有） */
+  memberCost?: number;
+  /** 今天發出的會員點數（負債，兌換時才算成本；舊存檔沒有） */
+  memberIssued?: number;
+  /** 其中今天花在法律糾紛的錢（和解金、判決金、律師費、過料，扣掉保險給付；也算在 repairs 裡。舊存檔沒有） */
+  legalCost?: number;
   groups: number;
   units: number;
   walkouts: number;
@@ -324,6 +344,64 @@ export type PublicMallState = Omit<MallState, "seed" | "cooldowns" | "grievances
 export type ComplaintCause = "stockout" | "wait" | "price" | "dirty" | "facility" | "quality";
 /** 客人的語氣（玩家看得到；是不是「奧客」要自己從語氣判斷，不會直接告訴你） */
 export type ComplaintTone = "sincere" | "angry" | "demanding";
+
+// ───────── 法務（客訴升級成訴訟） ─────────
+
+export type LegalKind = "food_poison" | "allergy" | "defect" | "misleading" | "injury" | "privacy" | "malpractice" | "lodging" | "contract";
+/** 請求書 → 民事調停 → 訴訟（示談成立或判決後結案） */
+export type LegalStage = "demand" | "mediation" | "trial";
+
+export interface LawsuitCase {
+  uid: string;
+  kind: LegalKind;
+  shopId: string | null;
+  shopName: string;
+  /** 原告的假名 */
+  plaintiff: string;
+  /** 請求金額 */
+  claim: number;
+  stage: LegalStage;
+  createdTick: number;
+  stageTick: number;
+  deadlineTick: number;
+  /** 我方的證據力 0–100（成立當下的清潔、設備、合規分數等；律師另加成） */
+  evidence: number;
+  /** 已委任律師（之後各階段不再收費，證據力 +15） */
+  lawyer: boolean;
+  /** 案件成立時的投保等級（0＝未投保） */
+  insured: number;
+  /** 起因的客訴語氣（原告占不占理由種子與語氣決定，不存進狀態、玩家只能從語氣猜） */
+  tone: ComplaintTone | null;
+  /** 經過（給玩家看的時間軸） */
+  history: { tick: number; text: string }[];
+}
+
+export interface ClosedCase {
+  uid: string;
+  kind: LegalKind;
+  shopName: string;
+  plaintiff: string;
+  claim: number;
+  /** 最後付出的錢（含保險給付之後；不含律師費） */
+  paid: number;
+  insurer: number;
+  lawyerFee: number;
+  closedTick: number;
+  /** 結果說明 */
+  result: string;
+  outcome: "settled" | "mediated" | "dismissed" | "partial" | "lost";
+}
+
+export interface LegalState {
+  cases: LawsuitCase[];
+  closed: ClosedCase[];
+  /** 保險等級 0–2（每日依直營店數收保費） */
+  insurance: number;
+  /** 下一件新糾紛最早成立的 tick（冷卻） */
+  nextAt: number;
+  totalPaid: number;
+  totalInsured: number;
+}
 /** 離線時的客訴處理偏好 */
 export type Stance = "soft" | "balanced" | "firm";
 export type ReviewReplyId = "polite" | "funny" | "sincere" | "ignore";
@@ -365,8 +443,37 @@ export interface WalkVoice {
 
 // ───────── 供應商 ─────────
 
-export type SupplyFamily = "meat" | "seafood" | "grain" | "produce" | "sweets" | "goods";
+export type SupplyFamily =
+  | "meat"
+  | "seafood"
+  | "grain"
+  | "produce"
+  | "sweets"
+  | "goods"
+  | "drinks"
+  | "apparel"
+  | "beauty"
+  | "tech"
+  | "culture"
+  | "medical"
+  | "venue"
+  | "hospitality";
 export type SupplierStatus = "ok" | "shortage" | "strike" | "closed" | "cold";
+/** 全服供應衝擊的原因（同一家供應商出事，所有用它的商場都受影響） */
+export type ShockKind = "strike" | "typhoon" | "recall" | "customs" | "poor_harvest" | "ban" | "bankrupt" | "price_spike";
+
+/** 這座商場已知的一次供應衝擊（預告→生效→結束）；由全服排程決定，商場只是記下來 */
+export interface SupplierShock {
+  id: string;
+  kind: ShockKind;
+  warnTick: number;
+  startTick: number;
+  endTick: number;
+  /** 衝擊期間的基礎供貨比例（0–1）；沒有關係或長約的買家只拿到這麼多 */
+  fill: number;
+  /** 漲價型衝擊的價格倍率 */
+  priceMult?: number;
+}
 
 export interface SupplierDef {
   id: string;
@@ -400,6 +507,10 @@ export interface SupplierState {
   /** 長約：鎖定價格、缺貨時優先供貨 */
   contract: { lockedMult: number; untilTick: number } | null;
   orders: number;
+  /** 目前或即將發生的全服供應衝擊（可選欄位；舊存檔沒有） */
+  shock?: SupplierShock | null;
+  /** 最近處理過的衝擊編號，避免重複套用 */
+  lastShockId?: string;
 }
 
 export interface SupplyState {
@@ -408,6 +519,8 @@ export interface SupplyState {
   choice: Record<string, string>;
   /** 主力無法出貨時，自動向備用供應商（現貨，貴一成）補貨 */
   autoFallback: boolean;
+  /** 每種貨品玩家指定的首選備用供應商（沒指定就挑最划算的；舊存檔沒有） */
+  backup?: Record<string, string>;
 }
 
 // ───────── NPC 對手商場（商戰） ─────────
@@ -568,10 +681,15 @@ export interface RegularStory {
   reward: { funds?: number; idx?: number };
 }
 
+/** 熟客的類型：不同類型有不同的來店時段、帶朋友、給意見的習慣（見 shared/regularsKit.ts） */
+export type RegularKind = "worker" | "elder" | "foodie" | "thrifty" | "fan" | "family" | "pro" | "creator";
+
 export interface RegularDef {
   id: string;
   name: string;
   persona: PersonaId;
+  /** 類型（舊的與 AI 內容池的常客沒有就當「一般」） */
+  kind?: RegularKind;
   /** 最愛的業態；沒有這類店就不會出現 */
   fav: CategoryId;
   /** 找不到最愛時的第二選擇 */
@@ -599,9 +717,116 @@ export interface RegularState {
   lastTalkTick: number;
   lastGiftTick: number;
   knowsPrefs: boolean;
-  /** 保留專屬座位（每日有維持費；來得更勤、小費更多） */
+  /** 已停用：專屬座位不符合現實，舊存檔會在日結時退費並清掉（欄位保留給舊存檔） */
   reserved: boolean;
   tipsTotal: number;
+  /** 這位熟客帶來的貢獻累計（舊存檔沒有） */
+  contrib?: RegularContrib;
+}
+
+export interface RegularContrib {
+  /** 本人與朋友的消費額（不含小費） */
+  revenue: number;
+  /** 帶來的朋友人次 */
+  friends: number;
+  /** 採納意見的次數 */
+  feedback: number;
+  /** 危機時幫忙說情／作證的次數 */
+  help: number;
+}
+
+/** 熟客直接對你說的話：給店家的意見，或人生大事（搬家、結婚……）。要在期限內回應 */
+export type VoiceTopic = "dirty" | "stockout" | "price" | "queue" | "stale" | "wish" | "life";
+export interface RegularVoice {
+  uid: string;
+  regularId: string;
+  shopId: string | null;
+  topic: VoiceTopic;
+  /** life 類的細項（move／marry／baby／promo／retire／sick） */
+  detail?: string;
+  text: string;
+  createdTick: number;
+  deadlineTick: number;
+}
+
+// ───────── 巡店（隱藏問題、行動點、檢查與處理） ─────────
+
+/** hidden＝還沒被發現（不給玩家看）；hinted＝有線索但不知道是什麼；confirmed＝查明了；scheduled＝已排程修理 */
+export type PatrolIssueStatus = "hidden" | "hinted" | "confirmed" | "scheduled";
+
+export interface PatrolIssue {
+  uid: string;
+  /** 問題種類（見 shared/patrol.ts 的 PATROL_KINDS）；只有線索時對玩家是 "unknown" */
+  kind: string;
+  shopId: string;
+  spot: string;
+  /** 嚴重度 1–5；只有線索時對玩家是 0 */
+  severity: number;
+  bornTick: number;
+  /** 上次惡化的 tick */
+  worsenedTick: number;
+  status: PatrolIssueStatus;
+  /** 線索（發現之後才有） */
+  hint?: string;
+  /** 排程處理完成的 tick */
+  fixTick?: number;
+}
+
+export interface PatrolSession {
+  startTick: number;
+  expireTick: number;
+  ap: number;
+  apMax: number;
+  /** 這趟檢查過的點（"店面編號:檢查點"） */
+  checked: string[];
+  chats: number;
+  found: number;
+  fixed: number;
+  spent: number;
+}
+
+export interface PatrolReport {
+  tick: number;
+  checked: number;
+  found: number;
+  fixed: number;
+  spent: number;
+  /** 結束時還沒處理的問題（已發現的） */
+  open: number;
+}
+
+export interface PatrolState {
+  issues: PatrolIssue[];
+  session: PatrolSession | null;
+  nextTick: number;
+  /** 巡店經驗值（等級由它決定） */
+  xp: number;
+  foundTotal: number;
+  fixedTotal: number;
+  /** 沒處理而釀成事故的次數 */
+  incidents: number;
+  /** 下一次事故最早發生的 tick（事故之間至少隔幾天，避免放置的商場一次被連環打擊；舊存檔沒有） */
+  nextIncident?: number;
+  /** 處理過的檢查點在這個 tick 之前不會再冒新問題（"店面編號:檢查點" → tick） */
+  cleared: Record<string, number>;
+  report: PatrolReport | null;
+}
+
+// ───────── 會員制（商場的點數卡） ─────────
+
+export interface MemberState {
+  /** 點數回饋率（%）：0＝不發點數；其他為 1／2／3／5 */
+  rate: number;
+  /** 會員人數 */
+  count: number;
+  /** 已發出、還沒用掉的點數（日圓）＝商場欠客人的負債 */
+  points: number;
+  totalIssued: number;
+  totalRedeemed: number;
+  totalExpired: number;
+  /** 本月到期失效的點數累計（只是統計，給畫面看） */
+  lastDayIssued: number;
+  lastDayRedeemed: number;
 }
 
 export interface GuestPrefs {
@@ -700,6 +925,14 @@ export interface MallState {
   world: WorldState;
   reviewLog: ReviewRecord[];
   guestPrefs: GuestPrefs;
+  /** 法務：客訴升級成的法律糾紛與保險（舊存檔沒有） */
+  legal?: LegalState;
+  /** 熟客的意見與人生大事（舊存檔沒有） */
+  voices?: RegularVoice[];
+  /** 會員制（點數卡；舊存檔沒有） */
+  members?: MemberState;
+  /** 巡店：隱藏問題與行動點（舊存檔沒有） */
+  patrol?: PatrolState;
   walk: { nextTick: number; voices: WalkVoice[] };
   today: DayStats;
   reports: DailyReport[];
@@ -765,6 +998,15 @@ export interface MenuEntry {
   listedTick: number;
 }
 
+/** 研發小遊戲的輸入（client 玩完後送給伺服器重新計分；見 shared/workshopPlay.ts） */
+export interface PlayInput {
+  /** 玩的是哪一份關卡種子（過期的關卡不算） */
+  seed: number;
+  stages: { id: string; inputs: number[] }[];
+  /** 調味微調：特性 id → +1／−1（最多兩個） */
+  tweak?: Record<string, number>;
+}
+
 export interface RndJob {
   uid: string;
   shopId: string;
@@ -773,6 +1015,8 @@ export interface RndJob {
   endTick: number;
   cost: number;
   sig: string;
+  /** 小遊戲的結果（驗證過的；舊存檔與沒玩的研發沒有） */
+  play?: { score: number; bonus: number; tweak: Record<string, number> };
 }
 
 /** signature＝命中隱藏配方；original＝普通創作；flop＝搭配失衡；burnt＝手滑失敗；almost＝配方對了但火候差一點 */
@@ -826,6 +1070,8 @@ export interface WorkshopState {
   skill: Record<string, number>;
   log: ExperimentLog[];
   clues: ClueNote[];
+  /** 目前小遊戲的關卡種子（每次開始研發就換一份；舊存檔第一次用到時補上） */
+  playSeed?: number;
 }
 
 // ───────── 稅務與法規（日本制度） ─────────
@@ -875,16 +1121,45 @@ export interface TaxState {
 
 // ───────── 科技樹 ─────────
 
+/** 科研專案的立項配置（三項加總 100）：速度（縮短時間、更貴）、嚴謹（提高成果品質）、節約（更省錢、成果較保守） */
+export interface TechPlan {
+  speed: number;
+  rigor: number;
+  thrift: number;
+}
+
+/** 研究進行到一半遇到的實驗事件 */
+export interface TechExperiment {
+  uid: string;
+  kind: string;
+  deadlineTick: number;
+}
+
 export interface TechJob {
   id: string;
   startTick: number;
   endTick: number;
   cost: number;
+  /** 立項配置（舊存檔與沒設定的專案沒有） */
+  plan?: TechPlan;
+  /** 成果品質點數（立項、實驗事件與數據判讀累積；決定結案等級） */
+  points?: number;
+  /** 目前待回應的實驗事件 */
+  exp?: TechExperiment | null;
+  /** 實驗事件已經發生過（每個專案一次） */
+  expDone?: boolean;
+  /** 這個專案數據判讀用的關卡種子 */
+  seed?: number;
 }
+
+/** 0＝勉強完成、1＝優良、2＝突破 */
+export type TechGrade = 0 | 1 | 2;
 
 export interface TechState {
   done: string[];
   jobs: TechJob[];
+  /** 各科技的結案等級（舊存檔沒有） */
+  grades?: Record<string, TechGrade>;
 }
 
 // ───────── 出租招商 ─────────

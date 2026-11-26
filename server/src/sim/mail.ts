@@ -1,4 +1,4 @@
-import { ALLIANCE_MAX_ACTIVE, EVENT_BY_ID, JOINT_PROMO_MULT, JOINT_PROMO_TICKS, TICKS_PER_DAY, WEATHER_NAMES, type MallState } from "@coidle/shared";
+import { ALLIANCE_MAX_ACTIVE, EVENT_BY_ID, JOINT_PROMO_MULT, JOINT_PROMO_TICKS, SHOCK_KINDS, SUPPLIER_BY_ID, TICKS_PER_DAY, WEATHER_NAMES, supplierState, type MallState, type ShockKind } from "@coidle/shared";
 import { applyEffects, applyIndexDelta, spawnEvent } from "./events";
 import { createRng, hash32 } from "./rng";
 import { addLog } from "./state";
@@ -60,6 +60,20 @@ export function applyMail(s: MallState, mail: Mail): void {
       if (!def) break;
       const rng = createRng(hash32(s.seed ^ 0x3e11, s.tick));
       spawnEvent(s, def, rng);
+      break;
+    }
+    // Overseer 對某家供應商手動加一段衝擊（取代該供應商目前的衝擊；到期自然結束）
+    case "admin_supply_shock": {
+      const def = SUPPLIER_BY_ID[str(p.supplierId, 40)];
+      const kind = str(p.kind, 20) as ShockKind;
+      const st = def ? supplierState(s, def.id) : undefined;
+      if (!def || !st || !(kind in SHOCK_KINDS)) break;
+      const days = Math.round(num(p.days, 1, 10)) || 3;
+      const k = SHOCK_KINDS[kind];
+      const fill = num(p.fill, 0, 1);
+      st.shock = { id: `admin:${mail.id}`, kind, warnTick: s.tick, startTick: s.tick, endTick: s.tick + days * TICKS_PER_DAY, fill, ...(k.price ? { priceMult: k.price[0] } : {}) };
+      st.lastShockId = st.shock.id;
+      notice(s, `${k.icon}「${def.name}」${k.startText}（預計 ${days} 天）。`);
       break;
     }
     case "poach_hit":

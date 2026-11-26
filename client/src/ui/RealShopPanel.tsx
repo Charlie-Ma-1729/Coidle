@@ -1,6 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { CATEGORY_BY_ID, MAX_SHOP_LEVEL, PRICE_TOLERANCE, REFRESH_COST, PRICE_MIN, PRICE_HARD_MAX, UPGRADE_BASE_COST, UPGRADE_TICKS, categoryHasStock, currentUnitCost, leaseEnabled } from "@coidle/shared";
-import { money, num, realDuration } from "../format";
+import { gameDeadline, gameDuration, money, num } from "../format";
 import { workshopFocus } from "../screens/Workshop";
 import type { HubId, StageFloor } from "../stage/model";
 import { busy, run, state } from "../store";
@@ -80,7 +80,7 @@ export function RealShopPanel(props: {
         <Head color={hex(stage.color)} title={stage.name} sub={`${floorName}・施工中`} onClose={props.onClose} />
         <div class="st-side-body">
           <Meter value={(stage.progress ?? 0) * 100} label="施工進度" hint={`${Math.round((stage.progress ?? 0) * 100)}%`} />
-          {task && <p class="st-hint">還要約 {realDuration(Math.max(0, task.completeTick - s.tick), s.clock.speed, s.clock.lag)}。施工期間不會有客人，也不需要你做任何事。</p>}
+          {task && <p class="st-hint">預計{gameDeadline(task.completeTick, s.tick)}完工。施工期間不會有客人，也不需要你做任何事。</p>}
         </div>
       </aside>
     );
@@ -115,7 +115,7 @@ export function RealShopPanel(props: {
         {closed && (
           <div class="st-tip red">
             <span>
-              <b>暫停營業中</b>，預計約 {realDuration(shop.closedUntilTick - s.tick, s.clock.speed, s.clock.lag)}後恢復。
+              <b>暫停營業中</b>，預計{gameDeadline(shop.closedUntilTick, s.tick)}恢復。
             </span>
           </div>
         )}
@@ -209,7 +209,7 @@ export function RealShopPanel(props: {
         )}
 
         <div class="st-cta">
-          <button class="st-btn" disabled={busy.value || shop.level >= MAX_SHOP_LEVEL || upgrading || s.funds < upgradeCost} onClick={() => confirm(`把「${shop.name}」翻新升級到 Lv.${shop.level + 1}？\n費用 ${money(upgradeCost)}，現在就會扣款；施工約 ${realDuration(UPGRADE_TICKS, s.clock.speed, s.clock.lag)}，店內人事成本也會增加。`) && run({ type: "upgradeShop", shopId: shop.id }, "開始翻新")}>
+          <button class="st-btn" disabled={busy.value || shop.level >= MAX_SHOP_LEVEL || upgrading || s.funds < upgradeCost} onClick={() => confirm(`把「${shop.name}」翻新升級到 Lv.${shop.level + 1}？\n費用 ${money(upgradeCost)}，現在就會扣款；施工${gameDuration(UPGRADE_TICKS)}，店內人事成本也會增加。`) && run({ type: "upgradeShop", shopId: shop.id }, "開始翻新")}>
             {shop.level >= MAX_SHOP_LEVEL ? "已達最高等級" : upgrading ? "翻新中…" : `升級到 Lv.${shop.level + 1}（${money(upgradeCost)}）`}
           </button>
           <div class="st-row">

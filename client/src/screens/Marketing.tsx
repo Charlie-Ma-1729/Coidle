@@ -4,13 +4,12 @@ import {
   PROMOS,
   PROMO_BY_ID,
   promoEffectFactor,
-  ticksToRealMinutes,
   type PersonaId,
   type PromoDef,
   type PublicMallState,
 } from "@coidle/shared";
 import { Btn, Card, Chip, Empty, Meter } from "../components/ui";
-import { dateText, clockText, money, nextTickAt, realDuration } from "../format";
+import { dateText, clockText, gameDeadline, gameDuration, money, nextTickAt } from "../format";
 import { PERSONA_ICONS } from "../icons";
 import { run, state } from "../store";
 
@@ -48,7 +47,7 @@ function PromoCard({ s, def }: { s: PublicMallState; def: PromoDef }) {
   const reason = busyNow
     ? "進行中或已排程"
     : cooldownLeft > 0
-      ? `冷卻中（${realDuration(cooldownLeft, s.clock.speed, s.clock.lag).replace("約 ", "約")}）`
+      ? `冷卻中（${gameDuration(cooldownLeft).replace("約 ", "約")}）`
       : s.funds < def.cost
         ? "資金不足"
         : tooMany
@@ -62,7 +61,7 @@ function PromoCard({ s, def }: { s: PublicMallState; def: PromoDef }) {
           {def.icon} {def.name}
         </b>
         <span class="small dim">
-          預算 {money(def.cost)}・{realDuration(def.durationTicks, s.clock.speed, s.clock.lag)}
+          預算 {money(def.cost)}・{gameDuration(def.durationTicks)}
         </span>
       </div>
       <p class="small dim">{def.desc}</p>
@@ -112,14 +111,13 @@ export function Marketing() {
               const def = PROMO_BY_ID[a.defId];
               const total = a.endTick - a.startTick;
               const done = Math.min(100, ((s.tick - a.startTick) / total) * 100);
-              const left = Math.round(ticksToRealMinutes(a.endTick - s.tick, s.clock.speed, s.clock.lag));
               return (
                 <div class="promo" key={a.uid}>
                   <div class="row between">
                     <b>
                       {def?.icon} {def?.name}
                     </b>
-                    <Chip tone="green">進行中・還有約 {left >= 60 ? `${Math.round(left / 6) / 10} 小時` : `${left} 分鐘`}</Chip>
+                    <Chip tone="green">進行中・到{gameDeadline(a.endTick, s.tick)}</Chip>
                   </div>
                   <Meter label="進度" value={done} hint={`${Math.round(done)}%`} tone="cyan" />
                   <p class="small dim">

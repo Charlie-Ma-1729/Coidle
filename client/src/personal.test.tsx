@@ -262,7 +262,14 @@ describe("個人財務視窗", () => {
     await open("market");
     (container.querySelector(".st-stock") as HTMLElement).click();
     await settle();
-    expect(buttons().some((b) => b.textContent?.trim() === "K 線")).toBe(false); // 今日是盤中折線，沒有 K 線
+    // 今日（盤中）也能切 K 線：每 3 步合成一根
+    byText("K 線").click();
+    await settle();
+    const bars = container.querySelectorAll("svg.st-chart rect").length;
+    expect(bars).toBeGreaterThan(3);
+    expect(bars).toBeLessThan(24);
+    byText("K 線").click(); // 切回折線
+    await settle();
     byText("1 個月").click();
     await settle();
     expect(container.querySelectorAll("svg.st-chart rect").length).toBe(0);

@@ -1,4 +1,4 @@
-import { CATEGORIES, CATEGORY_BY_ID, PROMOS, ZONES, expandInfo, ingredientFitsCategory, isCategoryAvailable, TEAM_EVENT_BY_ID, TECHS, TICKS_PER_DAY, isZoneUnlocked, techBlocker, techSlots, type MallState, type SlotKind } from "@coidle/shared";
+import { CATEGORIES, CATEGORY_BY_ID, PROMOS, ZONES, expandInfo, ingredientFitsCategory, isCategoryAvailable, TEAM_EVENT_BY_ID, TECHS, TICKS_PER_DAY, spotsOf, isZoneUnlocked, techBlocker, techSlots, type MallState, type SlotKind } from "@coidle/shared";
 import { advanceTo, applyCommand, createInitialState, createRng, type Command } from "../sim";
 import { resolveInbox } from "../sim/guests";
 
@@ -128,8 +128,30 @@ function diligentDay(s0: MallState, rnd: () => number, f: Features = ALL): MallS
     s = tryApply(s, { type: "regularAction", regularId: r.id, action: "greet" });
     if (!r.knowsPrefs) s = tryApply(s, { type: "regularAction", regularId: r.id, action: "remember" });
   }
-  s = tryApply(s, { type: "walkFloor" });
   return s;
+}
+
+/** 勤勞玩家巡店：只看得到「已發現」的問題（不偷看隱藏的），行動點用來查明、處理、再隨機檢查沒看過的點 */
+function patrolRoutine(s0: MallState, rnd: () => number): MallState {
+  let s = tryApply(s0, { type: "patrolStart" });
+  if (!s.patrol?.session) return s;
+  const ap = () => s.patrol?.session?.ap ?? 0;
+  const settle = () => {
+    for (const i of s.patrol!.issues.filter((x) => x.status === "hinted")) {
+      if (ap() < 1) break;
+      s = tryApply(s, { type: "patrolDeepen", issueId: i.uid });
+    }
+    for (const i of s.patrol!.issues.filter((x) => x.status === "confirmed")) s = tryApply(s, { type: "patrolFix", issueId: i.uid, option: "now" });
+  };
+  settle();
+  const direct = s.shops.filter((x) => x.mode === "direct" && x.tenant === null);
+  for (let tries = 0; ap() > 0 && tries < 30 && direct.length > 0; tries++) {
+    const shop = direct[Math.floor(rnd() * direct.length)]!;
+    const spots = spotsOf(shop.category);
+    s = tryApply(s, { type: "patrolInspect", shopId: shop.id, spot: spots[Math.floor(rnd() * spots.length)]! });
+    settle();
+  }
+  return tryApply(s, { type: "patrolEnd" });
 }
 
 /** 亂設定玩家：價格亂調、營業時間怪、不維護 */
@@ -195,19 +217,26 @@ export function runBot(kind: BotKind, seed: number, days: number, opts: { sample
     if (kind === "diligent" || (kind === "periodic" && d % 3 === 0)) s = diligentDay(s, rnd, { ...ALL, ...opts.features });
     else if (kind === "tender") s = diligentDay(s, rnd, { ...ALL, expand: false, ...opts.features });
     else if (kind === "chaotic") s = chaoticDay(s, rnd);
-    const target = (d + 1) * TICKS_PER_DAY;
-    while (s.tick < target) {
-      s = advanceTo(s, target, { nobodyPresent: !present });
-      if (s.clock.holds.events.length > 0) {
-        pauses++;
-        for (const uid of s.clock.holds.events) {
-          const def = s.pending.find((p) => p.uid === uid)?.defId ?? (s.inspections.pending.some((n) => n.uid === uid) ? "inspection" : "?");
-          pauseBy[def] = (pauseBy[def] ?? 0) + 1;
+    const advance = (target: number) => {
+      while (s.tick < target) {
+        s = advanceTo(s, target, { nobodyPresent: !present });
+        if (s.clock.holds.events.length > 0) {
+          pauses++;
+          for (const uid of s.clock.holds.events) {
+            const def = s.pending.find((p) => p.uid === uid)?.defId ?? (s.inspections.pending.some((n) => n.uid === uid) ? "inspection" : "?");
+            pauseBy[def] = (pauseBy[def] ?? 0) + 1;
+          }
+          s = tryApply(s, { type: "resolveAllDefault" });
+          s.clock.holds.events = [];
         }
-        s = tryApply(s, { type: "resolveAllDefault" });
-        s.clock.holds.events = [];
       }
+    };
+    // 勤勞玩家中午巡店（商場開著才巡得了）
+    if (kind === "diligent" || kind === "tender" || (kind === "periodic" && d % 3 === 0)) {
+      advance(d * TICKS_PER_DAY + 150);
+      s = patrolRoutine(s, rnd);
     }
+    advance((d + 1) * TICKS_PER_DAY);
     if (s.funds < -2_000_000) broke = true;
     if ((d + 1) % every === 0) samples.push(sample(s));
   }

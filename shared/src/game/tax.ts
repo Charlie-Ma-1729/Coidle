@@ -1,5 +1,6 @@
 import { CATEGORY_BY_ID, TICKS_PER_DAY, ZONES } from "./data";
 import { expandCost, expansionsOf } from "./expansion";
+import { FOOD_FAMILIES } from "./supply";
 import type { MallState, Obligation, ObligationKind, SupplierDef } from "./types";
 
 // 日本的稅務與法規。
@@ -21,7 +22,7 @@ export function consumptionRate(category: string): number {
 
 /** 進貨（含稅價）裡的稅率：食材 8%，商品與其他 10% */
 export function purchaseRate(family: string | null): number {
-  return family && family !== "goods" ? CONSUMPTION_REDUCED : CONSUMPTION_STANDARD;
+  return family && FOOD_FAMILIES.includes(family as never) ? CONSUMPTION_REDUCED : CONSUMPTION_STANDARD;
 }
 
 /** 含稅金額中的稅額 */

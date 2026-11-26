@@ -33,6 +33,7 @@ import {
 } from "@coidle/shared";
 import { applyPersonaIndex } from "./events";
 import { flavor } from "./flavor";
+import { maybeEscalateComplaint } from "./legal";
 import { createRng, hash32, type Rng } from "./rng";
 import { addLog, nextId, shopCapacity } from "./state";
 
@@ -125,6 +126,7 @@ export function resolveInbox(s: MallState, uid: string, optionId: string | null)
     s.today.purchases += cost;
     applyPersonaIndex(s, item.persona, delta);
     s.inbox.splice(at, 1);
+    maybeEscalateComplaint(s, { uid: item.uid, shopId: item.shopId, cause: item.cause, tone: item.tone, option: opt, byDefault, unreasonable });
     const label = COMPLAINT_OPTIONS.find((o) => o.id === opt)?.label ?? opt;
     addLog(s, "info", `客訴${byDefault ? "（逾期，依偏好自動處理）" : ""}：「${shop?.name ?? "某店"}」→ ${label}${cost ? `（花 ${cost.toLocaleString("en-US")}）` : ""}`);
     return { ok: true, note: unreasonable && !byDefault ? `${label}。（事後才發現對方可能是來鬧的……）` : `${label}。` };
@@ -221,6 +223,25 @@ function candidatesFor(s: MallState, shop: Shop): Candidate[] {
   out.push({ shop, situation: "happy", weight: shop.freshness > 50 ? 2 : 0.5 });
   out.push({ shop, situation: "lost", weight: 0.8 });
   return out;
+}
+
+/** 在某間店和客人聊聊：依這間店此刻的狀況抽一則客人心聲（巡店的「與客人聊聊」用） */
+export function chatVoiceFor(s: MallState, rng: Rng, shop: Shop): WalkVoice | null {
+  const pool = candidatesFor(s, shop);
+  const c = pool[rng.weighted(pool.map((x) => x.weight))];
+  const sit = c ? WALK_SITUATIONS[c.situation] : undefined;
+  if (!c || !sit) return null;
+  const personaW = PERSONA_IDS.map((p) => s.today.groupsByPersona[p] + 1);
+  const persona = c.situation === "lost" ? "tourist" : (PERSONA_IDS[rng.weighted(personaW)] ?? "local");
+  return {
+    id: nextId(s, "wv"),
+    shopId: shop.id,
+    persona,
+    mood: sit.mood,
+    situation: sit.id,
+    text: (sit.texts[rng.int(0, sit.texts.length - 1)] ?? "").replaceAll("{shop}", shop.name),
+    expireTick: s.tick + WALK_VOICE_TTL_TICKS,
+  };
 }
 
 export function walkFloor(s: MallState, rng: Rng, open: boolean): GuestResult {

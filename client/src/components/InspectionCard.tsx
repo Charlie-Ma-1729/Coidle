@@ -1,12 +1,11 @@
-import { DEFAULT_PREP, INSPECTIONS, PREP_OPTIONS, inspectionScore, ticksToRealMinutes, type InspectionNotice, type PublicMallState } from "@coidle/shared";
-import { money } from "../format";
+import { DEFAULT_PREP, INSPECTIONS, PREP_OPTIONS, inspectionScore, type InspectionNotice, type PublicMallState } from "@coidle/shared";
+import { gameDeadline, money } from "../format";
 import { run } from "../store";
 import { Btn, Meter } from "./ui";
 
 /** 稽查預告：還有一段時間可以備戰。沒人處理的話，到時會自動做「例行整理」。 */
 export function InspectionCard({ s, n }: { s: PublicMallState; n: InspectionNotice }) {
   const def = INSPECTIONS[n.kind];
-  const mins = Math.max(0, Math.round(ticksToRealMinutes(n.inspectTick - s.tick, s.clock.speed, s.clock.lag)));
   const score = inspectionScore(n.kind, s.cleanliness, s.equipment);
   const waiting = s.clock.holds.events.includes(n.uid);
   return (
@@ -15,7 +14,7 @@ export function InspectionCard({ s, n }: { s: PublicMallState; n: InspectionNoti
         <h4>
           {def.icon} {def.authority}預告：{def.name}
         </h4>
-        <span class="small dim">約 {mins >= 60 ? `${Math.round(mins / 6) / 10} 小時` : `${mins} 分鐘`}後到訪</span>
+        <span class="small dim">{gameDeadline(n.inspectTick, s.tick)} 到訪</span>
       </div>
       <p class="small dim">{def.noticeText.replace("通知：", "：")}</p>
       <Meter label="目前評估分數（現在來就是這個分）" value={score} hint={`${score}`} />

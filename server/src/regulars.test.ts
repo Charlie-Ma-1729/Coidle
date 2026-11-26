@@ -11,7 +11,6 @@ import {
   REGULAR_BY_ID,
   REGULAR_DRIFT_AFTER_TICKS,
   RESERVE_FEE,
-  RESERVE_MIN_AFFINITY,
   RESERVE_UPKEEP_PER_DAY,
   TICKS_PER_DAY,
   TICK_MINUTES,
@@ -217,7 +216,7 @@ describe("stories, drift and word of mouth", () => {
 describe("interactions", () => {
   it("cannot interact with someone you have not met", () => {
     const s = createInitialState(7, START);
-    for (const action of ["greet", "remember", "gift", "reserve"] as const) {
+    for (const action of ["greet", "remember", "gift"] as const) {
       expect(applyCommand(s, { type: "regularAction", regularId: "afu", action }).ok).toBe(false);
     }
     expect(applyCommand(s, { type: "regularAction", regularId: "nobody", action: "greet" }).ok).toBe(false);
@@ -259,44 +258,20 @@ describe("interactions", () => {
     expect(applyCommand(s, { type: "regularAction", regularId: "afu", action: "gift" }).ok).toBe(true);
   });
 
-  it("reserved seat: needs affinity and money, costs upkeep every day, and can be cancelled", () => {
-    let s = createInitialState(7, START);
-    meet(s, "afu", RESERVE_MIN_AFFINITY - 1);
-    expect(applyCommand(s, { type: "regularAction", regularId: "afu", action: "reserve" }).ok).toBe(false);
-    reg(s, "afu").affinity = RESERVE_MIN_AFFINITY;
+  it("the old reserved-seat feature is retired: old saves get their fee back and the seat is cancelled", () => {
+    const s = createInitialState(7, START);
+    meet(s, "afu", 50).reserved = true;
+    meet(s, "hana", 50).reserved = true;
     const funds = s.funds;
-    s = apply(s, { type: "regularAction", regularId: "afu", action: "reserve" });
-    expect(s.funds).toBe(funds - RESERVE_FEE);
-    expect(reg(s, "afu").reserved).toBe(true);
-    expect(applyCommand(s, { type: "regularAction", regularId: "afu", action: "reserve" }).ok).toBe(false);
-
-    // 維持費：同樣的一天，有專屬座位的商場固定成本多 RESERVE_UPKEEP_PER_DAY
-    const base = createInitialState(7, START);
-    meet(base, "afu", 20);
-    base.shops.forEach((x) => (x.restock.enabled = false));
-    const withSeat = structuredClone(base);
-    reg(withSeat, "afu").reserved = true;
-    const a = advanceTo(base, START + DAY + 1);
-    const b = advanceTo(withSeat, START + DAY + 1);
-    expect(a.reports[0]!.fixed - b.reports[0]!.fixed).toBeCloseTo(-RESERVE_UPKEEP_PER_DAY, -1);
-
-    s = apply(s, { type: "regularAction", regularId: "afu", action: "unreserve" });
+    regularsDaily(s);
     expect(reg(s, "afu").reserved).toBe(false);
-    expect(applyCommand(s, { type: "regularAction", regularId: "afu", action: "unreserve" }).ok).toBe(false);
-  });
-
-  it("a reserved regular visits more often", () => {
-    let normal = 0;
-    let reserved = 0;
-    for (let seed = 1; seed <= 4; seed++) {
-      const a = createInitialState(seed, START);
-      meet(a, "afu", 60);
-      const b = structuredClone(a);
-      reg(b, "afu").reserved = true;
-      normal += reg(advanceTo(a, START + 10 * DAY), "afu").visits;
-      reserved += reg(advanceTo(b, START + 10 * DAY), "afu").visits;
-    }
-    expect(reserved).toBeGreaterThan(normal);
+    expect(reg(s, "hana").reserved).toBe(false);
+    expect(s.funds).toBe(funds + 2 * RESERVE_FEE);
+    expect(applyCommand(s, { type: "regularAction", regularId: "afu", action: "reserve" as never }).ok).toBe(false);
+    const again = s.funds;
+    regularsDaily(s);
+    expect(s.funds).toBe(again); // 只退一次
+    expect(RESERVE_UPKEEP_PER_DAY).toBeGreaterThan(0);
   });
 
   it("rejects unknown actions", () => {

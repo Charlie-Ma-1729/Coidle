@@ -1,0 +1,35 @@
+# 研發小遊戲（工坊手藝＋科技研究專案）
+
+把「選素材→等時間」變成有手感的決策。**不玩也能玩**（沒有 `play` ＝ 與舊版完全相同），玩得好有上限加成，不是最優解的必要條件。
+
+## 共通：伺服器重放驗證
+- client 即時玩，指令只送**原始輸入**（`PlayInput`：關卡種子＋各關輸入＋調味微調）。
+- 伺服器用 `workshop.playSeed`（自己的鹽雜湊，不是引擎亂數流）重新產生關卡、重算分數；種子不符／輸入不合法＝當作沒玩，不報錯。偽造輸入只會被夾限。
+- `playSeed` 每次開始研發後換新，client 從公開狀態拿到。
+- 新欄位都是可選欄位（`RndJob.play`、`WorkshopState.playSeed`、`TechJob.plan/points/exp/expDone/seed`、`TechState.grades`），舊存檔缺省＝自動。
+
+## 工坊（`shared/src/game/workshopPlay.ts`、`server/src/sim/workshop.ts`、`client/src/screens/workshop/PlayFlow.tsx`）
+四個群組（food／retail／entertainment／service）各有一套工序名稱（`PLAY_GROUPS`），三關：
+1. **備料／選料**：排順序（先做耗時長的），算成對順序比例。
+2. **烹調／打樣／彩排／演練**：玩法由手法素材決定（`actKind`）——節奏（時機窗口）或維持（拖曳保持在甜蜜帶）。
+3. **調味／微調**：依線索對最多 2 個特性 ±1；可能因此過量變 `flop`。
+- 分數＝備料 40%＋操作 60%；`bonus`＝floor(分數×3.5) 夾 0–3，當作廚藝經驗加到 `resolveJob` 的等級；品質另加 round(分數×3)。
+- 難度＝素材公開單價總和（`playDifficulty`，0–8），越貴窗口越窄。
+- 簽名＝素材組合＋`tweakKey`：同組素材、不同微調算不同組合；「原創／失敗」過的組合只有**加了微調**才能再試。
+
+## 科技（`shared/src/game/techPlay.ts`、`server/src/sim/tech.ts`、`client/src/screens/Tech.tsx`）
+1. **立項**：速度／嚴謹／節約三條滑桿（總和 100，`normalizePlan`）→ 時間倍率、費用倍率、起始品質點（`planEffects`）。不給 `plan` ＝標準配置，時間費用照表定價。
+2. **實驗事件**：進度到 50% 出現（異常資料／設備故障／意外發現／團隊狀況，`TECH_EXPERIMENTS`），玩家選處理方式（有成本、風險機率）；逾期（最多 144 tick）走最保守的預設，沒錢走免費選項。
+3. **數據判讀**（選填）：三組帶雜訊折線判斷下降／持平／上升（`makeAnalysisLevel`／`scoreAnalysis`），最多 +1.2 品質點，答案隨 `techExperiment` 指令送出。
+4. **結案分級**：`techGrade(points, luck)`——勉強完成／優良（≥1.8，退 10% 費用、直營店廚藝經驗 +1）／突破（≥3.2，退 30%、經驗 +2、在地口碑 +0.4）。效果本身（`fx`）不隨等級改變，避免數值失控。
+- 取消研發仍退 `TECH_CANCEL_REFUND`。
+
+## 前端
+- 工坊：「🎮 開始…」進入三關流程（可略過單關、可「直接自動開始」）；`Workshop.tsx` 的「自動」鈕不經小遊戲。手機版同一套（觸控／滑鼠）。
+- 科技：研究室卡片顯示速度／嚴謹／節約、品質點、實驗事件卡（內含折線判讀）；科技卡「立項」展開資源分配。
+
+## 測試
+`server/src/play.test.ts`（計分決定性／偽造輸入夾限／重放等價／舊存檔）、`client/src/ui.test.tsx`（PlayFlow、Tech 立項與實驗）。
+
+## 未做
+工坊等待期中途事件、租賃協商小決策（非必要，留待之後）。

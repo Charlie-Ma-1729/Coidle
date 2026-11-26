@@ -8,7 +8,7 @@ import {
   type PublicMallState,
 } from "@coidle/shared";
 import { Btn, Card, Chip, Empty, Meter } from "../components/ui";
-import { dateText, money, realDuration } from "../format";
+import { dateText, gameDeadline, money } from "../format";
 import { run, state, user } from "../store";
 
 function Period({ s, period, title, hint }: { s: PublicMallState; period: "day" | "week"; title: string; hint: string }) {
@@ -60,7 +60,7 @@ function TeamEvent({ s }: { s: PublicMallState }) {
     <Card title={`${def.icon} 團隊事件：${def.title}`} right={<Chip tone="amber">{ev.contributions.length}／{ev.needed} 位</Chip>}>
       <div class="stack">
         <p class="small">{def.text}</p>
-        <p class="small dim">還有 {realDuration(ev.deadlineTick - s.tick, s.clock.speed, s.clock.lag)}・不同的隊員各認領一項，湊滿就完成；來不及也只是少一點獎勵，不會有損失。</p>
+        <p class="small dim">{gameDeadline(ev.deadlineTick, s.tick)} 前・不同的隊員各認領一項，湊滿就完成；來不及也只是少一點獎勵，不會有損失。</p>
         {def.tasks.map((t) => {
           const taken = ev.contributions.find((c) => c.taskId === t.id);
           return (

@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { FastifyInstance } from "fastify";
-import { EVENTS, NPC_BY_ID, NPC_MALLS, ROLE_IDS, WEATHER_NAMES, publicKey, speedPreset, type MeResponse, type RoleId } from "@coidle/shared";
+import { EVENTS, NPC_BY_ID, NPC_MALLS, ROLE_IDS, SHOCK_KINDS, SUPPLIER_BY_ID, SUPPLY_FAMILIES, TICKS_PER_DAY, WEATHER_NAMES, publicKey, shocksStartingOnDay, speedPreset, type MeResponse, type RoleId, type ShockKind } from "@coidle/shared";
 import type { ContentService, ContentKind } from "../ai/service";
 import { hashPassword, hashToken, newInviteCode, newSessionToken, verifyPassword } from "../auth/password";
 import type { Config } from "../config";
@@ -867,6 +867,49 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const malls = targetsOf(b.malls);
     note(req, "event.trigger", eventId, { malls });
     return { sent: service.adminBroadcast(malls, "admin_event", { eventId }) };
+  });
+
+  // ── 全服供應衝擊：看排程（純函式，伺服器 tick 決定）、手動對指定供應商加一段衝擊
+  app.get("/api/admin/supply-shocks", async () => {
+    const tick = service.serverTick();
+    const day = Math.floor(tick / TICKS_PER_DAY);
+    const rows = [];
+    for (let d = Math.max(0, day - 10); d <= day + 7; d++) {
+      for (const sh of shocksStartingOnDay(d)) {
+        if (sh.endTick <= tick) continue;
+        const def = SUPPLIER_BY_ID[sh.supplierId];
+        rows.push({
+          id: sh.id,
+          supplierId: sh.supplierId,
+          supplier: def?.name ?? sh.supplierId,
+          family: SUPPLY_FAMILIES[sh.family].name,
+          kind: sh.kind,
+          label: SHOCK_KINDS[sh.kind].label,
+          icon: SHOCK_KINDS[sh.kind].icon,
+          warnTick: sh.warnTick,
+          startTick: sh.startTick,
+          endTick: sh.endTick,
+          fill: sh.fill,
+          priceMult: sh.priceMult ?? null,
+          phase: sh.startTick > tick ? (sh.warnTick <= tick ? "warning" : "scheduled") : "live",
+        });
+      }
+    }
+    rows.sort((a, b) => a.startTick - b.startTick);
+    return { tick, shocks: rows };
+  });
+  app.post("/api/admin/supply-shocks/trigger", async (req) => {
+    const b = body(req);
+    const supplierId = str(b.supplierId, "供應商", 3, 40);
+    const def = SUPPLIER_BY_ID[supplierId];
+    if (!def) throw new ServiceError(404, "找不到這家供應商");
+    const kind = typeof b.kind === "string" && b.kind in SHOCK_KINDS ? (b.kind as ShockKind) : null;
+    if (!kind) throw new ServiceError(400, "衝擊種類不正確");
+    const days = typeof b.days === "number" && Number.isFinite(b.days) ? Math.min(10, Math.max(1, Math.round(b.days))) : 3;
+    const fill = typeof b.fill === "number" && Number.isFinite(b.fill) ? Math.min(1, Math.max(0, b.fill)) : SHOCK_KINDS[kind].fill[0];
+    const malls = targetsOf(b.malls);
+    note(req, "supply.shock", supplierId, { kind, days, fill, malls });
+    return { sent: service.adminBroadcast(malls, "admin_supply_shock", { supplierId, kind, days, fill }) };
   });
 
   // ── 天氣：對全部（不含測試商場）或指定商場套用一段天氣

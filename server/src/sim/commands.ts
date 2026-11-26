@@ -5,7 +5,10 @@ import {
   PRICE_HARD_MAX,
   CONCEPT_BY_ID,
   CONCEPT_COOLDOWN_TICKS,
+  FAMILY_ORDER,
   MAX_SHOP_LEVEL,
+  SUPPLIER_BY_ID,
+  supplierState,
   ZONE_BY_ID,
   expandInfo,
   isCategoryAvailable,
@@ -28,13 +31,17 @@ import { resolveChoice } from "./events";
 import { resolveInbox, walkAct, walkFloor } from "./guests";
 import { autoPrepareInspections, prepareInspection } from "./inspections";
 import { cancelPromo, schedulePromo } from "./promos";
+import { resolveLegal, setInsurance } from "./legal";
+import { setMembership } from "./members";
+import { chatShop, deepenIssue, endPatrol, fixIssue, inspectSpot, startPatrol } from "./patrol";
+import { resolveVoice } from "./voices";
 import { regularAction } from "./regulars";
 import { rivalCounter, rivalIntel, rivalPact } from "./rivals";
 import { cancelContract, chooseSupplier, signContract } from "./suppliers";
 import { rngForTick } from "./rng";
 import { bump, checkStarters, contribute, guessPlace, trackActor, type Actor } from "./meta";
 import { counterTenant, declineTenant, resolveRenewal, signTenant, terminateLease } from "./leasing";
-import { cancelTech, startTech } from "./tech";
+import { cancelTech, startTech, techExperiment } from "./tech";
 import { cancelRnd, discardDish, listDish, startRnd, syncWorkshop, tastingAction, unlistDish } from "./workshop";
 import { addLog, isFeatureEnabled, isZoneUnlocked, nextId } from "./state";
 import { isOpen, placeOrder } from "./step";
@@ -106,6 +113,9 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
       if (typeof r.min === "number") next.min = Math.max(0, Math.round(r.min));
       if (typeof r.target === "number") next.target = Math.max(0, Math.round(r.target));
       if (typeof r.dailyBudget === "number") next.dailyBudget = Math.max(0, Math.round(r.dailyBudget));
+      if (typeof r.smart === "boolean") next.smart = r.smart;
+      if (typeof r.coverDays === "number") next.coverDays = Math.min(6, Math.max(1, Math.round(r.coverDays * 2) / 2));
+      if (typeof r.preShock === "boolean") next.preShock = r.preShock;
       if (next.target < next.min) return err("補貨目標不可低於下限");
       shop.restock = next;
       break;
@@ -120,8 +130,11 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
       if (!isInt(cmd.qty) || cmd.qty < SUPPLY_LOT || cmd.qty % SUPPLY_LOT !== 0 || cmd.qty > 2000) {
         return err(`進貨量須為 ${SUPPLY_LOT} 的倍數（最多 2000）`);
       }
-      placeOrder(s, shop, cmd.qty);
-      addLog(s, "order", `手動向盤商訂購「${shop.name}」${cmd.qty} 份。`);
+      if (cmd.rush !== undefined && typeof cmd.rush !== "boolean") return err("設定無效");
+      const before = shop.incoming.reduce((a, b) => a + b.qty, 0);
+      if (!placeOrder(s, shop, cmd.qty, { rush: !!cmd.rush })) return err("下不了單：倉庫已滿、供應商不能出貨，或進不到貨");
+      const got = shop.incoming.reduce((a, b) => a + b.qty, 0) - before;
+      addLog(s, "order", `${cmd.rush ? "急件" : "手動"}向盤商訂購「${shop.name}」${cmd.qty} 份${got < cmd.qty ? `（實際進貨 ${got} 份）` : ""}。`);
       break;
     }
 
@@ -240,6 +253,34 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
       break;
     }
 
+    case "regularVoice": {
+      const r = resolveVoice(s, cmd.uid, cmd.optionId);
+      if (!r.ok) return err(r.error);
+      addLog(s, "info", `🏮 ${r.note}`);
+      bump(s, "handled");
+      break;
+    }
+
+    case "setMembership": {
+      const r = setMembership(s, cmd.rate);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "legalAction": {
+      const r = resolveLegal(s, cmd.uid, cmd.optionId);
+      if (!r.ok) return err(r.error);
+      addLog(s, "info", `⚖️ ${r.note}`);
+      bump(s, "handled");
+      break;
+    }
+
+    case "setInsurance": {
+      const r = setInsurance(s, cmd.level);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
     case "resolveInbox": {
       const r = resolveInbox(s, cmd.uid, cmd.optionId);
       if (!r.ok) return err(r.error);
@@ -256,6 +297,40 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
 
     case "walkAct": {
       const r = walkAct(s, cmd.voiceId, cmd.optionId);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "patrolStart": {
+      const r = startPatrol(s, isOpen(s, timeInfo(s.tick)));
+      if (!r.ok) return err(r.error);
+      break;
+    }
+    case "patrolInspect": {
+      const r = inspectSpot(s, cmd.shopId, cmd.spot);
+      if (!r.ok) return err(r.error);
+      addLog(s, "info", `🚶 ${r.note}`);
+      break;
+    }
+    case "patrolChat": {
+      const r = chatShop(s, cmd.shopId, rngForTick(s.seed, s.tick ^ 0x7a1c3d5b));
+      if (!r.ok) return err(r.error);
+      break;
+    }
+    case "patrolDeepen": {
+      const r = deepenIssue(s, cmd.issueId);
+      if (!r.ok) return err(r.error);
+      addLog(s, "info", `🚶 ${r.note}`);
+      break;
+    }
+    case "patrolFix": {
+      const r = fixIssue(s, cmd.issueId, cmd.option);
+      if (!r.ok) return err(r.error);
+      bump(s, "handled");
+      break;
+    }
+    case "patrolEnd": {
+      const r = endPatrol(s);
       if (!r.ok) return err(r.error);
       break;
     }
@@ -282,6 +357,20 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
       if (cmd.autoFallback !== undefined) {
         if (typeof cmd.autoFallback !== "boolean") return err("設定無效");
         s.supply.autoFallback = cmd.autoFallback;
+      }
+      if (cmd.backup !== undefined) {
+        const fam = FAMILY_ORDER.find((f) => f === cmd.backup!.family);
+        if (!fam) return err("貨品類別無效");
+        if (cmd.backup.supplierId === null) {
+          if (s.supply.backup) delete s.supply.backup[fam];
+        } else {
+          const def = SUPPLIER_BY_ID[cmd.backup.supplierId];
+          const st = supplierState(s, cmd.backup.supplierId);
+          if (!def || def.family !== fam) return err("供應商與貨品不符");
+          if (!st?.discovered) return err("你還不認識這家供應商");
+          if (s.supply.choice[fam] === def.id) return err("他已經是主力供應商了");
+          s.supply.backup = { ...(s.supply.backup ?? {}), [fam]: def.id };
+        }
       }
       break;
     }
@@ -317,7 +406,7 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
     }
 
     case "startRnd": {
-      const r = startRnd(s, cmd.shopId, cmd.picks ?? {});
+      const r = startRnd(s, cmd.shopId, cmd.picks ?? {}, cmd.play);
       if (!r.ok) return err(r.error);
       break;
     }
@@ -378,8 +467,15 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
     }
 
     case "startTech": {
-      const r = startTech(s, cmd.id);
+      const r = startTech(s, cmd.id, cmd.plan);
       if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "techExperiment": {
+      const r = techExperiment(s, cmd.id, cmd.optionId, cmd.analysis);
+      if (!r.ok) return err(r.error);
+      bump(s, "handled");
       break;
     }
 

@@ -607,8 +607,8 @@ export const EVENTS: EventDef[] = [
       defaultOption: "check",
       options: [
         { id: "check", label: "立刻確認原料、換一份安全的並致歉", effects: [{ t: "funds", amount: -8_000 }, { t: "index", which: "localRep", amount: 1 }] },
-        { id: "explain", label: "說明菜單已有標示，表達關心", effects: [{ t: "index", which: "localRep", amount: 0.1 }] },
-        { id: "ignore", label: "請客人自己注意", effects: [{ t: "index", which: "localRep", amount: -1.8 }, { t: "index", which: "touristHeat", amount: -0.8 }] },
+        { id: "explain", label: "說明菜單已有標示，表達關心", effects: [{ t: "index", which: "localRep", amount: 0.1 }, { t: "legalRisk", kind: "allergy", p: 0.1 }] },
+        { id: "ignore", label: "請客人自己注意", effects: [{ t: "index", which: "localRep", amount: -1.8 }, { t: "index", which: "touristHeat", amount: -0.8 }, { t: "legalRisk", kind: "allergy", p: 0.45 }] },
       ],
     },
   },
@@ -719,45 +719,6 @@ export const EVENTS: EventDef[] = [
   },
   // ───────── 供應商戲劇（對象是你目前的主力供應商） ─────────
   {
-    id: "seafood_shortage",
-    category: "supply",
-    title: "海鮮供應吃緊",
-    text: "外海天氣不好，海鮮供應商通知：這幾天出貨量只有平常的六成，而且要等更久。",
-    weight: 1.6,
-    cooldownTicks: 288 * 8,
-    needsFamily: "seafood",
-    attention: "pause",
-    effects: [],
-    choice: {
-      deadlineTicks: 36,
-      defaultOption: "wait",
-      options: [
-        { id: "wait", label: "忍耐幾天（出貨只有六成）", effects: [{ t: "supplierStatus", family: "seafood", status: "shortage", ticks: 144 }] },
-        { id: "switch", label: "改向備用供應商（花 1.5 萬）", effects: [{ t: "funds", amount: -15_000 }, { t: "supplierSwitch", family: "seafood" }] },
-        { id: "premium", label: "加價搶貨（花 3 萬，維持全額供貨）", effects: [{ t: "funds", amount: -30_000 }, { t: "supplierRel", family: "seafood", amount: 3 }] },
-      ],
-    },
-  },
-  {
-    id: "meat_strike",
-    category: "supply",
-    title: "肉品供應商罷工",
-    text: "肉品工會宣布罷工，供應商說最快要幾天後才能出貨，還叫你「多多包涵」。",
-    weight: 1.4,
-    cooldownTicks: 288 * 10,
-    needsFamily: "meat",
-    attention: "pause",
-    effects: [],
-    choice: {
-      deadlineTicks: 36,
-      defaultOption: "wait",
-      options: [
-        { id: "wait", label: "等他們復工（期間靠備援現貨，貴一成）", effects: [{ t: "supplierStatus", family: "meat", status: "strike", ticks: 216 }] },
-        { id: "switch", label: "直接換掉這家（花 1.5 萬）", effects: [{ t: "funds", amount: -15_000 }, { t: "supplierSwitch", family: "meat" }] },
-      ],
-    },
-  },
-  {
     id: "grain_price_hike",
     category: "supply",
     title: "製麵所宣布漲價",
@@ -791,25 +752,6 @@ export const EVENTS: EventDef[] = [
       options: [
         { id: "switch", label: "立刻換供應商（花 1.5 萬）", effects: [{ t: "funds", amount: -15_000 }, { t: "supplierSwitch", family: "produce" }, { t: "index", which: "localRep", amount: 0.3 }] },
         { id: "explain", label: "公開說明、繼續合作", effects: [{ t: "index", which: "localRep", amount: -0.8 }, { t: "supplierRel", family: "produce", amount: 3 }] },
-      ],
-    },
-  },
-  {
-    id: "sweets_bankrupt",
-    category: "supply",
-    title: "原料行倒閉了",
-    text: "甜點原料行的老闆一早貼出公告：「本店結束營業」。你的下一批貨在哪？",
-    weight: 1,
-    cooldownTicks: 288 * 14,
-    needsFamily: "sweets",
-    attention: "pause",
-    effects: [],
-    choice: {
-      deadlineTicks: 36,
-      defaultOption: "switch",
-      options: [
-        { id: "switch", label: "改向備用供應商（花 1.5 萬）", effects: [{ t: "funds", amount: -15_000 }, { t: "supplierSwitch", family: "sweets" }] },
-        { id: "spot", label: "先靠現貨撐著（貴一成），慢慢找新的", effects: [{ t: "supplierStatus", family: "sweets", status: "closed", ticks: 288 * 6 }] },
       ],
     },
   },

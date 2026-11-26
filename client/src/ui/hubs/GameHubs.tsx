@@ -12,7 +12,9 @@ import { InspectionCard } from "../../components/InspectionCard";
 import { Achievements } from "../../screens/Achievements";
 import { FinanceSummary } from "../../screens/FinanceSummary";
 import { Goals } from "../../screens/Goals";
-import { GuestPrefs, ReviewLog, TodoCard, WalkCard } from "../../screens/Guests";
+import { GuestPrefs, ReviewLog, TodoCard } from "../../screens/Guests";
+import { Legal } from "../../screens/Legal";
+import { PatrolTab } from "../../screens/Patrol";
 import { Help } from "../../screens/Help";
 import { Leasing } from "../../screens/Leasing";
 import { Marketing } from "../../screens/Marketing";
@@ -61,13 +63,14 @@ const HUB_TABS: Record<HubId, { title: string; tabs: TabDef[] }> = {
         render: (s) => (
           <>
             <TodoCard s={s} />
+            <Legal />
             <ReviewLog s={s} />
             <GuestPrefs s={s} />
           </>
         ),
       },
-      { id: "regulars", label: "常客", render: () => <Regulars /> },
-      { id: "walk", label: "巡場", render: (s) => <WalkCard s={s} /> },
+      { id: "regulars", label: "熟客", render: () => <Regulars /> },
+      { id: "walk", label: "巡店", render: () => <PatrolTab /> },
     ],
   },
   develop: {

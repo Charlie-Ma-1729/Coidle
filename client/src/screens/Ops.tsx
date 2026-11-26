@@ -39,15 +39,16 @@ import { InspectionCard } from "../components/InspectionCard";
 import { Btn, Card, Chip, Field, Meter } from "../components/ui";
 import { lagText, money } from "../format";
 import { run, setClock, state } from "../store";
-import { fullTimeText, lagDetail, lagNow, serverTickNow, useTicker } from "../serverTime";
+import { fullTimeText, lagDetail, lagNow, serverExtraMinutes, serverTickNow, useLiveExtra, useTicker } from "../serverTime";
 
 const LEVEL_NAMES = ["不做", "標準", "加強"] as const;
 
 
 /** 時間與自動暫停設定（HUD 只放暫停／繼續，其餘進階項目收在設定視窗） */
 export function TimeSettings() {
-  useTicker();
+  useTicker(2000); // 時間逐分鐘走（真實約每 10 秒 1 分鐘），不用等 5 秒才更新
   const s = state.value;
+  const extra = useLiveExtra(s); // 必須在 early return 之前呼叫（hook 順序）
   if (!s) return null;
   const clock = s.clock;
   const manualPaused = clock.holds.manual;
@@ -62,18 +63,18 @@ export function TimeSettings() {
               {serverTick === null ? (
                 <div>
                   <span>商場時間</span>
-                  <b>{fullTimeText(s.tick)}</b>
+                  <b>{fullTimeText(s.tick, extra)}</b>
                   <small>測試商場：不受伺服器基準時間限制</small>
                 </div>
               ) : (
                 <>
                   <div>
                     <span>伺服器時間</span>
-                    <b>{fullTimeText(serverTick)}</b>
+                    <b>{fullTimeText(serverTick, serverExtraMinutes(s))}</b>
                   </div>
                   <div>
                     <span>你的商場</span>
-                    <b>{fullTimeText(s.tick)}</b>
+                    <b>{fullTimeText(s.tick, extra)}</b>
                     <small class={lag > 0 ? "late" : ""}>{lag > 0 ? `落後 ${lagDetail(lag)}${isPaused(clock) ? "（暫停中，仍在增加）" : ""}` : "已追上，同步中"}</small>
                   </div>
                 </>

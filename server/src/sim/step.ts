@@ -31,14 +31,19 @@ import {
   MAX_REPORTS,
   PERSONAS,
   PERSONA_BY_ID,
-  RESERVE_UPKEEP_PER_DAY,
   SHOP_QUALITY,
   SUPPLY_FAMILIES,
   facilityScale,
   familyOf,
   menuAppeal,
   rivalMult,
+  consumableCostMult,
   supplierQualityFactor,
+  GAP_PREMIUM,
+  RUSH_LEAD_MULT,
+  RUSH_PREMIUM,
+  restockPlan,
+  storageCap,
   SUPPLY_LEAD_TICKS,
   SUPPLY_LOT,
   TICKS_PER_DAY,
@@ -58,7 +63,11 @@ import { inspectionAtRisk, maybeSpawnInspection, runDueInspections } from "./ins
 import { effectivePrice, endPromos, noteSale, promoFatigueDaily, promoSatBonus, promoTraffic, startDuePromos } from "./promos";
 import { regularsDaily, runRegulars } from "./regulars";
 import { rivalsDaily, rivalsTick } from "./rivals";
-import { deliveryTerms, quoteOrder, recordOrder, suppliersTick, warnSupplyTrouble } from "./suppliers";
+import { inventoryDaily } from "./inventory";
+import { legalDaily, resolveLegalDeadlines } from "./legal";
+import { earnPoints, membersDaily } from "./members";
+import { patrolDaily } from "./patrol";
+import { deliveryTerms, pickAlternative, quoteOrder, quoteWith, recordOrder, suppliersTick, warnSupplyTrouble, type Quote } from "./suppliers";
 import { buildReport } from "./report";
 import { applyTenantToShop, leasingDaily } from "./leasing";
 import { metaDaily } from "./meta";
@@ -120,6 +129,7 @@ export function stepTick(s: MallState, ctx: StepContext = { nobodyPresent: false
   rivalsTick(s, rng);
   resolveDeadlines(s, rng);
   resolveInboxDeadlines(s);
+  resolveLegalDeadlines(s); // 法律糾紛逾期沒處理：依處理偏好自動應對
   workshopTick(s, rng);
   techTick(s);
   runDueInspections(s);
@@ -197,36 +207,77 @@ function receiveDeliveries(s: MallState): void {
   }
 }
 
-/**
- * 向供應商下單。實際進貨量與送達時間取決於供應商的狀況（缺貨、延遲），
- * 價格取決於供應商、長約、關係與全域行情。買不到就回傳 false。
- */
-export function placeOrder(s: MallState, shop: Shop, qty: number): boolean {
-  const cat = CATEGORY_BY_ID[shop.category];
-  if (!cat || !categoryHasStock(cat) || qty <= 0) return false;
-  const quote = quoteOrder(s, shop, supplyMult(s, s.tick));
-  if (!quote) {
-    const fam = familyOf(shop.category);
-    if (fam) warnSupplyTrouble(s, fam, "none", `📦 ${SUPPLY_FAMILIES[fam].name}的主力供應商現在不能出貨，又沒有可用的備援，「${shop.name}」進不到貨！`);
-    return false;
-  }
+export interface OrderOpts {
+  /** 急件：貴三成、交期縮短 */
+  rush?: boolean;
+}
+
+/** 向某位供應商實際下一批單；回傳實際進到的份數（0＝沒下成） */
+function buyFrom(s: MallState, shop: Shop, quote: Quote, qty: number, rush: boolean): number {
   const d = deliveryTerms(s, shop, quote.pick, qty);
-  if (d.qty <= 0) return false;
-  const cost = quote.unit * d.qty;
+  if (d.qty <= 0) return 0;
+  const unit = rush ? Math.ceil(quote.unit * RUSH_PREMIUM) : quote.unit;
+  const cost = unit * d.qty;
   s.funds -= cost;
   shop.spentToday += cost;
   s.today.purchases += cost;
   s.today.stockBought = (s.today.stockBought ?? 0) + cost;
-  shop.incoming.push({ arriveTick: s.tick + d.lead, qty: d.qty });
+  const lead = rush ? Math.max(6, Math.round(d.lead * RUSH_LEAD_MULT)) : d.lead;
+  shop.incoming.push({ arriveTick: s.tick + lead, qty: d.qty });
   recordOrder(s, quote.pick);
+  s.today.inTax += taxPortion(cost, purchaseRate(familyOf(shop.category))) * supplierCreditRate(quote.pick.def, timeInfo(s.tick).date);
+  return d.qty;
+}
+
+/**
+ * 向供應商下單。實際進貨量與送達時間取決於供應商的狀況（缺貨、延遲、全服衝擊時的優先序），
+ * 價格取決於供應商、長約、關係與全域行情。進貨（含在途）不能超過倉庫容量。
+ * 主力湊不齊貨時，自動備援開著就向備用供應商補缺口（貴一成半）。買不到就回傳 false。
+ */
+export function placeOrder(s: MallState, shop: Shop, qty: number, opts: OrderOpts = {}): boolean {
+  const cat = CATEGORY_BY_ID[shop.category];
+  if (!cat || !categoryHasStock(cat) || qty <= 0) return false;
   const fam = familyOf(shop.category);
-  s.today.inTax += taxPortion(cost, purchaseRate(fam)) * supplierCreditRate(quote.pick.def, timeInfo(s.tick).date);
-  if (d.qty < qty) {
-    const fam = familyOf(shop.category);
-    if (fam) warnSupplyTrouble(s, fam, "short", `📦 「${quote.pick.def.name}」出貨吃緊，「${shop.name}」只拿到 ${d.qty}／${qty} 份。`);
-  } else if (quote.pick.spot) {
-    const fam = familyOf(shop.category);
-    if (fam) warnSupplyTrouble(s, fam, "spot", `📦 主力供應商出不了貨，改向「${quote.pick.def.name}」買現貨（貴一成）。`);
+  const have = shop.stock + shop.incoming.reduce((a, b) => a + b.qty, 0);
+  const room = storageCap(shop) - have;
+  if (room <= 0) {
+    if ((s.cooldowns[`full:${shop.id}`] ?? 0) <= s.tick) {
+      s.cooldowns[`full:${shop.id}`] = s.tick + TICKS_PER_DAY;
+      addLog(s, "warn", `📦 「${shop.name}」的倉庫已滿（容量 ${storageCap(shop)} 份），沒辦法再進貨。升級店面可以擴大倉庫。`);
+    }
+    return false;
+  }
+  const want = Math.min(qty, room);
+  const rush = !!opts.rush;
+  const gm = supplyMult(s, s.tick);
+  const quote = quoteOrder(s, shop, gm);
+  if (!quote) {
+    if (fam) warnSupplyTrouble(s, fam, "none", `📦 ${SUPPLY_FAMILIES[fam].name}的主力供應商現在不能出貨，又沒有可用的備援，「${shop.name}」進不到貨！`);
+    return false;
+  }
+  const got = buyFrom(s, shop, quote, want, rush);
+  if (got <= 0) return false;
+  let total = got;
+  if (got < want) {
+    let gap = 0;
+    let altName = "";
+    if (s.supply.autoFallback && fam) {
+      const alt = pickAlternative(s, fam, quote.pick.def.id);
+      const q2 = alt ? quoteWith(s, shop, alt, gm, GAP_PREMIUM) : null;
+      if (alt && q2) {
+        const affordable = Math.floor(s.funds / (rush ? Math.ceil(q2.unit * RUSH_PREMIUM) : q2.unit));
+        gap = buyFrom(s, shop, q2, Math.min(want - got, affordable), rush);
+        altName = alt.def.name;
+      }
+    }
+    total += gap;
+    shop.day.short = (shop.day.short ?? 0) + Math.max(0, want - total);
+    if (fam) {
+      if (gap > 0) warnSupplyTrouble(s, fam, "short", `📦 「${quote.pick.def.name}」只湊得出 ${got}／${want} 份，缺的 ${gap} 份向「${altName}」補了現貨（貴一成半）。`);
+      else warnSupplyTrouble(s, fam, "short", `📦 「${quote.pick.def.name}」出貨吃緊，「${shop.name}」只拿到 ${got}／${want} 份。`);
+    }
+  } else if (quote.pick.spot && fam) {
+    warnSupplyTrouble(s, fam, "spot", `📦 主力供應商出不了貨，改向「${quote.pick.def.name}」買現貨（貴一成）。`);
   }
   return true;
 }
@@ -238,7 +289,8 @@ function autoRestock(s: MallState): void {
     const cat = CATEGORY_BY_ID[shop.category];
     if (!cat || !categoryHasStock(cat) || shop.mode === "lease" || !shop.restock.enabled) continue;
     const have = shop.stock + shop.incoming.reduce((a, b) => a + b.qty, 0);
-    if (have >= shop.restock.min) continue;
+    const plan = restockPlan(s, shop); // 固定規則，或智慧補貨算出來的下限與目標
+    if (have >= plan.min) continue;
     const quote = quoteOrder(s, shop, globalMult);
     if (!quote) {
       const fam = familyOf(shop.category);
@@ -246,10 +298,15 @@ function autoRestock(s: MallState): void {
       continue;
     }
     const uc = quote.unit;
-    let qty = Math.ceil((shop.restock.target - have) / SUPPLY_LOT) * SUPPLY_LOT;
+    let qty = Math.ceil((plan.target - have) / SUPPLY_LOT) * SUPPLY_LOT;
     const byBudget = Math.floor((shop.restock.dailyBudget - shop.spentToday) / uc / SUPPLY_LOT) * SUPPLY_LOT;
     const byFunds = Math.floor(s.funds / uc / SUPPLY_LOT) * SUPPLY_LOT;
-    qty = Math.min(qty, byBudget, byFunds);
+    const byRoom = Math.floor((storageCap(shop) - have) / SUPPLY_LOT) * SUPPLY_LOT;
+    if (byBudget < SUPPLY_LOT && (s.cooldowns[`budget:${shop.id}`] ?? 0) <= s.tick) {
+      s.cooldowns[`budget:${shop.id}`] = s.tick + TICKS_PER_DAY;
+      addLog(s, "warn", `📦 「${shop.name}」今天的採購預算用完了，庫存只剩 ${have} 份（下限 ${plan.min}）。要不要調高每日預算？`);
+    }
+    qty = Math.min(qty, byBudget, byFunds, byRoom);
     if (qty >= SUPPLY_LOT) placeOrder(s, shop, qty);
   }
 }
@@ -376,11 +433,14 @@ export function recordSale(s: MallState, rng: Rng, p: PersonaDef, shop: Shop, ca
     s.funds += revenue;
     s.today.revenue += revenue;
     s.totalRevenue += revenue;
-    shop.day.cost = (shop.day.cost ?? 0) + Math.round(qty * cat.refPrice * cat.costRatio); // 各店損益用
+    earnPoints(s, revenue); // 會員消費累積點數（負債，兌換時才算成本）
+    // 服務型業態沒有庫存：耗材成本受供應商價格與供貨衝擊影響（餐飲／零售的成本在進貨時已反映）
+    const consumable = categoryHasStock(cat) ? 1 : consumableCostMult(s, shop.category);
+    shop.day.cost = (shop.day.cost ?? 0) + Math.round(qty * cat.refPrice * cat.costRatio * consumable); // 各店損益用
     if (hasStock) s.today.stockCost = (s.today.stockCost ?? 0) + Math.round(qty * cat.refPrice * cat.costRatio);
     if (!categoryHasStock(cat)) {
       // 服務型業態沒有庫存，變動成本即時支出
-      const varCost = Math.round(qty * cat.refPrice * cat.costRatio);
+      const varCost = Math.round(qty * cat.refPrice * cat.costRatio * consumable);
       s.funds -= varCost;
       s.today.purchases += varCost;
       s.today.inTax += taxPortion(varCost, CONSUMPTION_STANDARD);
@@ -449,7 +509,6 @@ function noteWeather(s: MallState): void {
 // ───────── 維運、固定成本、故障 ─────────
 function dailyFixedCost(s: MallState): number {
   let c = dailyOverhead(s) + dailyWages(s);
-  c += s.regulars.filter((r) => r.reserved).length * RESERVE_UPKEEP_PER_DAY; // 專屬座位的維持費
   return c;
 }
 
@@ -517,7 +576,8 @@ function rollover(s: MallState, time: TimeInfo): void {
   workshopDaily(s); // 菜單新鮮度退流行、招牌帶來口碑
   techDaily(s); // 科技帶來的口碑、AI 副手自動更新菜單
   syncWorkshop(s);
-  regularsDaily(s); // 常客：久沒上門的漸漸疏遠、熟客粉絲帶來口碑
+  membersDaily(s); // 會員：新入會、兌換點數（成本）、點數失效、升級
+  regularsDaily(s); // 熟客：久沒上門的漸漸疏遠、老主顧帶來口碑、意見與人生大事
   generateDailyReviews(s); // 今天客人的感受 → 幾則線上評價（先於日報，才算得進去）
   s.reports.push(buildReport(s));
   if (s.reports.length > MAX_REPORTS) s.reports.splice(0, s.reports.length - MAX_REPORTS);
@@ -525,6 +585,9 @@ function rollover(s: MallState, time: TimeInfo): void {
   metaDaily(s, time); // 目標驗收、團隊事件、成就與線索（也在各店當日統計重置之前）
   leasingDaily(s); // 招商：新品牌來洽談、租戶滿意度、續約（要在各店當日統計重置之前）
   checkLevelUp(s);
+  patrolDaily(s); // 巡店：沒處理的問題造成影響、惡化、冒出新問題
+  legalDaily(s); // 保險費、管理不善的商場可能收到請求書（要在各店當日統計重置之前）
+  inventoryDaily(s); // 日均銷量、放太久的貨會壞（要在各店當日統計重置之前）
   for (const shop of s.shops) {
     shop.day = newShopDayStats();
     shop.spentToday = 0;

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
-import { PERSONAS, WEATHER_NAMES } from "@coidle/shared";
+import { PERSONAS, SHOCK_KINDS, SHOCK_KIND_ORDER, SUPPLIERS, SUPPLY_FAMILIES, WEATHER_NAMES, type ShockKind } from "@coidle/shared";
+import type { ComponentChildren } from "preact";
+import { fullTimeText } from "../serverTime";
 import { adminApi, type Overview } from "./adminApi";
 import { Badge, Card, Empty, Field, Ico, Seg, Switch, type IconName } from "./kit";
 import { errMsg, toast } from "../store";
@@ -55,6 +57,124 @@ const CATEGORIES: [string, string][] = [
 ];
 const SOURCE_NAME = { builtin: "內建", ai: "AI", overseer: "Overseer" } as const;
 const WEATHER_ICON: Record<string, IconName> = { clear: "clear", cloudy: "cloudy", rain: "rain", storm: "storm" };
+
+interface ShockRow {
+  id: string;
+  supplierId: string;
+  supplier: string;
+  family: string;
+  kind: ShockKind;
+  label: string;
+  icon: string;
+  warnTick: number;
+  startTick: number;
+  endTick: number;
+  fill: number;
+  priceMult: number | null;
+  phase: "scheduled" | "warning" | "live";
+}
+const PHASE_NAME = { scheduled: "排程中", warning: "預告中", live: "進行中" } as const;
+
+/** 全服供應衝擊：看排程（伺服器 tick 的純函式，所有商場一致）、手動對某家供應商加一段衝擊 */
+function SupplyShockCard(props: { targetOptions: ComponentChildren; targets: (v: string) => "all" | number[]; onDone: () => void }) {
+  const [tick, setTick] = useState(0);
+  const [rows, setRows] = useState<ShockRow[]>([]);
+  const [supplierId, setSupplierId] = useState(SUPPLIERS[0]!.id);
+  const [kind, setKind] = useState<ShockKind>("strike");
+  const [days, setDays] = useState("3");
+  const [fill, setFill] = useState(String(SHOCK_KINDS.strike.fill[0]));
+  const [target, setTarget] = useState("all");
+  const load = async () => {
+    try {
+      const r = await adminApi.get<{ tick: number; shocks: ShockRow[] }>("/supply-shocks");
+      setTick(r.tick ?? 0);
+      setRows(r.shocks ?? []);
+    } catch (e) {
+      toast(errMsg(e), "error");
+    }
+  };
+  useEffect(() => {
+    void load();
+  }, []);
+  const trigger = async () => {
+    try {
+      await adminApi.post("/supply-shocks/trigger", { supplierId, kind, days: Number(days), fill: Number(fill), malls: props.targets(target) });
+      toast("已對所選商場加上供應衝擊", "ok");
+      await load();
+      props.onDone();
+    } catch (e) {
+      toast(errMsg(e), "error");
+    }
+  };
+  return (
+    <Card title="全服供應衝擊" desc="排程由伺服器時間決定，所有商場同步發生（預告→生效→結束）。下面可以手動對某家供應商加一段衝擊。">
+      {rows.length === 0 ? (
+        <Empty>近期沒有排定的供應衝擊。</Empty>
+      ) : (
+        <div class="ad-list">
+          {rows.map((r) => (
+            <div key={r.id} class="ad-row">
+              <span>
+                {r.icon} <b>{r.supplier}</b>（{r.family}）{r.label}
+                {r.priceMult ? ` ×${r.priceMult}` : ` 供貨 ${Math.round(r.fill * 100)}%`}
+              </span>
+              <span class="ad-spacer" />
+              <Badge>{PHASE_NAME[r.phase]}</Badge>
+              <span class="ad-sub">
+                {fullTimeText(r.startTick)} ～ {fullTimeText(r.endTick)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      <p class="ad-sub">伺服器目前 tick：{tick}</p>
+      <div class="ad-form">
+        <Field label="供應商">
+          <select value={supplierId} onChange={(e) => setSupplierId((e.target as HTMLSelectElement).value)} aria-label="供應商">
+            {SUPPLIERS.map((d) => (
+              <option key={d.id} value={d.id}>
+                {SUPPLY_FAMILIES[d.family].name}・{d.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="種類">
+          <select
+            value={kind}
+            onChange={(e) => {
+              const k = (e.target as HTMLSelectElement).value as ShockKind;
+              setKind(k);
+              setFill(String(SHOCK_KINDS[k].fill[0]));
+            }}
+            aria-label="衝擊種類"
+          >
+            {SHOCK_KIND_ORDER.map((k) => (
+              <option key={k} value={k}>
+                {SHOCK_KINDS[k].icon} {SHOCK_KINDS[k].label}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="持續（遊戲日）">
+          <input type="number" min={1} max={10} value={days} onInput={(e) => setDays((e.target as HTMLInputElement).value)} />
+        </Field>
+        <Field label="基礎供貨比例（0–1）">
+          <input type="number" min={0} max={1} step={0.05} value={fill} onInput={(e) => setFill((e.target as HTMLInputElement).value)} />
+        </Field>
+      </div>
+      <Field label="對象">
+        <select value={target} onChange={(e) => setTarget((e.target as HTMLSelectElement).value)} aria-label="衝擊對象">
+          {props.targetOptions}
+        </select>
+      </Field>
+      <div class="ad-row end">
+        <button class="ad-btn" onClick={() => void trigger()}>
+          加上衝擊
+        </button>
+      </div>
+    </Card>
+  );
+}
 
 function FxEditor(props: { fx: Fx; onChange: (f: Fx) => void; onRemove?: () => void }) {
   const { fx } = props;
@@ -310,6 +430,8 @@ export function EventsTab(props: { ov: Overview }) {
               </button>
             </div>
           </Card>
+
+          <SupplyShockCard targetOptions={targetOptions} targets={targets} onDone={() => void load()} />
 
           <Card title="立刻觸發一個事件" desc="任何事件（內建、AI、手寫）都能對指定商場立刻發生。">
             <Field label="事件">

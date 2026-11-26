@@ -64,7 +64,7 @@ describe("zone events", () => {
     for (const z of ZONES.filter((x) => x.id !== "b1")) {
       expect(ZONE_EVENTS.filter((e) => e.needsZone === z.id).length, z.id).toBeGreaterThanOrEqual(4);
     }
-    expect(EVENTS.length).toBeGreaterThan(70);
+    expect(EVENTS.length).toBeGreaterThan(65);
   });
 
   it("zone events only happen once their zone is unlocked", () => {

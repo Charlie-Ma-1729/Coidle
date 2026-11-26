@@ -5,7 +5,6 @@ import {
   CONTRACT_MIN_REL,
   FAMILY_OF,
   FAMILY_ORDER,
-  PRIORITY_REL,
   REL_PER_ORDER,
   SHORTAGE_FILL,
   SPOT_PREMIUM,
@@ -14,10 +13,16 @@ import {
   SUPPLIER_SWITCH_FEE,
   SUPPLY_FAMILIES,
   SUPPLY_LEAD_TICKS,
+  SHOCK_KINDS,
+  activeSupplyShocks,
   chosenSupplier,
   familyOf,
   familyShopCount,
   hasContract,
+  liveShock,
+  newSupplierState,
+  shockFill,
+  shockTier,
   supplierMarketPrice,
   supplierPriceNow,
   supplierState,
@@ -46,19 +51,40 @@ export interface Pick {
   spot: boolean;
 }
 
-/** 這個家族這次要向誰進貨：主力能出貨就用主力；不行且開了自動備援，就找最便宜的備用 */
+/** 「有效單價」：價格除以此刻實際能拿到的貨量比例（正在受衝擊的備用供應商沒那麼划算） */
+function effectiveCost(s: MallState, def: SupplierDef, st: SupplierState): number {
+  const sh = liveShock(st, s.tick);
+  const fill = sh && sh.kind !== "price_spike" ? Math.max(0.25, shockFill(sh.fill, shockTier(st, s.tick))) : 1;
+  return supplierPriceNow(s, st, def) / fill;
+}
+
+/**
+ * 備用供應商：玩家指定了首選就用首選（還能出貨的話），否則挑「有效單價」最低的。
+ * 只會從已經認識的供應商裡挑。
+ */
+export function pickAlternative(s: MallState, family: SupplyFamily, excludeId?: string): Pick | null {
+  const preferred = s.supply.backup?.[family];
+  if (preferred && preferred !== excludeId) {
+    const def = SUPPLIER_BY_ID[preferred];
+    const st = supplierState(s, preferred);
+    if (def && def.family === family && st?.discovered && !supplierUnavailable(st, s.tick)) return { def, st, spot: true };
+  }
+  let best: Pick | null = null;
+  for (const def of SUPPLIERS) {
+    if (def.family !== family || def.id === excludeId) continue;
+    const st = supplierState(s, def.id);
+    if (!st || !st.discovered || supplierUnavailable(st, s.tick)) continue;
+    if (!best || effectiveCost(s, def, st) < effectiveCost(s, best.def, best.st)) best = { def, st, spot: true };
+  }
+  return best;
+}
+
+/** 這個家族這次要向誰進貨：主力能出貨就用主力；不行且開了自動備援，就用備用供應商 */
 export function pickSupplier(s: MallState, family: SupplyFamily): Pick | null {
   const main = chosenSupplier(s, family);
   if (main && !supplierUnavailable(main.st, s.tick)) return { def: main.def, st: main.st, spot: false };
   if (!s.supply.autoFallback) return null;
-  let best: Pick | null = null;
-  for (const def of SUPPLIERS) {
-    if (def.family !== family || def.id === main?.def.id) continue;
-    const st = supplierState(s, def.id);
-    if (!st || !st.discovered || supplierUnavailable(st, s.tick)) continue;
-    if (!best || supplierPriceNow(s, st, def) < supplierPriceNow(s, best.st, best.def)) best = { def, st, spot: true };
-  }
-  return best;
+  return pickAlternative(s, family, main?.def.id);
 }
 
 export interface Quote {
@@ -69,12 +95,17 @@ export interface Quote {
 
 /** 這間店現在向供應商下單，每份多少錢；買不到就回傳 null */
 export function quoteOrder(s: MallState, shop: Shop, globalMult: number): Quote | null {
-  const cat = CATEGORY_BY_ID[shop.category];
   const fam = familyOf(shop.category);
-  if (!cat || !fam) return null;
+  if (!CATEGORY_BY_ID[shop.category] || !fam) return null;
   const pick = pickSupplier(s, fam);
-  if (!pick) return null;
-  const mult = globalMult * supplierPriceNow(s, pick.st, pick.def) * (pick.spot ? SPOT_PREMIUM : 1);
+  return pick ? quoteWith(s, shop, pick, globalMult, pick.spot ? SPOT_PREMIUM : 1) : null;
+}
+
+/** 指定供應商的報價（premium＝現貨、補缺口、急件等加價） */
+export function quoteWith(s: MallState, shop: Shop, pick: Pick, globalMult: number, premium = 1): Quote | null {
+  const cat = CATEGORY_BY_ID[shop.category];
+  if (!cat) return null;
+  const mult = globalMult * supplierPriceNow(s, pick.st, pick.def) * premium;
   return { pick, unit: Math.max(1, Math.ceil(cat.refPrice * cat.costRatio * mult)) };
 }
 
@@ -86,9 +117,13 @@ export interface Delivery {
 /** 缺貨時實際出貨多少、多久送到。長約或高關係的老客人優先供貨。 */
 export function deliveryTerms(s: MallState, shop: Shop, pick: Pick, qty: number): Delivery {
   const { def, st } = pick;
-  const priority = hasContract(st, s.tick) || st.relationship >= PRIORITY_REL;
-  const short = st.status === "shortage" && st.statusUntil > s.tick;
-  const fill = short && !priority ? SHORTAGE_FILL : 1;
+  const shock = liveShock(st, s.tick);
+  const tier = shockTier(st, s.tick);
+  const priority = tier === "contract" || tier === "loyal";
+  const hit = shock && shock.kind !== "price_spike" ? shock : null;
+  const short = !!hit || (st.status === "shortage" && st.statusUntil > s.tick);
+  // 全服衝擊：供貨比例看關係與長約；其他（舊的單店事件）缺貨沿用固定比例
+  const fill = hit ? shockFill(hit.fill, tier) : short && !priority ? SHORTAGE_FILL : 1;
   let lead = SUPPLY_LEAD_TICKS * def.lead * (short ? 1.6 : 1);
   // 可靠度低的供應商偶爾會延遲（由種子決定，所以可重現）
   const roll = createRng(hash32(s.seed ^ 0x7a11, s.tick * 31 + (Number(shop.id.replace(/\D/g, "")) || 0))).next();
@@ -114,7 +149,77 @@ export function warnSupplyTrouble(s: MallState, family: SupplyFamily, level: "sh
 
 // ───────── 每個 tick／每天的維護 ─────────
 
+/** 補上舊存檔沒有的供應商與家族（供應商名單擴充後，冪等） */
+export function syncSupply(s: MallState): void {
+  if (s.supply.suppliers.length === SUPPLIERS.length && FAMILY_ORDER.every((f) => s.supply.choice[f])) return;
+  const have = new Set(s.supply.suppliers.map((x) => x.id));
+  for (const def of SUPPLIERS) if (!have.has(def.id)) s.supply.suppliers.push(newSupplierState(def));
+  for (const fam of FAMILY_ORDER) {
+    if (s.supply.choice[fam]) continue;
+    const first = SUPPLIERS.find((x) => x.family === fam && !x.hidden);
+    if (first) s.supply.choice[fam] = first.id;
+  }
+}
+
+/** 這家供應商出事，對這座商場有沒有實際影響（主力、有訂過貨、或有長約才會被通知） */
+function shockMatters(s: MallState, st: SupplierState, def: SupplierDef | undefined): boolean {
+  if (!def || !st.discovered) return false;
+  return s.supply.choice[def.family] === st.id || st.orders > 0 || hasContract(st, s.tick);
+}
+
+/** 套用全服供應衝擊：預告→生效→結束。排程是伺服器 tick 的純函式（見 shared/supplyShock.ts） */
+function applyShocks(s: MallState): void {
+  if (s.flags.noWorldShocks) return; // 測試與隔離環境可以關掉全服衝擊
+  const act = activeSupplyShocks(s.tick);
+  for (const st of s.supply.suppliers) {
+    const def = SUPPLIER_BY_ID[st.id];
+    const sh = act.get(st.id) ?? null;
+    if (sh && st.lastShockId !== sh.id) {
+      st.lastShockId = sh.id;
+      st.shock = { id: sh.id, kind: sh.kind, warnTick: sh.warnTick, startTick: sh.startTick, endTick: sh.endTick, fill: sh.fill, ...(sh.priceMult ? { priceMult: sh.priceMult } : {}) };
+      if (shockMatters(s, st, def)) {
+        const k = SHOCK_KINDS[sh.kind];
+        if (sh.startTick > s.tick) {
+          const text = `${k.icon}【預告】「${def?.name}」${k.warnText}，${Math.max(1, Math.round((sh.startTick - s.tick) / 12))} 小時後可能出貨受影響。`;
+          addLog(s, "warn", text);
+          note(s, text);
+        }
+      }
+    }
+    const cur = st.shock;
+    if (!cur) continue;
+    if (cur.endTick <= s.tick) {
+      if (shockMatters(s, st, def)) addLog(s, "info", `${SHOCK_KINDS[cur.kind].icon}「${def?.name}」${SHOCK_KINDS[cur.kind].endText}。`);
+      st.shock = null;
+      continue;
+    }
+    if (cur.startTick > s.tick) continue;
+    // 已生效：這家的狀態跟著衝擊走
+    if (cur.kind === "price_spike") {
+      if (cur.priceMult && st.priceUntil <= s.tick) {
+        st.priceMult = cur.priceMult;
+        st.priceUntil = cur.endTick;
+      }
+    } else if (st.status === "ok" || st.status === "shortage") {
+      const generic = cur.kind === "bankrupt" ? "closed" : "shortage";
+      if (st.status !== generic || st.statusUntil !== cur.endTick) {
+        const fresh = st.status === "ok";
+        st.status = generic;
+        st.statusUntil = cur.endTick;
+        if (fresh && shockMatters(s, st, def)) {
+          const k = SHOCK_KINDS[cur.kind];
+          const text = `${k.icon}「${def?.name}」${k.startText}。`;
+          addLog(s, "warn", text);
+          note(s, text);
+        }
+      }
+    }
+  }
+}
+
 export function suppliersTick(s: MallState): void {
+  syncSupply(s);
+  applyShocks(s);
   for (const st of s.supply.suppliers) {
     if (st.status !== "ok" && st.statusUntil <= s.tick) {
       const def = SUPPLIER_BY_ID[st.id];
@@ -146,7 +251,7 @@ export function chooseSupplier(s: MallState, family: string, supplierId: string)
   const cur = chosenSupplier(s, fam);
   if (cur?.def.id === supplierId) return { ok: false, error: "他已經是主力供應商了" };
   if (cur && hasContract(cur.st, s.tick)) return { ok: false, error: `要先和「${cur.def.name}」解約才能換主力` };
-  const free = !!cur && supplierUnavailable(cur.st, s.tick); // 現任出不了貨，換人不收費
+  const free = !!cur && (supplierUnavailable(cur.st, s.tick) || !!liveShock(cur.st, s.tick)); // 現任出不了貨或正受全服衝擊，換人不收費
   const fee = free ? 0 : SUPPLIER_SWITCH_FEE;
   if (s.funds < fee) return { ok: false, error: "資金不足" };
   s.funds -= fee;

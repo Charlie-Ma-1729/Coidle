@@ -12,7 +12,7 @@ export interface SpeedOption {
 
 export function hhmm(minuteOfDay: number): string {
   const h = Math.floor(minuteOfDay / 60) % 24;
-  const m = Math.floor((minuteOfDay % 60) / 5) * 5;
+  const m = Math.floor(minuteOfDay % 60);
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 

@@ -69,6 +69,8 @@ describe("balance with bot players", () => {
     for (const sh of s.shops) {
       run({ type: "setPrice", shopId: sh.id, price: CATEGORY_BY_ID[sh.category]!.refPrice });
       run({ type: "setRestock", shopId: sh.id, rule: { enabled: true } });
+      // 帳上資金為負時自動補貨會暫停（避免越買越虧），玩家要手動進一批貨把店撐起來
+      if (s.funds <= 0) run({ type: "orderStock", shopId: sh.id, qty: 200 });
     }
     const before = s.funds;
     for (let d = 0; d < 20; d++) s = advanceTo(s, s.tick + TICKS_PER_DAY);
