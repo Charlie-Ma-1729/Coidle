@@ -24,12 +24,21 @@ const sampler = setInterval(() => metrics.sample(), 60_000);
 // AI 內容：每 30 分鐘看一次內容池，不足就（在預算內）補一批；沒有金鑰就什麼都不做
 const aiTimer = setInterval(() => void content.topUp().then((r) => r && console.log("[ai]", r.kind, r.ok ? `收 ${r.accepted}` : `略過：${r.error ?? "無新內容"}`, `$${r.costUsd.toFixed(5)}`)), 30 * 60_000);
 setTimeout(() => void content.topUp(), 20_000);
+// 股市：每 20 秒處理到期的預約單與配息（買賣與列表前也會先處理，所以不依賴這個排程的準時）
+const marketTimer = setInterval(() => {
+  try {
+    service.tickMarket();
+  } catch (e) {
+    console.error("[market]", e);
+  }
+}, 20_000);
 const janitor = setInterval(() => repo.purgeExpiredSessions(Date.now()), 3600_000);
 
 const shutdown = async () => {
   clearInterval(ticker);
   clearInterval(sampler);
   clearInterval(janitor);
+  clearInterval(marketTimer);
   clearInterval(aiTimer);
   await app.close();
   process.exit(0);

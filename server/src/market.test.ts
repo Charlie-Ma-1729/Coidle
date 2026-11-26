@@ -10,6 +10,7 @@ import {
   STOCK_GROUPS,
   WORLD_EPOCH_MS,
   buyQuote,
+  dividendPerShare,
   eventAtHour,
   sellQuote,
   stockGroupOf,
@@ -22,16 +23,24 @@ import { calm, overseerLogin } from "./testutil";
 
 // 股票市場：虛構集團的股票，個人錢包買賣。價格是（種子, 時間）的純函式；手續費與稅是唯一的錢的出口；錢包流水要和錢包對得上。
 
-const HOUR = 3_600_000;
 const DAY = 86_400_000;
-const clock = { t: WORLD_EPOCH_MS + DAY };
+const MIN = 60_000;
+/** 預設伺服器時鐘的錨點：真實 2026-11-24 00:00 UTC ＝ 遊戲 2027-04-01（週四）00:00 JST；1 真實分鐘＝6 遊戲分鐘 */
+const REAL0 = Date.UTC(2026, 10, 24, 0, 0, 0);
+/** 遊戲 4/1 10:00（前場）、4/1 16:40（收盤後）、4/3（週六） */
+const OPEN_T = REAL0 + 100 * MIN;
+const CLOSED_T = REAL0 + 170 * MIN;
+const SAT_T = REAL0 + 2 * 240 * MIN + 100 * MIN;
+const clock = { t: OPEN_T };
 const opened: ReturnType<typeof buildApp>[] = [];
 afterEach(async () => {
   while (opened.length) await opened.pop()!.app.close();
 });
-function make() {
-  clock.t = WORLD_EPOCH_MS + DAY;
+function make(start = REAL0) {
+  clock.t = OPEN_T;
   const b = buildApp({ config: { dbPath: ":memory:" }, now: () => clock.t });
+  // v2 價格序列從 4/1 00:00 起算（開盤前），所以 4/1 開盤就有價格
+  b.repo.setMeta("market_v2_start", String(start));
   opened.push(b);
   return b;
 }
@@ -66,7 +75,7 @@ describe("price engine", () => {
 
   it("keeps every price whole, above the floor, and within a sane band of its base", () => {
     const e = new PriceEngine(4242);
-    for (const g of STOCK_GROUPS) {
+    for (const g of STOCK_GROUPS.slice(0, 16)) {
       for (const p of e.series(g.key, 0, 3000)) {
         expect(Number.isInteger(p)).toBe(true);
         expect(p).toBeGreaterThanOrEqual(MARKET_MIN_PRICE);
@@ -84,8 +93,8 @@ describe("price engine", () => {
       const m = r.reduce((a, b) => a + b, 0) / r.length;
       return Math.sqrt(r.reduce((a, b) => a + (b - m) ** 2, 0) / r.length);
     };
-    const calmest = STOCK_GROUPS.filter((g) => g.kind === "defensive").map((g) => vol(g.key));
-    const wildest = STOCK_GROUPS.filter((g) => g.kind === "growth").map((g) => vol(g.key));
+    const calmest = STOCK_GROUPS.slice(0, 16).filter((g) => g.kind === "defensive").map((g) => vol(g.key));
+    const wildest = STOCK_GROUPS.slice(0, 16).filter((g) => g.kind === "growth").map((g) => vol(g.key));
     expect(Math.max(...calmest)).toBeLessThan(Math.min(...wildest));
   });
 
@@ -110,9 +119,9 @@ describe("price engine", () => {
     for (let d = goldenWeek - 400; d < goldenWeek + 400; d++) for (const s of Object.values(SIGNALS)) expect(Math.abs(s.fn(d))).toBeLessThanOrEqual(1);
   });
 
-  it("has 16 uniquely-keyed groups, all with a label", () => {
-    expect(STOCK_GROUPS).toHaveLength(16);
-    expect(new Set(STOCK_GROUPS.map((g) => g.key)).size).toBe(16);
+  it("has 40 uniquely-keyed groups, all with a label", () => {
+    expect(STOCK_GROUPS).toHaveLength(40);
+    expect(new Set(STOCK_GROUPS.map((g) => g.key)).size).toBe(40);
     for (const g of STOCK_GROUPS) {
       expect(g.key.startsWith("g:")).toBe(true);
       expect(KIND_LABEL[g.kind]).toBeTruthy();
@@ -138,16 +147,20 @@ describe("quotes", () => {
 });
 
 describe("trading", () => {
-  it("is login-only and lists 16 groups without leaking anything NPC-ish", async () => {
+  it("is login-only and lists 40 groups without leaking anything NPC-ish", async () => {
     const a = make();
     expect((await a.app.inject({ method: "GET", url: "/api/market" })).statusCode).toBe(401);
     const u = await reg(a, "alice");
     const view = (await get(a, u.cookie, "/api/market")).json();
-    expect(view.rows).toHaveLength(16);
+    expect(view.rows).toHaveLength(40);
+    expect(view.status).toMatchObject({ open: true, session: "am" });
+    expect(view.indices.map((i: { id: string }) => i.id)).toEqual(["dw40", "dwpix"]);
     for (const r of view.rows) {
       expect(r.key.startsWith("g:")).toBe(true);
       expect(r.price).toBeGreaterThanOrEqual(MARKET_MIN_PRICE);
+      expect(r.listed).toBe(true);
       expect(r.spark.length).toBeGreaterThan(1);
+      expect(r.limitUp).toBeGreaterThan(r.limitDown);
       expect(r.held).toBe(0);
     }
     expect(JSON.stringify(view)).not.toMatch(/n:|seed/);
@@ -166,7 +179,7 @@ describe("trading", () => {
     expect(a.repo.walletOf(u.id)).toBe(1_000_000 - q.total);
     expect(a.repo.positionOf(u.id, KEY)).toEqual({ shares: 20, costTotal: q.total });
 
-    // 同一小時內賣回：虧了手續費，不課稅
+    // 同一分鐘內賣回：虧了手續費，不課稅
     const s = await post(a, u.cookie, `/api/market/${encodeURIComponent(KEY)}/sell`, { shares: 20 });
     expect(s.statusCode).toBe(200);
     expect(s.json().tax).toBe(0);
@@ -183,6 +196,7 @@ describe("trading", () => {
     const u = await reg(a, "alice");
     const price = priceNow(a);
     a.repo.setPosition(u.id, KEY, 100, price * 100 - 50_000); // 假裝成本比現價低 5 萬
+    a.service.market.tick(); // 4/1 是這檔的除權息日：先把配息發掉，再量賣出的變化
     const before = a.repo.walletOf(u.id);
     const r = (await post(a, u.cookie, `/api/market/${encodeURIComponent(KEY)}/sell`, { shares: 100 })).json();
     const q = sellQuote(price, 100, { shares: 100, costTotal: price * 100 - 50_000 });
@@ -219,8 +233,8 @@ describe("trading", () => {
     expect((await post(a, u.cookie, url, { shares: Math.floor(MARKET_DAILY_BUY_LIMIT / p) })).statusCode).toBe(409); // 今天的額度用完
     const view = (await get(a, u.cookie, "/api/market")).json();
     expect(view.boughtToday).toBeGreaterThan(MARKET_DAILY_BUY_LIMIT * 0.99);
-    // 一個遊戲日（4 個真實小時）之後額度重置
-    clock.t += 5 * HOUR;
+    // 一個遊戲日（4 個真實小時）之後額度重置（4/2 同一時刻仍在前場）
+    clock.t += 240 * MIN;
     expect((await post(a, u.cookie, url, { shares: 10 })).statusCode).toBe(200);
   });
 
@@ -234,7 +248,7 @@ describe("trading", () => {
       const side = i % 3 === 2 ? "sell" : "buy";
       const r = await post(a, u.cookie, `/api/market/${encodeURIComponent(key)}/${side}`, { shares: 10 + i });
       if (r.statusCode === 200) fees += r.json().fee + r.json().tax;
-      clock.t += 2 * HOUR;
+      clock.t += MIN; // 每次隔 1 真實分鐘（價格會變），仍在前場
     }
     const entries = a.repo.ledgerOfUser(u.id, 100);
     expect(entries.length).toBeGreaterThan(3);
@@ -253,23 +267,137 @@ describe("trading", () => {
     expect((await post(a, o.cookie, `/api/market/${encodeURIComponent(KEY)}/buy`, { shares: 1 })).statusCode).toBe(403);
   });
 
-  it("returns history with points and news, and rejects an unknown company", async () => {
+  it("returns intraday and daily history with prev close, and rejects an unknown company", async () => {
     const a = make();
     const u = await reg(a, "alice");
-    clock.t = WORLD_EPOCH_MS + 20 * DAY;
-    const h = (await get(a, u.cookie, `/api/market/${encodeURIComponent(KEY)}/history?hours=72`)).json();
-    expect(h.points).toHaveLength(72);
+    clock.t = REAL0 + 240 * MIN + 140 * MIN; // 4/2 後場（遊戲 13:50 前後）
+    const st = (await get(a, u.cookie, "/api/market/status")).json();
+    expect(st.session).toBe("pm");
+    const h = (await get(a, u.cookie, `/api/market/${encodeURIComponent(KEY)}/history?range=1d`)).json();
+    expect(h.kind).toBe("intraday");
+    expect(h.points.length).toBeGreaterThan(25); // 前場 25 步＋後場已走的步
+    expect(h.points.length).toBeLessThanOrEqual(55);
     expect(h.points.at(-1).price).toBe(priceNow(a));
-    expect(h.points[1].at - h.points[0].at).toBe(HOUR);
+    expect(h.points[1].at - h.points[0].at).toBe(MIN);
+    expect(h.prevClose).toBeGreaterThan(0);
+    const d = (await get(a, u.cookie, `/api/market/${encodeURIComponent(KEY)}/history?range=1m`)).json();
+    expect(d.kind).toBe("daily");
+    expect(d.points.at(-1).price).toBe(priceNow(a));
+    expect(d.points.at(-1).high).toBeGreaterThanOrEqual(d.points.at(-1).low);
     expect((await get(a, u.cookie, "/api/market/g:nope/history")).statusCode).toBe(404);
+    const news = (await get(a, u.cookie, "/api/market/news?limit=20")).json();
+    expect(Array.isArray(news.items)).toBe(true);
   });
 
-  it("changes price only on the hour, and the same hour gives the same quote", async () => {
+  it("changes price every minute while open and holds it while closed", async () => {
     const a = make();
-    clock.t = WORLD_EPOCH_MS + 5 * DAY + 10 * 60_000;
-    const p1 = priceNow(a);
-    clock.t += 30 * 60_000;
-    expect(priceNow(a)).toBe(p1);
+    const key = "g:minato_rail";
+    const seen = new Set<number>();
+    for (let m = 0; m < 12; m++) {
+      clock.t = OPEN_T + m * MIN;
+      seen.add(priceNow(a, key));
+    }
+    expect(seen.size).toBeGreaterThan(3);
+    clock.t = OPEN_T + 30 * 1000;
+    const p1 = priceNow(a, key);
+    clock.t += 20 * 1000;
+    expect(priceNow(a, key)).toBe(p1); // 同一分鐘內價格相同
+    // 收盤後與週末：價格不動
+    clock.t = CLOSED_T;
+    const close = priceNow(a, key);
+    clock.t = CLOSED_T + 20 * MIN;
+    expect(priceNow(a, key)).toBe(close);
+    clock.t = SAT_T;
+    expect(a.service.market.status()).toMatchObject({ open: false, session: "closed" });
+  });
+
+  it("refuses trades while the market is closed or the stock is not listed yet", async () => {
+    const a = make();
+    const u = await reg(a, "alice");
+    fund(a, u.id, 1_000_000);
+    clock.t = CLOSED_T;
+    const r = await post(a, u.cookie, `/api/market/${encodeURIComponent(KEY)}/buy`, { shares: 1 });
+    expect(r.statusCode).toBe(409);
+    expect(r.json().error).toContain("休市");
+    // v2 在 4/1 開盤後才開始 → 當天不能交易，下個交易日才行
+    const b = make(REAL0 + 150 * MIN);
+    const v = await reg(b, "bob");
+    fund(b, v.id, 1_000_000);
+    clock.t = OPEN_T;
+    expect((await post(b, v.cookie, `/api/market/${encodeURIComponent(KEY)}/buy`, { shares: 1 })).statusCode).toBe(409);
+    // 上市前：列表照常（v1 價格接續、新標的用基準價），走勢與消息也讀得到
+    const pre = (await get(b, v.cookie, "/api/market")).json();
+    expect(pre.rows).toHaveLength(40);
+    expect(pre.rows.every((r: { listed: boolean; price: number }) => !r.listed && r.price >= MARKET_MIN_PRICE)).toBe(true);
+    expect(pre.rows.find((r: { key: string }) => r.key === "g:tokai_semi").price).toBe(stockGroupOf("g:tokai_semi")!.base);
+    expect((await get(b, v.cookie, `/api/market/${encodeURIComponent(KEY)}/history?range=1d`)).statusCode).toBe(200);
+    expect((await get(b, v.cookie, "/api/market/g:tokai_semi/history?range=3m")).statusCode).toBe(200);
+    expect((await get(b, v.cookie, "/api/market/news")).statusCode).toBe(200);
+    clock.t = REAL0 + 240 * MIN + 100 * MIN;
+    expect((await post(b, v.cookie, `/api/market/${encodeURIComponent(KEY)}/buy`, { shares: 1 })).statusCode).toBe(200);
+  });
+
+  it("fills a pre-order at the next open price, and can cancel or reject it", async () => {
+    const a = make();
+    const u = await reg(a, "alice");
+    fund(a, u.id, 1_000_000);
+    const url = `/api/market/${encodeURIComponent(KEY)}`;
+    expect((await post(a, u.cookie, `${url}/order`, { side: "buy", shares: 5 })).statusCode).toBe(409); // 開市中請直接買賣
+    clock.t = CLOSED_T;
+    expect((await post(a, u.cookie, `${url}/order`, { side: "hold", shares: 5 })).statusCode).toBe(400);
+    const o = (await post(a, u.cookie, `${url}/order`, { side: "buy", shares: 5 })).json();
+    expect(o).toMatchObject({ status: "open", side: "buy", shares: 5 });
+    const cancelled = (await post(a, u.cookie, `/api/market/orders/${o.id}/cancel`)).json();
+    expect(cancelled.status).toBe("cancelled");
+    expect((await post(a, u.cookie, `/api/market/orders/${o.id}/cancel`)).statusCode).toBe(409);
+    const o2 = (await post(a, u.cookie, `${url}/order`, { side: "buy", shares: 7 })).json();
+    expect((await post(a, u.cookie, `${url}/order`, { side: "sell", shares: 1 })).statusCode).toBe(409); // 沒有持股不能預約賣
+    // 還沒開盤：不會成交
+    clock.t = REAL0 + 240 * MIN + 60 * MIN; // 4/2 8:00
+    a.service.market.tick();
+    expect(a.repo.orderById(o2.id)!.status).toBe("open");
+    // 4/2 開盤之後成交，成交價＝4/2 開盤價（開盤第一步）
+    clock.t = REAL0 + 240 * MIN + 100 * MIN;
+    a.service.market.tick();
+    const filled = a.repo.orderById(o2.id)!;
+    expect(filled.status).toBe("filled");
+    const open = a.service.market.history(KEY, "1d").points[0]!.price;
+    expect(filled.price).toBe(open);
+    expect(a.repo.positionOf(u.id, KEY).shares).toBe(7);
+    expect(a.repo.walletOf(u.id)).toBe(1_000_000 - buyQuote(open, 7).total);
+    // 錢不夠：成交時才檢查，標記拒絕、不動錢
+    clock.t = REAL0 + 240 * MIN + 170 * MIN;
+    const poor = await reg(a, "poor");
+    const o4 = (await post(a, poor.cookie, `${url}/order`, { side: "buy", shares: 5 })).json();
+    clock.t = REAL0 + 2 * 240 * MIN + 60 * MIN; // 4/3 週六：仍休市
+    a.service.market.tick();
+    expect(a.repo.orderById(o4.id)!.status).toBe("open");
+    clock.t = REAL0 + 4 * 240 * MIN + 100 * MIN; // 4/5 週一開盤
+    a.service.market.tick();
+    expect(a.repo.orderById(o4.id)).toMatchObject({ status: "rejected" });
+    expect(a.repo.walletOf(poor.id)).toBe(0);
+  });
+
+  it("pays dividends on the ex-dividend day, taxed, once, and records them in the ledger", async () => {
+    const a = make();
+    const u = await reg(a, "alice");
+    const key = "g:hokurei_rail";
+    const g = stockGroupOf(key)!;
+    a.repo.setPosition(u.id, key, 1000, 2_400_000);
+    a.service.market.tick(); // 4/1 是北嶺鉄道的除權息日，持倉在開盤前就有
+    const per = dividendPerShare(g);
+    const paid1 = a.repo.ledgerOfUser(u.id, 10).filter((e) => e.kind === "stock_dividend");
+    expect(paid1).toHaveLength(1);
+    const gross = 1000 * per;
+    expect(paid1[0]!.amount).toBe(gross - Math.floor(gross * MARKET_TAX_RATE));
+    a.service.market.tick();
+    expect(a.repo.ledgerOfUser(u.id, 10).filter((e) => e.kind === "stock_dividend")).toHaveLength(1); // 冪等
+    // 半年後（10/1）又配一次
+    clock.t = REAL0 + 183 * 240 * MIN + 100 * MIN;
+    a.service.market.tick();
+    expect(a.repo.ledgerOfUser(u.id, 10).filter((e) => e.kind === "stock_dividend")).toHaveLength(2);
+    const sum = a.repo.stockSummary(u.id);
+    expect(sum.dividends).toBe(paid1[0]!.amount * 2);
   });
 
   it("counts stocks in wealth, and drops them with the account", async () => {
@@ -282,7 +410,7 @@ describe("trading", () => {
     expect(pf.positions).toHaveLength(1);
     expect(pf.value).toBe(priceNow(a) * 30);
     expect(w.portfolio).toBe(pf.value);
-    expect(w.totalValue).toBe(w.cash + w.portfolio);
+    expect(w.totalValue).toBe(w.cash + w.portfolio + w.corporate);
     a.service.adminDeleteUser(u.id);
     expect(a.repo.positionsOfUser(u.id)).toEqual([]);
   });
@@ -374,11 +502,11 @@ describe("wallet ledger", () => {
   });
 });
 
-describe("migration v13", () => {
-  it("creates the market and ledger tables (migration 13)", () => {
-    expect(MIGRATIONS.length).toBeGreaterThanOrEqual(13);
+describe("migration v13 / v16", () => {
+  it("creates the market, order, dividend and snapshot tables (migrations 13 and 16)", () => {
+    expect(MIGRATIONS.length).toBeGreaterThanOrEqual(16);
     const a = make();
     const tables = (a.repo.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[]).map((t) => t.name);
-    for (const t of ["stock_positions", "stock_trades", "wallet_ledger"]) expect(tables).toContain(t);
+    for (const t of ["stock_positions", "stock_trades", "wallet_ledger", "stock_orders", "stock_dividends", "wealth_snapshots"]) expect(tables).toContain(t);
   });
 });

@@ -1,6 +1,25 @@
 import { randomInt } from "node:crypto";
 import {
   CATEGORY_BY_ID,
+  CORPORATE_STAKE_CAP_PCT,
+  CORPORATE_TOTAL_CAP_PCT,
+  DISCLOSURE_PCT,
+  corporateCap,
+  corporateRoomValue,
+  disclosureCrossing,
+  financeBlocker,
+  MARKET_FEE_RATE,
+  MARKET_TAX_RATE,
+  buyQuote,
+  sellQuote,
+  stockGroupOf,
+  type CorporateAccount,
+  type CorporateHolding,
+  type CorporateView,
+  type TradeResult,
+  dayOfGstep,
+  gstepAt,
+  stepOfDayOf,
   EVENT_BY_ID,
   INSPECTIONS,
   PRESENCE_WINDOW_MS,
@@ -238,6 +257,7 @@ export class MallService {
   readonly npcActor: NpcActor;
   /** 股票市場：玩家用個人錢包買賣虛構集團的股票（和商場無關） */
   readonly market: MarketService;
+  private lastSnapshotDay = -1;
   private lastDirectory = new Map<number, number>();
 
   constructor(
@@ -247,6 +267,12 @@ export class MallService {
   ) {
     this.initServerClock();
     this.market = new MarketService(repo, now, () => this.serverClock);
+    this.market.setCorporateSink((mallId, net, note) => {
+      this.mutate(mallId, (s) => {
+        s.funds += net;
+      });
+      this.logActivity(mallId, "投資", note);
+    });
     this.world = new WorldService(repo, now);
     this.alliances = new AllianceService(repo, this.world, now, {
       snapshot: (id) => {
@@ -1007,13 +1033,101 @@ export class MallService {
     });
     const cash = this.repo.walletOf(userId);
     const portfolio = this.market.portfolio(userId).value;
+    // 商場持有的股票（法人投資）按我的持股比例計入；stakes 的帳面價值仍只算帳上現金
+    const corporate = this.repo
+      .holdingsOfUser(userId)
+      .reduce((a, h) => a + (this.repo.isSandbox(h.mallId) ? 0 : stakeValue(h.shares, this.corporateValueOf(h.mallId), this.outstanding(h.mallId))), 0);
     return {
       stakes,
       foundCost: this.repo.foundedCount(userId) === 0 ? 0 : FOUNDING_COST,
       cash,
       portfolio,
-      totalValue: stakes.reduce((a, x) => a + x.value, 0) + portfolio + cash,
+      corporate,
+      totalValue: stakes.reduce((a, x) => a + x.value, 0) + portfolio + corporate + cash,
     };
+  }
+
+  // ───────── 法人投資：商場用公司資金買賣上市股票 ─────────
+
+  /** 一座商場持有的股票現值 */
+  private corporateValueOf(mallId: number): number {
+    return this.repo.mallPositions(mallId).reduce((a, p) => a + this.market.price(p.company) * p.shares, 0);
+  }
+
+  private corporateAccount(mallId: number): CorporateAccount {
+    const s = this.sync(mallId);
+    const funds = Math.round(s.funds);
+    const holdings: CorporateHolding[] = this.repo.mallPositions(mallId).flatMap((p) => {
+      const g = stockGroupOf(p.company);
+      if (!g) return [];
+      const price = this.market.price(p.company);
+      const value = price * p.shares;
+      return [{ key: p.company, name: g.name, sector: g.sector, shares: p.shares, cost: p.costTotal, price, value, pnl: value - p.costTotal, pct: Math.round((p.shares / g.shares) * 10_000) / 100 }];
+    });
+    const value = holdings.reduce((a, h) => a + h.value, 0);
+    const blocked = financeBlocker(this.serverTick() - s.tick);
+    return { mallId, mallName: this.mallNameOf(mallId), funds, holdings, value, cost: holdings.reduce((a, h) => a + h.cost, 0), room: corporateRoomValue(funds, value), canTrade: blocked === null, blocked };
+  }
+
+  /** 我管事的商場（非測試商場）的法人投資帳戶 */
+  corporateView(userId: number): CorporateView {
+    const accounts = this.repo
+      .mallsOfUser(userId)
+      .filter((m) => !this.repo.isSandbox(m.id) && this.authorityOf(m.id) === userId)
+      .map((m) => this.corporateAccount(m.id));
+    return { accounts, singleCap: CORPORATE_STAKE_CAP_PCT, totalCap: CORPORATE_TOTAL_CAP_PCT, disclosurePct: DISCLOSURE_PCT, feeRate: MARKET_FEE_RATE, taxRate: MARKET_TAX_RATE };
+  }
+
+  /** 商場用公司資金買進／賣出上市股票（只有管事的人；開市中、價格是現價；上限見 shared/src/game/corporate.ts） */
+  corporateTrade(userId: number, mallId: number, key: string, side: "buy" | "sell", sharesIn: unknown): TradeResult & { mallId: number } {
+    if (this.repo.isSandbox(mallId)) throw new ServiceError(403, "測試商場不能做投資");
+    if (!this.repo.mallById(mallId)) throw new ServiceError(404, "找不到這座商場");
+    this.assertAuthority(mallId, userId, "動用公司資金投資");
+    const g = stockGroupOf(key);
+    if (!g) throw new ServiceError(404, "找不到這檔股票");
+    if (typeof sharesIn !== "number" || !Number.isInteger(sharesIn) || sharesIn < 1 || sharesIn > 1_000_000_000) throw new ServiceError(400, "股數要是 1 以上的整數");
+    const shares = sharesIn;
+    this.market.settle();
+    const acct = this.corporateAccount(mallId);
+    if (acct.blocked) throw new ServiceError(400, acct.blocked);
+    const price = this.market.livePrice(key);
+    const pos = this.repo.mallPositionOf(mallId, key);
+    const at = this.now();
+    const name = this.mallNameOf(mallId);
+    if (side === "buy") {
+      const cap = corporateCap({ outstanding: g.shares, held: pos.shares, price, mallCash: acct.funds, portfolioValue: acct.value });
+      if (shares > cap.maxShares) {
+        const why =
+          cap.binding === "stock"
+            ? `單一集團最多持有流通股的 ${CORPORATE_STAKE_CAP_PCT * 100}%，這檔還能買 ${cap.byStock.toLocaleString()} 股`
+            : cap.binding === "total"
+              ? `全部投資的市值最多占公司現金的 ${CORPORATE_TOTAL_CAP_PCT * 100}%，這檔最多還能買 ${cap.byTotal.toLocaleString()} 股`
+              : `公司資金不足（最多買 ${cap.byCash.toLocaleString()} 股）`;
+        throw new ServiceError(409, why);
+      }
+      const q = buyQuote(price, shares);
+      this.repo.tx(() => {
+        this.mutate(mallId, (s) => {
+          if (s.funds < q.total) throw new ServiceError(409, "公司資金不足");
+          s.funds -= q.total;
+        });
+        this.repo.setMallPosition(mallId, key, pos.shares + shares, pos.costTotal + q.total);
+        if (disclosureCrossing(pos.shares, pos.shares + shares, g.shares) === "up") this.repo.addDisclosure({ company: key, holder: name, pct: ((pos.shares + shares) / g.shares) * 100, kind: "cross", at });
+      });
+      this.logActivity(mallId, "投資", `買進 ${g.name} ${shares.toLocaleString()} 股 @ ${price.toLocaleString()}（含手續費 ¥${q.total.toLocaleString()}）`);
+      return { mallId, key, side, shares, price, fee: q.fee, tax: 0, cash: -q.total, gain: 0 };
+    }
+    if (pos.shares < shares) throw new ServiceError(409, pos.shares > 0 ? `公司只有 ${pos.shares.toLocaleString()} 股` : "公司沒有這檔股票");
+    const q = sellQuote(price, shares, { shares: pos.shares, costTotal: pos.costTotal });
+    this.repo.tx(() => {
+      this.mutate(mallId, (s) => {
+        s.funds += q.net;
+      });
+      this.repo.setMallPosition(mallId, key, pos.shares - shares, pos.costTotal - q.costBasis);
+      if (disclosureCrossing(pos.shares, pos.shares - shares, g.shares) === "down") this.repo.addDisclosure({ company: key, holder: name, pct: ((pos.shares - shares) / g.shares) * 100, kind: "drop", at });
+    });
+    this.logActivity(mallId, "投資", `賣出 ${g.name} ${shares.toLocaleString()} 股 @ ${price.toLocaleString()}（${q.gain >= 0 ? `獲利 ¥${q.gain.toLocaleString()}，稅 ¥${q.tax.toLocaleString()}` : `虧損 ¥${(-q.gain).toLocaleString()}`}）`);
+    return { mallId, key, side, shares, price, fee: q.fee, tax: q.tax, cash: q.net, gain: q.gain };
   }
 
   /** 個人財務頁：我在所有商場的持股、和我有關的出價（收到的與送出的）、需要我處理（或我送出）的注資申請 */
@@ -1404,6 +1518,24 @@ export class MallService {
     this.persist(mallId, s);
     this.emit(mallId, { type: "state", mallId, state: this.pub(mallId, s) });
     return this.pub(mallId, s);
+  }
+
+  /** 股市排程：處理預約單與配息，並在每個遊戲日 16:00（JST）之後為每位玩家記一筆資產快照（資產走勢用） */
+  tickMarket(): void {
+    this.market.tick();
+    const g = gstepAt(this.now(), this.serverClock);
+    const day = dayOfGstep(g);
+    if (stepOfDayOf(g) < 160 || this.lastSnapshotDay === day) return;
+    for (const id of this.repo.playerIds()) {
+      if (this.repo.hasWealthSnapshot(id, day)) continue;
+      try {
+        const w = this.wealth(id);
+        this.repo.saveWealthSnapshot(id, day, { cash: w.cash, stakes: w.stakes.reduce((a, s) => a + s.value, 0), stocks: w.portfolio, corporate: w.corporate, total: w.totalValue });
+      } catch (e) {
+        console.error(`wealth snapshot failed for user ${id}`, e);
+      }
+    }
+    this.lastSnapshotDay = day;
   }
 
   /** 排程呼叫：把所有商場推進到現在（離線期間也會賺錢的關鍵） */

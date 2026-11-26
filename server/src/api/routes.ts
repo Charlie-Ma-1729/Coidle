@@ -420,12 +420,45 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     return { entries: repo.ledgerOfUser(user.id, Number.isInteger(n) ? Math.min(200, Math.max(1, n)) : 100) };
   });
 
+  // 資產走勢（每個遊戲日一筆快照）與股票損益彙總
+  app.get("/api/me/wealth/history", async (req) => {
+    const user = requireUser(req, repo, now());
+    return { points: repo.wealthSnapshots(user.id, 150) };
+  });
+  app.get("/api/me/stock-summary", async (req) => {
+    const user = requireUser(req, repo, now());
+    return { ...repo.stockSummary(user.id), unrealized: service.market.portfolio(user.id).pnl };
+  });
+
+  // 法人投資：商場用公司資金買賣上市股票（只有管事的人）
+  app.get("/api/me/corporate", async (req) => service.corporateView(requireUser(req, repo, now()).id));
+  for (const side of ["buy", "sell"] as const) {
+    app.post(`/api/malls/:id/portfolio/:key/${side}`, async (req) => {
+      const user = requireUser(req, repo, now());
+      const mallId = mallIdOf(req.params);
+      const key = decodeURIComponent((req.params as { key: string }).key);
+      const r = service.corporateTrade(user.id, mallId, key, side, body(req).shares);
+      audit.record({ id: user.id, name: user.username }, `portfolio.${side}`, key, { mall: mallId, shares: r.shares, price: r.price, fee: r.fee, tax: r.tax, cash: r.cash }, req.ip);
+      return r;
+    });
+  }
+
   // 股票市場：虛構集團的股票，用個人錢包買賣
   app.get("/api/market", async (req) => service.market.list(requireUser(req, repo, now()).id));
+  app.get("/api/market/status", async (req) => {
+    requireUser(req, repo, now());
+    return service.market.status();
+  });
+  app.get("/api/market/news", async (req) => {
+    requireUser(req, repo, now());
+    const n = Number((req.query as { limit?: string }).limit);
+    return { items: service.market.newsFeed(Number.isInteger(n) ? Math.min(100, Math.max(1, n)) : 40) };
+  });
   app.get("/api/market/:key/history", async (req) => {
     requireUser(req, repo, now());
-    const hours = Number((req.query as { hours?: string }).hours);
-    return service.market.history(decodeURIComponent((req.params as { key: string }).key), Number.isFinite(hours) ? hours : 168);
+    const range = (req.query as { range?: string }).range;
+    const ok = range === "1d" || range === "5d" || range === "1m" || range === "3m" || range === "all";
+    return service.market.history(decodeURIComponent((req.params as { key: string }).key), ok ? range : "1d");
   });
   app.get("/api/me/portfolio", async (req) => service.market.portfolio(requireUser(req, repo, now()).id));
   for (const side of ["buy", "sell"] as const) {
@@ -438,6 +471,24 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
       return r;
     });
   }
+
+  // 預約單：休市時下的開盤市價單
+  app.post("/api/market/:key/order", async (req) => {
+    const user = requireUser(req, repo, now());
+    const key = decodeURIComponent((req.params as { key: string }).key);
+    const b = body(req);
+    const r = service.market.placeOrder(user.id, key, b.side, b.shares);
+    audit.record({ id: user.id, name: user.username }, "stock.order", key, { side: r.side, shares: r.shares, order: r.id }, req.ip);
+    return r;
+  });
+  app.post("/api/market/orders/:id/cancel", async (req) => {
+    const user = requireUser(req, repo, now());
+    const id = Number((req.params as { id: string }).id);
+    if (!Number.isInteger(id)) throw new ServiceError(400, "預約單編號不對");
+    const r = service.market.cancelOrder(user.id, id);
+    audit.record({ id: user.id, name: user.username }, "stock.order.cancel", r.key, { order: id }, req.ip);
+    return r;
+  });
 
   app.post("/api/malls/:id/rename", async (req) => {
     const mallId = mallIdOf(req.params);

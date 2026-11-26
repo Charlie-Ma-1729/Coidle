@@ -367,6 +367,60 @@ export const MIGRATIONS: string[] = [
   `
   ALTER TABLE memberships ADD COLUMN last_active_at INTEGER NOT NULL DEFAULT 0;
   `,
+  // v16：股市 v2——預約單（休市時下的開盤單）、配息紀錄（冪等）、個人資產每日快照（資產走勢）
+  `
+  CREATE TABLE stock_orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    company TEXT NOT NULL,
+    side TEXT NOT NULL CHECK (side IN ('buy', 'sell')),
+    shares INTEGER NOT NULL CHECK (shares > 0),
+    status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'filled', 'cancelled', 'rejected')),
+    created_at INTEGER NOT NULL,
+    settled_at INTEGER,
+    price INTEGER,
+    note TEXT NOT NULL DEFAULT ''
+  );
+  CREATE INDEX idx_orders_user ON stock_orders(user_id, id);
+  CREATE INDEX idx_orders_open ON stock_orders(status, id);
+  CREATE TABLE stock_dividends (
+    company TEXT NOT NULL,
+    ex_day INTEGER NOT NULL,
+    per_share INTEGER NOT NULL,
+    holders INTEGER NOT NULL,
+    gross INTEGER NOT NULL,
+    tax INTEGER NOT NULL,
+    paid_at INTEGER NOT NULL,
+    PRIMARY KEY (company, ex_day)
+  );
+  ALTER TABLE stock_trades ADD COLUMN gain INTEGER NOT NULL DEFAULT 0;
+  CREATE TABLE mall_positions (
+    mall_id INTEGER NOT NULL REFERENCES malls(id) ON DELETE CASCADE,
+    company TEXT NOT NULL,
+    shares INTEGER NOT NULL CHECK (shares > 0),
+    cost_total INTEGER NOT NULL CHECK (cost_total >= 0),
+    PRIMARY KEY (mall_id, company)
+  );
+  CREATE TABLE stock_disclosures (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company TEXT NOT NULL,
+    holder TEXT NOT NULL,
+    pct REAL NOT NULL,
+    kind TEXT NOT NULL,
+    at INTEGER NOT NULL
+  );
+  CREATE INDEX idx_disclosures_at ON stock_disclosures(at);
+  CREATE TABLE wealth_snapshots (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    day INTEGER NOT NULL,
+    cash INTEGER NOT NULL,
+    stakes INTEGER NOT NULL,
+    stocks INTEGER NOT NULL,
+    corporate INTEGER NOT NULL DEFAULT 0,
+    total INTEGER NOT NULL,
+    PRIMARY KEY (user_id, day)
+  );
+  `,
 ];
 
 export function openDb(path: string): Db {

@@ -487,14 +487,112 @@ export class Repo {
       .prepare("INSERT INTO stock_positions (user_id, company, shares, cost_total) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, company) DO UPDATE SET shares = excluded.shares, cost_total = excluded.cost_total")
       .run(userId, company, shares, costTotal);
   }
-  addStockTrade(t: { userId: number; company: string; side: "buy" | "sell"; shares: number; price: number; fee: number; tax: number; day: number; at: number }): void {
+  addStockTrade(t: { userId: number; company: string; side: "buy" | "sell"; shares: number; price: number; fee: number; tax: number; day: number; at: number; gain?: number }): void {
     this.db
-      .prepare("INSERT INTO stock_trades (user_id, company, side, shares, price, fee, tax, day, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      .run(t.userId, t.company, t.side, t.shares, t.price, t.fee, t.tax, t.day, t.at);
+      .prepare("INSERT INTO stock_trades (user_id, company, side, shares, price, fee, tax, day, at, gain) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(t.userId, t.company, t.side, t.shares, t.price, t.fee, t.tax, t.day, t.at, t.gain ?? 0);
   }
   /** 這個遊戲日已經買進多少（價格 × 股數，不含手續費） */
   boughtOnDay(userId: number, day: number): number {
     return (this.db.prepare("SELECT COALESCE(SUM(price * shares), 0) AS n FROM stock_trades WHERE user_id = ? AND day = ? AND side = 'buy'").get(userId, day) as { n: number }).n;
+  }
+
+  /** 股票損益彙總：已實現損益（賣出，扣手續費後）、手續費、證券所得稅、配息（稅後） */
+  stockSummary(userId: number): { trades: number; realized: number; fees: number; tax: number; dividends: number } {
+    const a = this.db
+      .prepare("SELECT COUNT(*) AS n, COALESCE(SUM(CASE WHEN side = 'sell' THEN gain ELSE 0 END), 0) AS realized, COALESCE(SUM(fee), 0) AS fees, COALESCE(SUM(tax), 0) AS tax FROM stock_trades WHERE user_id = ?")
+      .get(userId) as { n: number; realized: number; fees: number; tax: number };
+    const d = this.db.prepare("SELECT COALESCE(SUM(amount), 0) AS n FROM wallet_ledger WHERE user_id = ? AND kind = 'stock_dividend'").get(userId) as { n: number };
+    return { trades: Number(a.n), realized: Number(a.realized), fees: Number(a.fees), tax: Number(a.tax), dividends: Number(d.n) };
+  }
+  /** 持有某檔股票的人與股數（配息用） */
+  holdersOf(company: string): { userId: number; shares: number }[] {
+    const rows = this.db.prepare("SELECT user_id, shares FROM stock_positions WHERE company = ? ORDER BY user_id").all(company) as { user_id: number; shares: number }[];
+    return rows.map((r) => ({ userId: r.user_id, shares: r.shares }));
+  }
+  /** 玩家（不含管理者）的 id */
+  playerIds(): number[] {
+    return (this.db.prepare("SELECT id FROM users WHERE role = 'player' ORDER BY id").all() as { id: number }[]).map((r) => r.id);
+  }
+  /** 最近的成交紀錄（新的在前） */
+  stockTradesOfUser(userId: number, limit: number): { company: string; side: "buy" | "sell"; shares: number; price: number; fee: number; tax: number; day: number; at: number }[] {
+    return this.db.prepare("SELECT company, side, shares, price, fee, tax, day, at FROM stock_trades WHERE user_id = ? ORDER BY id DESC LIMIT ?").all(userId, limit) as never;
+  }
+
+  // ── 法人投資（商場用公司資金持有的股票）
+  mallPositions(mallId: number): { company: string; shares: number; costTotal: number }[] {
+    const rows = this.db.prepare("SELECT company, shares, cost_total FROM mall_positions WHERE mall_id = ? ORDER BY company").all(mallId) as { company: string; shares: number; cost_total: number }[];
+    return rows.map((r) => ({ company: r.company, shares: r.shares, costTotal: r.cost_total }));
+  }
+  mallPositionOf(mallId: number, company: string): { shares: number; costTotal: number } {
+    const r = this.db.prepare("SELECT shares, cost_total FROM mall_positions WHERE mall_id = ? AND company = ?").get(mallId, company) as { shares: number; cost_total: number } | undefined;
+    return { shares: r?.shares ?? 0, costTotal: r?.cost_total ?? 0 };
+  }
+  setMallPosition(mallId: number, company: string, shares: number, costTotal: number): void {
+    if (shares <= 0) {
+      this.db.prepare("DELETE FROM mall_positions WHERE mall_id = ? AND company = ?").run(mallId, company);
+      return;
+    }
+    this.db
+      .prepare("INSERT INTO mall_positions (mall_id, company, shares, cost_total) VALUES (?, ?, ?, ?) ON CONFLICT(mall_id, company) DO UPDATE SET shares = excluded.shares, cost_total = excluded.cost_total")
+      .run(mallId, company, shares, costTotal);
+  }
+  /** 持有某檔股票的商場（配息用；不含測試商場） */
+  mallHoldersOf(company: string): { mallId: number; shares: number }[] {
+    const rows = this.db
+      .prepare("SELECT p.mall_id, p.shares FROM mall_positions p JOIN malls m ON m.id = p.mall_id WHERE p.company = ? AND m.sandbox = 0 ORDER BY p.mall_id")
+      .all(company) as { mall_id: number; shares: number }[];
+    return rows.map((r) => ({ mallId: r.mall_id, shares: r.shares }));
+  }
+  /** 某檔股票被商場持有的股數合計（算大量持有比例用） */
+  mallSharesTotal(company: string): number {
+    return Number((this.db.prepare("SELECT COALESCE(SUM(shares), 0) AS n FROM mall_positions WHERE company = ?").get(company) as { n: number }).n);
+  }
+  addDisclosure(d: { company: string; holder: string; pct: number; kind: "cross" | "drop"; at: number }): void {
+    this.db.prepare("INSERT INTO stock_disclosures (company, holder, pct, kind, at) VALUES (?, ?, ?, ?, ?)").run(d.company, d.holder, d.pct, d.kind, d.at);
+  }
+  disclosuresSince(since: number, until: number): { id: number; company: string; holder: string; pct: number; kind: "cross" | "drop"; at: number }[] {
+    return this.db.prepare("SELECT id, company, holder, pct, kind, at FROM stock_disclosures WHERE at >= ? AND at <= ? ORDER BY at DESC, id DESC").all(since, until) as never;
+  }
+
+  // ── 股票預約單、配息、資產快照
+  addOrder(o: { userId: number; company: string; side: "buy" | "sell"; shares: number; createdAt: number }): number {
+    const r = this.db.prepare("INSERT INTO stock_orders (user_id, company, side, shares, created_at) VALUES (?, ?, ?, ?, ?)").run(o.userId, o.company, o.side, o.shares, o.createdAt);
+    return Number(r.lastInsertRowid);
+  }
+  orderById(id: number): { id: number; user_id: number; company: string; side: "buy" | "sell"; shares: number; status: string; created_at: number; settled_at: number | null; price: number | null; note: string } | undefined {
+    return this.db.prepare("SELECT * FROM stock_orders WHERE id = ?").get(id) as never;
+  }
+  openOrders(): { id: number; user_id: number; company: string; side: "buy" | "sell"; shares: number; created_at: number }[] {
+    return this.db.prepare("SELECT id, user_id, company, side, shares, created_at FROM stock_orders WHERE status = 'open' ORDER BY id").all() as never;
+  }
+  openOrderCount(userId: number): number {
+    return Number((this.db.prepare("SELECT COUNT(*) AS n FROM stock_orders WHERE user_id = ? AND status = 'open'").get(userId) as { n: number }).n);
+  }
+  ordersOfUser(userId: number, limit: number): { id: number; company: string; side: "buy" | "sell"; shares: number; status: "open" | "filled" | "cancelled" | "rejected"; created_at: number; settled_at: number | null; price: number | null; note: string }[] {
+    return this.db.prepare("SELECT id, company, side, shares, status, created_at, settled_at, price, note FROM stock_orders WHERE user_id = ? ORDER BY id DESC LIMIT ?").all(userId, limit) as never;
+  }
+  settleOrder(id: number, status: "filled" | "cancelled" | "rejected", at: number, price: number | null, note: string): void {
+    this.db.prepare("UPDATE stock_orders SET status = ?, settled_at = ?, price = ?, note = ? WHERE id = ? AND status = 'open'").run(status, at, price, note, id);
+  }
+  dividendPaid(company: string, exDay: number): boolean {
+    return this.db.prepare("SELECT 1 AS x FROM stock_dividends WHERE company = ? AND ex_day = ?").get(company, exDay) !== undefined;
+  }
+  recordDividend(d: { company: string; exDay: number; perShare: number; holders: number; gross: number; tax: number; paidAt: number }): void {
+    this.db.prepare("INSERT INTO stock_dividends (company, ex_day, per_share, holders, gross, tax, paid_at) VALUES (?, ?, ?, ?, ?, ?, ?)").run(d.company, d.exDay, d.perShare, d.holders, d.gross, d.tax, d.paidAt);
+  }
+  saveWealthSnapshot(userId: number, day: number, v: { cash: number; stakes: number; stocks: number; corporate: number; total: number }): void {
+    this.db
+      .prepare("INSERT INTO wealth_snapshots (user_id, day, cash, stakes, stocks, corporate, total) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, day) DO UPDATE SET cash = excluded.cash, stakes = excluded.stakes, stocks = excluded.stocks, corporate = excluded.corporate, total = excluded.total")
+      .run(userId, day, v.cash, v.stakes, v.stocks, v.corporate, v.total);
+  }
+  hasWealthSnapshot(userId: number, day: number): boolean {
+    return this.db.prepare("SELECT 1 AS x FROM wealth_snapshots WHERE user_id = ? AND day = ?").get(userId, day) !== undefined;
+  }
+  /** 資產快照（舊的在前），最多 limit 天 */
+  wealthSnapshots(userId: number, limit: number): { day: number; cash: number; stakes: number; stocks: number; corporate: number; total: number }[] {
+    const rows = this.db.prepare("SELECT day, cash, stakes, stocks, corporate, total FROM wealth_snapshots WHERE user_id = ? ORDER BY day DESC LIMIT ?").all(userId, limit) as never as { day: number; cash: number; stakes: number; stocks: number; corporate: number; total: number }[];
+    return rows.reverse();
   }
 
   // ── 股份出價

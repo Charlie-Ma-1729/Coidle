@@ -5,7 +5,7 @@ import { moneySigned, money, timeText } from "../../format";
 
 const GROUPS: { id: string; label: string; kinds: LedgerKind[] | null }[] = [
   { id: "all", label: "全部", kinds: null },
-  { id: "stock", label: "股票", kinds: ["stock_buy", "stock_sell"] },
+  { id: "stock", label: "股票", kinds: ["stock_buy", "stock_sell", "stock_dividend"] },
   { id: "mall", label: "商場股權", kinds: ["share_sale", "share_buy", "buyback", "capital", "founding"] },
   { id: "dividend", label: "股利", kinds: ["dividend"] },
 ];

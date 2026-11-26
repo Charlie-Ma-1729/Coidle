@@ -176,12 +176,37 @@ export interface WealthView {
   cash: number;
   /** 股票市場的持股市值（用現在的股價算） */
   portfolio: number;
+  /** 商場以公司資金持有的上市股票市值（法人投資，由自己是管事的商場帶來；沒有為 0） */
+  corporate: number;
   /** 商場持股帳面價值 + 股票市值 + 個人現金 */
   totalValue: number;
 }
 
+/** 資產快照（每個遊戲日一筆） */
+export interface WealthPoint {
+  day: number;
+  cash: number;
+  stakes: number;
+  stocks: number;
+  corporate: number;
+  total: number;
+}
+
+/** 股票損益彙總 */
+export interface StockSummaryView {
+  trades: number;
+  /** 已實現損益（賣出，扣手續費後；負數＝虧損） */
+  realized: number;
+  fees: number;
+  tax: number;
+  /** 配息（稅後） */
+  dividends: number;
+  /** 未實現損益（目前持倉市值 − 成本） */
+  unrealized: number;
+}
+
 /** 錢包流水的種類 */
-export type LedgerKind = "dividend" | "buyback" | "share_sale" | "share_buy" | "capital" | "founding" | "stock_buy" | "stock_sell";
+export type LedgerKind = "dividend" | "buyback" | "share_sale" | "share_buy" | "capital" | "founding" | "stock_buy" | "stock_sell" | "stock_dividend";
 
 export const LEDGER_LABEL: Record<LedgerKind, string> = {
   dividend: "收到股利",
@@ -192,6 +217,7 @@ export const LEDGER_LABEL: Record<LedgerKind, string> = {
   founding: "開新商場",
   stock_buy: "買進股票",
   stock_sell: "賣出股票",
+  stock_dividend: "股票配息",
 };
 
 /** 錢包的一筆流水（正＝進、負＝出） */
