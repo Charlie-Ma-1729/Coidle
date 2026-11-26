@@ -765,18 +765,18 @@ export class Repo {
   }
 
   // ── 跨商場世界：公開名錄、賽季、信箱
-  upsertDirectory(row: { mallId: number; name: string; level: number; stars: number; score: number; localRep: number; touristHeat: number; revenue30: number; shops: number; topCategory: string; stockouts: number; createdAt: number; updatedAt: number }): void {
+  upsertDirectory(row: { mallId: number; name: string; level: number; stars: number; score: number; localRep: number; touristHeat: number; revenue30: number; shops: number; topCategory: string; stockouts: number; stockoutCats?: string[]; createdAt: number; updatedAt: number }): void {
     this.db
       .prepare(
-        `INSERT INTO mall_directory (mall_id, name, level, stars, score, local_rep, tourist_heat, revenue30, shops, top_category, stockouts, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO mall_directory (mall_id, name, level, stars, score, local_rep, tourist_heat, revenue30, shops, top_category, stockouts, stockout_cats, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(mall_id) DO UPDATE SET name = excluded.name, level = excluded.level, stars = excluded.stars, score = excluded.score,
            local_rep = excluded.local_rep, tourist_heat = excluded.tourist_heat, revenue30 = excluded.revenue30, shops = excluded.shops,
-           top_category = excluded.top_category, stockouts = excluded.stockouts, created_at = excluded.created_at, updated_at = excluded.updated_at`,
+           top_category = excluded.top_category, stockouts = excluded.stockouts, stockout_cats = excluded.stockout_cats, created_at = excluded.created_at, updated_at = excluded.updated_at`,
       )
-      .run(row.mallId, row.name, row.level, row.stars, row.score, row.localRep, row.touristHeat, row.revenue30, row.shops, row.topCategory, row.stockouts, row.createdAt, row.updatedAt);
+      .run(row.mallId, row.name, row.level, row.stars, row.score, row.localRep, row.touristHeat, row.revenue30, row.shops, row.topCategory, row.stockouts, (row.stockoutCats ?? []).join(","), row.createdAt, row.updatedAt);
   }
-  directoryRows(): { mall_id: number; name: string; level: number; stars: number; score: number; local_rep: number; tourist_heat: number; revenue30: number; shops: number; top_category: string; stockouts: number; created_at: number; updated_at: number }[] {
+  directoryRows(): { mall_id: number; name: string; level: number; stars: number; score: number; local_rep: number; tourist_heat: number; revenue30: number; shops: number; top_category: string; stockouts: number; stockout_cats: string; created_at: number; updated_at: number }[] {
     return this.db.prepare("SELECT * FROM mall_directory ORDER BY mall_id").all() as never;
   }
   seasonResult(season: number): string | null {

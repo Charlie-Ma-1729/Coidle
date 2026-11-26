@@ -64,6 +64,7 @@ export class WorldService {
       shops: r.shops,
       topCategory: r.top_category,
       stockouts: r.stockouts,
+      stockoutCats: r.stockout_cats ? r.stockout_cats.split(",") : [],
       updatedAt: r.updated_at,
     }));
   }

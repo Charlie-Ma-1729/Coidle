@@ -421,6 +421,8 @@ export const MIGRATIONS: string[] = [
     PRIMARY KEY (user_id, day)
   );
   `,
+  // 名錄：缺貨中的店是哪些業態（逗號分隔的業態名）
+  `ALTER TABLE mall_directory ADD COLUMN stockout_cats TEXT NOT NULL DEFAULT '';`,
 ];
 
 export function openDb(path: string): Db {

@@ -39,7 +39,7 @@ function TradePanel({ entry, onDone }: { entry: DirectoryEntry; onDone: () => vo
   };
   return (
     <div class="stack" style={{ marginTop: "6px" }}>
-      {entry.stockouts > 0 && <p class="small">⚠️ 對方有 <b>{entry.stockouts}</b> 間店缺貨中，調貨給他們能解燃眉之急。</p>}
+      {entry.stockouts > 0 && <p class="small">⚠️ 對方有 <b>{entry.stockouts}</b> 間店缺貨中{entry.stockoutCats?.length ? <>（缺：<b>{entry.stockoutCats.join("、")}</b>）</> : ""}，調貨給他們能解燃眉之急。</p>}
       <p class="small dim">
         轉出的量對方只會收到 {Math.round((1 - TRADE_FEE) * 100)}%。單筆最多 {moneyShort(lim.fundsPerTx)}、每天最多 {moneyShort(lim.fundsPerDay)}；調貨最多轉出庫存的一半（{TRADE_MIN_GOODS}–{TRADE_MAX_GOODS} 份）。
       </p>
@@ -287,7 +287,7 @@ export function World() {
                         {i + 1}. 🏬 {e.name}
                       </b>
                       <span>
-                        {isMine && <Chip tone="pink">你</Chip>} {related.includes(e.key) && <Chip tone="dim">🔗 關係企業</Chip>} {(view?.shields[e.key] ?? 0) > Date.now() && <Chip tone="dim">🛡 保護中</Chip>} {e.stockouts > 0 && <Chip tone="amber">⚠️ {e.stockouts} 間缺貨</Chip>}
+                        {isMine && <Chip tone="pink">你</Chip>} {related.includes(e.key) && <Chip tone="dim">🔗 關係企業</Chip>} {(view?.shields[e.key] ?? 0) > Date.now() && <Chip tone="dim">🛡 保護中</Chip>} {e.stockouts > 0 && <Chip tone="amber">⚠️ {e.stockouts} 間缺貨{e.stockoutCats?.length ? `：${e.stockoutCats.join("、")}` : ""}</Chip>}
                       </span>
                     </div>
                     <div class="row between small dim">

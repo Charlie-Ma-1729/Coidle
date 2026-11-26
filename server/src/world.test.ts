@@ -122,7 +122,7 @@ describe("directory API", () => {
     expect(body.season.index).toBe(0);
 
     // 只有公開欄位：沒有資金、成員、庫存、種子…
-    const allowed = new Set(["key", "kind", "name", "tagline", "level", "stars", "score", "localRep", "touristHeat", "revenue30", "shops", "topCategory", "stockouts", "updatedAt"]);
+    const allowed = new Set(["key", "kind", "name", "tagline", "level", "stars", "score", "localRep", "touristHeat", "revenue30", "shops", "topCategory", "stockouts", "stockoutCats", "updatedAt"]);
     for (const e of body.entries) for (const k of Object.keys(e)) expect(allowed.has(k), k).toBe(true);
     const text = JSON.stringify(body);
     expect(text).not.toMatch(/funds|inviteCode|seed|members/);

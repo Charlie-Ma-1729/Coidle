@@ -32,6 +32,8 @@ export interface DirectoryEntry {
   topCategory: string;
   /** 目前缺貨中的店數（用來顯示「需要支援」，不透露庫存數字） */
   stockouts: number;
+  /** 缺貨中的店是哪些業態（去重、最多 6 個；只有業態名，不透露店名與庫存數字）。舊資料沒有 */
+  stockoutCats?: string[];
   updatedAt: number;
 }
 
@@ -133,6 +135,7 @@ export function npcEntry(def: NpcMallDef, nowMs: number, ov?: NpcOverride): Dire
     shops: 8 + level * 6,
     topCategory: def.topCategory,
     stockouts: npcStockouts(def.id, nowMs),
+    stockoutCats: npcStockouts(def.id, nowMs) > 0 ? [def.topCategory] : [],
     updatedAt: nowMs,
   };
 }

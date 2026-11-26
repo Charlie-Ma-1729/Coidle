@@ -151,7 +151,8 @@ export class TradeService {
     const day = this.repo.tradeSince(fromMall, to, "goods", t - TRADE_DAY_MS);
     if (day.total + qty > lim.goodsPerDay) throw new ServiceError(400, `同一座商場每天最多轉 ${lim.goodsPerDay} 份貨`);
 
-    const rescue = to < 0 ? npcStockouts(targetKey.slice(2), t) > 0 : dest.some((x) => x.stock < 1);
+    // 救援只看對方「公開名錄」的缺貨業態（和世界頁看到的一致、以伺服器時間更新），不讀對方落後中的內部庫存
+    const rescue = to < 0 ? npcStockouts(targetKey.slice(2), t) > 0 : (this.repo.directoryRows().find((r) => r.mall_id === to)?.stockout_cats ?? "").split(",").includes(cat.name);
     const received = afterFee(qty);
     this.host.mutate(fromMall, (s) => {
       const sh = s.shops.find((x) => x.id === shopId);

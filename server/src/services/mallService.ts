@@ -1337,6 +1337,8 @@ export class MallService {
     const counts = new Map<string, number>();
     for (const sh of s.shops) counts.set(sh.category, (counts.get(sh.category) ?? 0) + 1);
     const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+    const out = s.shops.filter((x) => x.mode === "direct" && x.tenant === null && CATEGORY_BY_ID[x.category] && categoryHasStock(CATEGORY_BY_ID[x.category]!) && x.stock < 1);
+    const stockoutCats = [...new Set(out.map((x) => CATEGORY_BY_ID[x.category]!.name))].slice(0, 6);
     const revenue30 = s.reports.slice(-30).reduce((a, r) => a + r.revenue + r.rentIncome, 0);
     this.repo.upsertDirectory({
       mallId,
@@ -1349,7 +1351,8 @@ export class MallService {
       revenue30: Math.round(revenue30),
       shops: s.shops.length,
       topCategory: top ? CATEGORY_BY_ID[top]?.name ?? "" : "",
-      stockouts: s.shops.filter((x) => x.mode === "direct" && x.tenant === null && CATEGORY_BY_ID[x.category] && categoryHasStock(CATEGORY_BY_ID[x.category]!) && x.stock < 1).length,
+      stockouts: out.length,
+      stockoutCats,
       createdAt: row.created_at,
       updatedAt: nowMs,
     });
