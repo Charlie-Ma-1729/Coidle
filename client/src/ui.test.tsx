@@ -1324,8 +1324,7 @@ describe("stage UI panels with real state", () => {
     });
     const shop = store.state.value!.shops.find((x) => x.mode === "direct")!;
     const { PlayFlow } = await import("./screens/workshop/PlayFlow");
-    const { makeLevel, stageSeed, sequenceAnswer } = await import("@coidle/shared");
-    const started: unknown[] = [];
+        const started: unknown[] = [];
     const node = (
       <PlayFlow s={store.state.value!} shop={shop} group="food" picks={{ base: "f_pork", season: "f_citrus", method: "f_fry" }} costs={[1000, 1000, 1000]} mustTweak={false} verb="研發" onStart={(p) => started.push(p)} onCancel={() => {}} />
     );
@@ -1335,18 +1334,12 @@ describe("stage UI panels with real state", () => {
     btn("直接自動開始").click();
     expect(started).toEqual([undefined]);
 
-    // 第 1 關：照正解排序
-    const lv = makeLevel("sequence", stageSeed(4242, 0), "food", 0);
-    if (lv.kind !== "sequence") throw new Error("kind");
-    for (const id of sequenceAnswer(lv)) {
-      const it = lv.items.find((x) => x.id === id)!;
-      btn(`${it.label}（${it.minutes} 分）`).click();
-      await tick();
-    }
-    btn("就這樣排").click();
+    // 第 1 關是即時的下刀關：有節奏軌道與開始鈕；略過兩關到確認頁
+    expect(container.querySelector('[aria-label="節奏軌道"]')).not.toBeNull();
+    btn("開始（倒數").click();
     await tick();
-    expect(container.textContent).toContain("2.");
-    // 第 2、3 關略過
+    btn("略過這一關").click();
+    await tick();
     btn("略過這一關").click();
     await tick();
     expect(container.textContent).toContain("手藝");

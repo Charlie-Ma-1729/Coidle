@@ -9,13 +9,12 @@ import {
   scorePlay,
   scoreHold,
   scoreRhythm,
-  scoreSequence,
+  scoreCut,
   stageSeed,
   type HoldLevel,
   type PlayInput,
   type PublicMallState,
-  type RhythmLevel,
-  type SequenceLevel,
+  type CutLevel,
   type Shop,
   type SlotKind,
 } from "@coidle/shared";
@@ -31,78 +30,102 @@ type Picks = Partial<Record<SlotKind, string>>;
 type Group = "food" | "retail" | "entertainment" | "service";
 const pct = (x: number) => `${Math.round(x * 100)}`;
 
-// ───────── 第 1 關：排順序 ─────────
-function SequenceGame({ level, onDone }: { level: SequenceLevel; onDone: (order: number[]) => void }) {
-  const [order, setOrder] = useState<number[]>([]);
-  const left = level.items.filter((x) => !order.includes(x.id));
-  return (
-    <div class="stack">
-      <p class="small dim">每個工序旁邊是它的耗時。把工序依「先做耗時長的」順序點選排好。</p>
-      <div class="row" style={{ flexWrap: "wrap", gap: "6px" }}>
-        {left.map((it) => (
-          <Btn key={it.id} onClick={() => setOrder([...order, it.id])}>
-            {it.label}（{it.minutes} 分）
-          </Btn>
-        ))}
-      </div>
-      <ol class="small">
-        {order.map((id, i) => (
-          <li key={id}>
-            {level.items.find((x) => x.id === id)?.label}
-            {i === order.length - 1 && (
-              <button class="link" style={{ marginLeft: "8px" }} onClick={() => setOrder(order.slice(0, -1))}>
-                收回
-              </button>
-            )}
-          </li>
-        ))}
-      </ol>
-      <div class="row">
-        <Btn kind="primary" disabled={left.length > 0} onClick={() => onDone(order)}>
-          就這樣排
-        </Btn>
-      </div>
-    </div>
-  );
+// ───────── 節奏型關卡（下刀／烹調共用）：倒數 → 光點滑過軌道 → 在亮線上下手 ─────────
+type Judge = { text: string; tone: "green" | "cyan" | "amber" | "pink" };
+
+function judgeTap(t: number, targets: number[], decoys: number[], win: number): Judge {
+  const dd = decoys.reduce((m, d) => Math.min(m, Math.abs(t - d)), Infinity);
+  if (dd <= win * 0.6) return { text: "碰到雜質了！", tone: "pink" };
+  const d = targets.reduce((m, b) => Math.min(m, Math.abs(t - b)), Infinity);
+  if (d <= win * 0.35) return { text: "完美！", tone: "green" };
+  if (d <= win * 0.7) return { text: "不錯", tone: "cyan" };
+  if (d <= win) return { text: "勉強", tone: "amber" };
+  return { text: "空揮", tone: "amber" };
 }
 
-// ───────── 第 2 關：節奏 ─────────
-function RhythmGame({ level, label, onDone }: { level: RhythmLevel; label: string; onDone: (taps: number[]) => void }) {
-  const [running, setRunning] = useState(false);
+function TimingGame({
+  targets,
+  decoys,
+  win,
+  duration,
+  label,
+  goodLabel,
+  badLabel,
+  action,
+  scoreOf,
+  scoreName,
+  onDone,
+}: {
+  targets: number[];
+  decoys: number[];
+  win: number;
+  duration: number;
+  label: string;
+  goodLabel: string;
+  badLabel: string;
+  action: string;
+  scoreOf: (taps: number[]) => number;
+  scoreName: string;
+  onDone: (taps: number[]) => void;
+}) {
+  const [phase, setPhase] = useState<"idle" | "count" | "run" | "done">("idle");
+  const [count, setCount] = useState(3);
   const [now, setNow] = useState(0);
   const taps = useRef<number[]>([]);
   const t0 = useRef(0);
   const raf = useRef(0);
+  const timers = useRef<number[]>([]);
+  const phaseRef = useRef<"idle" | "count" | "run" | "done">("idle");
   const [tapCount, setTapCount] = useState(0);
+  const [judge, setJudge] = useState<Judge | null>(null);
+  const [combo, setCombo] = useState(0);
   const [score, setScore] = useState<number | null>(null);
+  const go = (p: "idle" | "count" | "run" | "done") => {
+    phaseRef.current = p;
+    setPhase(p);
+  };
 
   const finish = () => {
     cancelAnimationFrame(raf.current);
-    setRunning(false);
-    setScore(scoreRhythm(level, taps.current));
+    go("done");
+    setScore(scoreOf(taps.current));
   };
   const loop = () => {
     const t = performance.now() - t0.current;
     setNow(t);
-    if (t >= level.duration) return finish();
+    if (t >= duration) return finish();
+    raf.current = requestAnimationFrame(loop);
+  };
+  const begin = () => {
+    taps.current = [];
+    setTapCount(0);
+    setCombo(0);
+    setJudge(null);
+    setScore(null);
+    setNow(0);
+    t0.current = performance.now();
+    go("run");
     raf.current = requestAnimationFrame(loop);
   };
   const start = () => {
-    taps.current = [];
-    setTapCount(0);
-    setScore(null);
-    t0.current = performance.now();
-    setRunning(true);
-    raf.current = requestAnimationFrame(loop);
+    timers.current.forEach((x) => window.clearTimeout(x));
+    cancelAnimationFrame(raf.current);
+    go("count");
+    setCount(3);
+    timers.current = [window.setTimeout(() => setCount(2), 500), window.setTimeout(() => setCount(1), 1000), window.setTimeout(begin, 1500)];
   };
   const tap = () => {
-    if (!running) return;
-    taps.current.push(Math.round(performance.now() - t0.current));
+    if (phaseRef.current !== "run") return;
+    const t = Math.round(performance.now() - t0.current);
+    taps.current.push(t);
     setTapCount(taps.current.length);
+    const j = judgeTap(t, targets, decoys, win);
+    setJudge(j);
+    setCombo((c) => (j.tone === "green" || j.tone === "cyan" ? c + 1 : 0));
   };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.code === "Space") {
+      if (e.code === "Space" && phaseRef.current === "run") {
         e.preventDefault();
         tap();
       }
@@ -111,28 +134,67 @@ function RhythmGame({ level, label, onDone }: { level: RhythmLevel; label: strin
     return () => {
       window.removeEventListener("keydown", onKey);
       cancelAnimationFrame(raf.current);
+      timers.current.forEach((x) => window.clearTimeout(x));
     };
-  }, [running]);
+  }, []);
 
+  const running = phase === "run";
+  // 已經滑過去的目標：附近有按過就亮綠，沒按就暗掉
+  const passed = (b: number) => now > b + win;
+  const hitOf = (b: number) => taps.current.some((t) => Math.abs(t - b) <= win);
   return (
     <div class="stack">
-      <p class="small dim">{label}。光點滑到亮線時按下「下手」（或空白鍵），越準分數越高。</p>
-      <div style={{ position: "relative", height: "44px", border: "1px solid var(--line)", borderRadius: "12px", overflow: "hidden", background: "rgba(255,255,255,0.03)" }} aria-label="節奏軌道">
-        {level.beats.map((b) => (
-          <span key={b} style={{ position: "absolute", left: `${(b / level.duration) * 100}%`, top: 0, bottom: 0, width: "3px", background: "var(--pink)" }} />
+      <p class="small dim">
+        {label}。光點滑到<b>亮線</b>（{goodLabel}）時按下「{action}」（空白鍵也行）。{decoys.length > 0 && <><b>紅線</b>是{badLabel}，別碰。</>}
+      </p>
+      <div style={{ position: "relative", height: "52px", border: "1px solid var(--line)", borderRadius: "12px", overflow: "hidden", background: "rgba(255,255,255,0.03)" }} aria-label="節奏軌道">
+        {targets.map((b) => (
+          <span
+            key={`t${b}`}
+            style={{
+              position: "absolute",
+              left: `${((b - win) / duration) * 100}%`,
+              width: `${((win * 2) / duration) * 100}%`,
+              top: 0,
+              bottom: 0,
+              background: passed(b) ? (hitOf(b) ? "rgba(90,220,140,0.28)" : "rgba(255,255,255,0.04)") : "rgba(255,95,162,0.12)",
+            }}
+          >
+            <span style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: "3px", background: passed(b) && !hitOf(b) ? "rgba(255,255,255,0.2)" : "var(--pink)", transform: "translateX(-1px)" }} />
+          </span>
         ))}
-        <span style={{ position: "absolute", left: `${Math.min(100, (now / level.duration) * 100)}%`, top: "12px", width: "18px", height: "18px", borderRadius: "50%", background: "var(--cyan, #5ee)", transform: "translateX(-9px)" }} />
+        {decoys.map((b) => (
+          <span key={`d${b}`} style={{ position: "absolute", left: `${(b / duration) * 100}%`, top: "10px", bottom: "10px", width: "3px", background: "#e44", opacity: 0.85, borderRadius: "2px" }} />
+        ))}
+        <span style={{ position: "absolute", left: `${Math.min(100, (now / duration) * 100)}%`, top: "17px", width: "18px", height: "18px", borderRadius: "50%", background: "var(--cyan, #5ee)", transform: "translateX(-9px)", boxShadow: "0 0 10px var(--cyan, #5ee)" }} />
+        {phase === "count" && (
+          <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "28px", fontWeight: 700 }}>{count}</span>
+        )}
+      </div>
+      <div class="row" style={{ minHeight: "28px", gap: "8px" }}>
+        {judge && running && <Chip tone={judge.tone}>{judge.text}</Chip>}
+        {combo >= 2 && running && <Chip tone="cyan">連擊 ×{combo}</Chip>}
       </div>
       <div class="row">
-        {!running && score === null && <Btn onClick={start}>開始</Btn>}
+        {phase === "idle" && <Btn onClick={start}>開始（倒數 3 秒）</Btn>}
+        {phase === "count" && <span class="small dim">準備…</span>}
         {running && (
-          <Btn kind="primary" onClick={tap}>
-            下手！（{tapCount}）
-          </Btn>
+          <button
+            class="btn primary"
+            style={{ flex: 1, minHeight: "56px", fontSize: "18px", touchAction: "manipulation" }}
+            onPointerDown={(e) => {
+              e.preventDefault();
+              tap();
+            }}
+          >
+            {action}！（{tapCount}）
+          </button>
         )}
-        {score !== null && (
+        {phase === "done" && score !== null && (
           <>
-            <Chip tone={score >= 0.7 ? "green" : score >= 0.4 ? "cyan" : "amber"}>手感 {pct(score)} 分</Chip>
+            <Chip tone={score >= 0.7 ? "green" : score >= 0.4 ? "cyan" : "amber"}>
+              {scoreName} {pct(score)} 分
+            </Chip>
             <Btn onClick={start}>再來一次</Btn>
             <Btn kind="primary" onClick={() => onDone(taps.current.slice())}>
               用這次的成績
@@ -173,13 +235,26 @@ function HoldGame({ level, label, onDone }: { level: HoldLevel; label: string; o
     }, level.step);
   };
   useEffect(() => () => window.clearInterval(timer.current), []);
+  // 左右鍵微調（每次 4）；執行中才有效
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!running || (e.code !== "ArrowLeft" && e.code !== "ArrowRight")) return;
+      e.preventDefault();
+      const v = Math.max(0, Math.min(100, curRef.current + (e.code === "ArrowLeft" ? -4 : 4)));
+      curRef.current = v;
+      setCur(v);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [running]);
   const center = level.centers[Math.min(i, level.centers.length - 1)] ?? 50;
+  const inZone = running && Math.abs(cur - center) <= level.width / 2;
   return (
     <div class="stack">
       <p class="small dim">{label}。把滑桿維持在發亮的區間裡，區間會慢慢移動，跟著它。</p>
       <div style={{ position: "relative", height: "28px", border: "1px solid var(--line)", borderRadius: "12px", overflow: "hidden", background: "rgba(255,255,255,0.03)" }} aria-label="甜蜜區間">
         <span style={{ position: "absolute", left: `${center - level.width / 2}%`, width: `${level.width}%`, top: 0, bottom: 0, background: "rgba(255,95,162,0.35)" }} />
-        <span style={{ position: "absolute", left: `${cur}%`, top: "4px", width: "6px", height: "20px", background: "var(--cyan, #5ee)", transform: "translateX(-3px)" }} />
+        <span style={{ position: "absolute", left: `${cur}%`, top: "4px", width: "6px", height: "20px", background: inZone ? "#7e7" : "var(--cyan, #5ee)", transform: "translateX(-3px)", boxShadow: inZone ? "0 0 8px #7e7" : "none" }} />
       </div>
       <input
         type="range"
@@ -195,7 +270,7 @@ function HoldGame({ level, label, onDone }: { level: HoldLevel; label: string; o
       />
       <div class="row">
         {!running && score === null && <Btn onClick={start}>開始</Btn>}
-        {running && <span class="small dim">進行中…{Math.round((i / level.centers.length) * 100)}%</span>}
+        {running && <span class="small dim">{inZone ? "✔ 在區間內" : "✘ 偏離了"}　進行中…{Math.round((i / level.centers.length) * 100)}%（可用 ←／→ 鍵）</span>}
         {score !== null && (
           <>
             <Chip tone={score >= 0.7 ? "green" : score >= 0.4 ? "cyan" : "amber"}>穩定度 {pct(score)} 分</Chip>
@@ -273,7 +348,7 @@ export function PlayFlow(props: {
   const diff = playDifficulty(props.costs);
   const def = PLAY_GROUPS[group];
   const kind = actKind(group, picks.method);
-  const prepLevel = useMemo(() => (seed === undefined ? null : (makeLevel("sequence", stageSeed(seed, 0), group, diff) as SequenceLevel)), [seed, group, diff]);
+  const prepLevel = useMemo(() => (seed === undefined ? null : (makeLevel("cut", stageSeed(seed, 0), group, diff) as CutLevel)), [seed, group, diff]);
   const actLevel = useMemo(() => (seed === undefined ? null : makeLevel(kind, stageSeed(seed, 1), group, diff)), [seed, group, diff, kind]);
   const [step, setStep] = useState(0);
   const [prep, setPrep] = useState<number[]>([]);
@@ -293,7 +368,7 @@ export function PlayFlow(props: {
   }
   const play: PlayInput = { seed, stages: [{ id: "prep", inputs: prep }, { id: "act", inputs: act }], tweak };
   const result = scorePlay(group, picks.method, diff, seed, play);
-  const prepScore = prep.length ? scoreSequence(prepLevel, prep) : 0;
+  const prepScore = prep.length ? scoreCut(prepLevel, prep) : 0;
   const actScore = act.length ? (actLevel.kind === "rhythm" ? scoreRhythm(actLevel, act) : actLevel.kind === "hold" ? scoreHold(actLevel, act) : 0) : 0;
   const steps = [def.prep, def.act, def.tweak];
   void shop;
@@ -318,8 +393,18 @@ export function PlayFlow(props: {
               </b>
               <span class="dim">：{def.prep.desc}</span>
             </p>
-            <SequenceGame
-              level={prepLevel}
+            <TimingGame
+              key="prep"
+              targets={prepLevel.targets}
+              decoys={prepLevel.decoys}
+              win={prepLevel.window}
+              duration={prepLevel.duration}
+              label={`${def.prep.label}：${def.prep.good}與${def.prep.bad}交錯出現`}
+              goodLabel={def.prep.good}
+              badLabel={def.prep.bad}
+              action="下刀"
+              scoreOf={(x) => scoreCut(prepLevel, x)}
+              scoreName="處理"
               onDone={(o) => {
                 setPrep(o);
                 setStep(1);
@@ -336,9 +421,18 @@ export function PlayFlow(props: {
               <span class="dim">：{def.act.desc}</span>
             </p>
             {actLevel.kind === "rhythm" ? (
-              <RhythmGame
-                level={actLevel}
+              <TimingGame
+                key="act"
+                targets={actLevel.beats}
+                decoys={[]}
+                win={actLevel.window}
+                duration={actLevel.duration}
                 label={def.act.actions.rhythm}
+                goodLabel="節拍"
+                badLabel=""
+                action="下手"
+                scoreOf={(x) => scoreRhythm(actLevel, x)}
+                scoreName="手感"
                 onDone={(t) => {
                   setAct(t);
                   setStep(2);

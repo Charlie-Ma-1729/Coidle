@@ -12,7 +12,7 @@ import {
   playDifficulty,
   scoreAnalysis,
   scorePlay,
-  sequenceAnswer,
+  scoreCut,
   stageSeed,
   techGrade,
   type MallState,
@@ -45,14 +45,14 @@ const diffOf = (p: Picks) => playDifficulty(Object.values(p).map((id) => INGREDI
 
 function perfect(seed: number, p: Picks, tweak?: Record<string, number>): PlayInput {
   const d = diffOf(p);
-  const prep = makeLevel("sequence", stageSeed(seed, 0), "food", d);
+  const prep = makeLevel("cut", stageSeed(seed, 0), "food", d);
   const kind = actKind("food", p.method);
   const act = makeLevel(kind, stageSeed(seed, 1), "food", d);
   const inputs = act.kind === "rhythm" ? act.beats.slice() : act.kind === "hold" ? act.centers.slice() : [];
   return {
     seed,
     stages: [
-      { id: "prep", inputs: prep.kind === "sequence" ? sequenceAnswer(prep) : [] },
+      { id: "prep", inputs: prep.kind === "cut" ? prep.targets.slice() : [] },
       { id: "act", inputs },
     ],
     ...(tweak ? { tweak } : {}),
@@ -97,6 +97,20 @@ describe("workshop mini-game scoring", () => {
     expect(Object.keys(r.tweak).length).toBeLessThanOrEqual(2);
     for (const v of Object.values(r.tweak)) expect(Math.abs(v)).toBe(1);
     expect(r.tweak.bogus).toBeUndefined();
+  });
+});
+
+describe("cut stage", () => {
+  it("hitting decoys costs points; decoys never sit inside a target's window", () => {
+    for (let seed = 1; seed < 60; seed++) {
+      const lv = makeLevel("cut", seed, "food", seed % 9);
+      if (lv.kind !== "cut") throw new Error("kind");
+      for (const d of lv.decoys) for (const b of lv.targets) expect(Math.abs(d - b)).toBeGreaterThan(lv.window * 1.6);
+      const clean = scoreCut(lv, lv.targets);
+      expect(clean).toBeGreaterThan(0.99);
+      expect(scoreCut(lv, [...lv.targets, lv.decoys[0]!])).toBeLessThan(clean);
+      expect(scoreCut(lv, [])).toBe(0);
+    }
   });
 });
 

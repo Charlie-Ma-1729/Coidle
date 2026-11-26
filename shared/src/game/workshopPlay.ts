@@ -9,7 +9,7 @@ import type { CategoryGroup, PlayInput } from "./types";
 //  - 引擎仍然只認 tick：小遊戲只在 client 即時玩，結果在「開始研發」那一刻以指令提交，之後離線照常結算。
 // 加成有上限、不玩也能開始（沒有加成），所以偽造輸入頂多拿到上限，不會破壞平衡。
 
-export type PlayKind = "sequence" | "rhythm" | "hold";
+export type PlayKind = "sequence" | "rhythm" | "hold" | "cut";
 
 export interface PlayStageDef {
   id: "prep" | "act" | "tweak";
@@ -18,30 +18,30 @@ export interface PlayStageDef {
   desc: string;
 }
 export interface PlayGroupDef {
-  prep: PlayStageDef & { steps: string[] };
+  prep: PlayStageDef & { steps: string[]; /** 該下手的目標／別碰的雜質（畫面上的名稱） */ good: string; bad: string };
   act: PlayStageDef & { kinds: PlayKind[]; actions: Record<PlayKind, string> };
   tweak: PlayStageDef;
 }
 
 export const PLAY_GROUPS: Record<CategoryGroup, PlayGroupDef> = {
   food: {
-    prep: { id: "prep", label: "備料", icon: "🔪", desc: "耗時越長的工序要越早開始，才不會手忙腳亂。把工序照「先做耗時長的」排好。", steps: ["高湯熬煮", "食材醃漬", "米麵泡發", "醬料調製", "蔬菜清洗", "肉類切片", "油炸預熱", "擺盤備料"] },
-    act: { id: "act", label: "烹調", icon: "🔥", desc: "烹調靠手感：跟著節奏下手，或把火力維持在甜蜜點。", kinds: ["rhythm", "hold", "rhythm"], actions: { rhythm: "跟著節奏翻鍋、下鍋", hold: "把火力維持在甜蜜點", sequence: "" } },
+    prep: { id: "prep", label: "備料", icon: "🔪", desc: "食材一件件滑過砧板：新鮮的在亮線上下刀，壞掉的別碰。", good: "新鮮食材", bad: "壞掉的", steps: ["高湯熬煮", "食材醃漬", "米麵泡發", "醬料調製", "蔬菜清洗", "肉類切片", "油炸預熱", "擺盤備料"] },
+    act: { id: "act", label: "烹調", icon: "🔥", desc: "烹調靠手感：跟著節奏下手，或把火力維持在甜蜜點。", kinds: ["rhythm", "hold", "rhythm"], actions: { rhythm: "跟著節奏翻鍋、下鍋", hold: "把火力維持在甜蜜點", sequence: "", cut: "" } },
     tweak: { id: "tweak", label: "調味", icon: "🧂", desc: "依試味的線索微調：最多動兩個特性（各 ±1）。調錯方向會失衡。" },
   },
   retail: {
-    prep: { id: "prep", label: "打樣", icon: "📐", desc: "打樣要先處理最花時間的步驟。照「先做耗時長的」排好。", steps: ["布料裁切", "染色定色", "縫製主體", "細節收邊", "品質檢驗", "吊牌包裝", "配件組裝", "洗滌整燙"] },
-    act: { id: "act", label: "試作", icon: "🧵", desc: "試作要穩：跟著節奏下針，或讓機台維持在穩定區間。", kinds: ["hold", "rhythm", "hold"], actions: { rhythm: "跟著節奏縫製、組裝", hold: "讓機台維持在穩定區間", sequence: "" } },
+    prep: { id: "prep", label: "打樣", icon: "📐", desc: "布料與零件滑過裁切台：合格的在亮線上裁下，瑕疵品別碰。", good: "合格布料", bad: "瑕疵品", steps: ["布料裁切", "染色定色", "縫製主體", "細節收邊", "品質檢驗", "吊牌包裝", "配件組裝", "洗滌整燙"] },
+    act: { id: "act", label: "試作", icon: "🧵", desc: "試作要穩：跟著節奏下針，或讓機台維持在穩定區間。", kinds: ["hold", "rhythm", "hold"], actions: { rhythm: "跟著節奏縫製、組裝", hold: "讓機台維持在穩定區間", sequence: "", cut: "" } },
     tweak: { id: "tweak", label: "規格微調", icon: "📏", desc: "依市場的反應微調風格：最多動兩個特性（各 ±1）。" },
   },
   entertainment: {
-    prep: { id: "prep", label: "編排", icon: "🗒️", desc: "節目與關卡的編排，先排耗時最長的段落。", steps: ["開場暖身", "主線劇情", "高潮橋段", "互動環節", "音效配樂", "燈光舞台", "彩蛋設計", "收尾謝幕"] },
-    act: { id: "act", label: "彩排", icon: "🎶", desc: "彩排最看節奏：跟著拍子，或把現場氣氛維持在最佳區間。", kinds: ["rhythm", "hold", "rhythm"], actions: { rhythm: "跟著拍子彩排", hold: "把氣氛維持在最佳區間", sequence: "" } },
+    prep: { id: "prep", label: "編排", icon: "🗒️", desc: "橋段一段段滑過時間軸：好點子在亮線上收進節目，雷點別碰。", good: "好點子", bad: "雷點", steps: ["開場暖身", "主線劇情", "高潮橋段", "互動環節", "音效配樂", "燈光舞台", "彩蛋設計", "收尾謝幕"] },
+    act: { id: "act", label: "彩排", icon: "🎶", desc: "彩排最看節奏：跟著拍子，或把現場氣氛維持在最佳區間。", kinds: ["rhythm", "hold", "rhythm"], actions: { rhythm: "跟著拍子彩排", hold: "把氣氛維持在最佳區間", sequence: "", cut: "" } },
     tweak: { id: "tweak", label: "調校", icon: "🎚️", desc: "依彩排的回饋微調內容：最多動兩個特性（各 ±1）。" },
   },
   service: {
-    prep: { id: "prep", label: "流程", icon: "🗂️", desc: "服務流程要先安排最耗時的步驟。", steps: ["諮詢問診", "環境消毒", "器具準備", "主要療程", "輔助護理", "效果確認", "後續衛教", "預約回診"] },
-    act: { id: "act", label: "演練", icon: "💆", desc: "演練靠穩定：讓力道維持在舒適區間，或跟著節奏操作。", kinds: ["hold", "rhythm", "hold"], actions: { rhythm: "跟著節奏操作", hold: "讓力道維持在舒適區間", sequence: "" } },
+    prep: { id: "prep", label: "流程", icon: "🗂️", desc: "步驟一個個滑過流程線：該做的在亮線上確認，多餘的別碰。", good: "必要步驟", bad: "多餘步驟", steps: ["諮詢問診", "環境消毒", "器具準備", "主要療程", "輔助護理", "效果確認", "後續衛教", "預約回診"] },
+    act: { id: "act", label: "演練", icon: "💆", desc: "演練靠穩定：讓力道維持在舒適區間，或跟著節奏操作。", kinds: ["hold", "rhythm", "hold"], actions: { rhythm: "跟著節奏操作", hold: "讓力道維持在舒適區間", sequence: "", cut: "" } },
     tweak: { id: "tweak", label: "組合", icon: "🧪", desc: "依試用客的回饋微調組合：最多動兩個特性（各 ±1）。" },
   },
 };
@@ -69,7 +69,16 @@ export interface HoldLevel {
   /** 甜蜜點的寬度 */
   width: number;
 }
-export type PlayLevel = SequenceLevel | RhythmLevel | HoldLevel;
+export interface CutLevel {
+  kind: "cut";
+  /** 該下手的時間點（毫秒） */
+  targets: number[];
+  /** 不能碰的雜質（毫秒）：離任何目標至少 1.7 個判定寬度，所以不會誤判 */
+  decoys: number[];
+  window: number;
+  duration: number;
+}
+export type PlayLevel = SequenceLevel | RhythmLevel | HoldLevel | CutLevel;
 
 function mix(a: number, b: number): number {
   let h = (a ^ 0x9e3779b9) >>> 0;
@@ -123,6 +132,24 @@ export function makeLevel(kind: PlayKind, seed: number, group: CategoryGroup, di
       items.push({ id: i, label: steps[i]!, minutes });
     }
     return { kind: "sequence", items };
+  }
+  if (kind === "cut") {
+    const targets: number[] = [];
+    let at = 1100;
+    for (let i = 0; i < 6; i++) {
+      targets.push(Math.round(at));
+      at += 700 + Math.floor(r() * 380);
+    }
+    const window = Math.round(240 - d * 11);
+    const decoys: number[] = [];
+    // 雜質插在兩個目標之間的空檔，離兩邊都夠遠
+    for (let i = 0; i < targets.length - 1 && decoys.length < 3; i++) {
+      const lo = targets[i]! + window * 1.7;
+      const hi = targets[i + 1]! - window * 1.7;
+      if (hi > lo && (decoys.length < 3) && r() < 0.65) decoys.push(Math.round(lo + (hi - lo) * r()));
+    }
+    if (decoys.length === 0) decoys.push(Math.round((targets[0]! + targets[1]!) / 2));
+    return { kind: "cut", targets, decoys, window, duration: Math.round(at + 400) };
   }
   if (kind === "rhythm") {
     const beats: number[] = [];
@@ -206,9 +233,18 @@ export function scoreHold(level: HoldLevel, inputs: number[]): number {
   return inBand / n;
 }
 
+/** 下刀：命中目標得分，碰到雜質每次扣 0.15 */
+export function scoreCut(level: CutLevel, inputs: number[]): number {
+  const base = scoreRhythm({ kind: "rhythm", beats: level.targets, window: level.window, duration: level.duration }, inputs);
+  const taps = inputs.filter((x) => finite(x) && x >= 0).slice(0, 40);
+  let hit = 0;
+  for (const dc of level.decoys) if (taps.some((t) => Math.abs(t - dc) <= level.window * 0.6)) hit++;
+  return Math.max(0, base - 0.15 * hit);
+}
+
 export function scoreStage(level: PlayLevel, inputs: number[]): number {
   const clean = Array.isArray(inputs) ? inputs.slice(0, 80) : [];
-  return level.kind === "sequence" ? scoreSequence(level, clean) : level.kind === "rhythm" ? scoreRhythm(level, clean) : scoreHold(level, clean);
+  return level.kind === "sequence" ? scoreSequence(level, clean) : level.kind === "rhythm" ? scoreRhythm(level, clean) : level.kind === "cut" ? scoreCut(level, clean) : scoreHold(level, clean);
 }
 
 // ───────── 一次研發的小遊戲結果 ─────────
@@ -237,7 +273,7 @@ export function scorePlay(group: CategoryGroup, methodId: string | undefined, di
   if (!play || play.seed !== playSeed) return null;
   const stages = Array.isArray(play.stages) ? play.stages : [];
   const find = (id: string) => stages.find((x) => x && x.id === id);
-  const prepLevel = makeLevel("sequence", stageSeed(playSeed, 0), group, difficulty);
+  const prepLevel = makeLevel("cut", stageSeed(playSeed, 0), group, difficulty);
   const actLevel = makeLevel(actKind(group, methodId), stageSeed(playSeed, 1), group, difficulty);
   const prep = scoreStage(prepLevel, find("prep")?.inputs ?? []);
   const act = scoreStage(actLevel, find("act")?.inputs ?? []);
