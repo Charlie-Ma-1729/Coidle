@@ -152,6 +152,8 @@ describe("sending goods", () => {
     const url = `/api/malls/${t.m1}/world/trade/goods`;
     const before = a.service.sync(t.m2);
     const repBefore = a.service.sync(t.m1).localRep;
+    // 救援只看公開名錄的缺貨業態：讓名錄先反映「串炸缺貨」（正式環境由商場定時刷新名錄）
+    a.repo.db.prepare("UPDATE mall_directory SET stockouts = 1, stockout_cats = '串炸' WHERE mall_id = ?").run(t.m2);
     const r = await post(a, t.u1.cookie, url, { target: `m:${t.m2}`, shopId: t.shopA.id, qty: 200 });
     expect(r.statusCode).toBe(200);
     expect(r.json()).toEqual({ sent: 200, received: afterFee(200), rescue: true });
