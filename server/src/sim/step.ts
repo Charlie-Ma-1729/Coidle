@@ -146,6 +146,7 @@ export function stepTick(s: MallState, ctx: StepContext = { nobodyPresent: false
   upkeep(s, units, rng, open);
 
   s.tick = t + 1;
+  runCinema(s, time, open);
 
   // 沒人在場時遇到「放著會吃大虧」的事件或稽查預告：時鐘停在這裡等人處理
   let halt = false;

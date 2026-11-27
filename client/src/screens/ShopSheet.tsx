@@ -21,11 +21,17 @@ import {
   PRICE_TOLERANCE,
   PRICE_MIN,
   PRICE_HARD_MAX,
+  SHOP_NAME_MAX,
+  BRAND_TIER_NAME,
+  brandByName,
+  TERMINATE_PENALTY,
+  leaseRemainingRent,
 } from "@coidle/shared";
 import { Btn, Card, Chip, Field, Meter, Sheet } from "../components/ui";
 import { gameDuration, money, num } from "../format";
 import { categoryIcon } from "../icons";
 import { run, state } from "../store";
+import { confirmThen } from "../components/ConfirmHost";
 
 function NumberInput(props: { value: number; onChange: (v: number) => void; step?: number; min?: number }) {
   return (
@@ -46,6 +52,10 @@ export function ShopSheet({ shopId, onClose }: { shopId: string; onClose: () => 
 
   const [price, setPrice] = useState(shop?.price ?? 0);
   const [rule, setRule] = useState(shop?.restock ?? { enabled: true, min: 100, target: 350, dailyBudget: 0 });
+  const [newName, setNewName] = useState(shop?.name ?? "");
+  useEffect(() => {
+    if (shop) setNewName(shop.name);
+  }, [shop?.name]);
 
   // 伺服器那邊價格／規則變動（隊友改了）時同步表單
   useEffect(() => {
@@ -267,6 +277,47 @@ export function ShopSheet({ shopId, onClose }: { shopId: string; onClose: () => 
           <p class="small">
             滿意度 {Math.round(shop.tenant.satisfaction)}・品質 {Math.round(shop.tenant.quality * 100)}・知名度 {shop.tenant.fame}・每日租金 {money(shop.tenant.rent)} ＋ 抽成 {Math.round(shop.tenant.commission * 100)}%。到「開發 → 招商」可以續約或解約。
           </p>
+          <Btn
+            small
+            kind="danger"
+            onClick={() => {
+              const t = shop.tenant!;
+              const penalty = Math.round(leaseRemainingRent(t.rent, t.endTick, s.tick) * TERMINATE_PENALTY);
+              confirmThen(`提前解約要付違約金 ${money(penalty)}，店面會空出來，確定嗎？`, async () => {
+                if (await run({ type: "terminateLease", shopId: shop.id }, "已解約")) onClose();
+              });
+            }}
+          >
+            提前解約
+          </Btn>
+        </Card>
+      )}
+      {shop.mode === "direct" && (
+        <Card title="🏷️ 店名與歇業">
+          {brandByName(shop.name) && (
+            <p class="small dim">
+              連鎖品牌「{brandByName(shop.name)!.name}」（{BRAND_TIER_NAME[brandByName(shop.name)!.tier]}）：{brandByName(shop.name)!.blurb}
+            </p>
+          )}
+          <div class="stack">
+            <div class="row">
+              <input type="text" value={newName} maxLength={SHOP_NAME_MAX} onInput={(e) => setNewName((e.target as HTMLInputElement).value)} />
+              <Btn small disabled={!newName.trim() || newName.trim() === shop.name} onClick={() => run({ type: "renameShop", shopId: shop.id, name: newName.trim() }, "已改名")}>
+                改名
+              </Btn>
+            </div>
+            <Btn
+              small
+              kind="danger"
+              onClick={() =>
+                confirmThen(`讓「${shop.name}」歇業？\n店面會空出來，庫存與研發進度作廢、不退費，之後可以重新蓋別的店或招商。`, async () => {
+                  if (await run({ type: "closeShop", shopId: shop.id }, "已歇業")) onClose();
+                })
+              }
+            >
+              歇業
+            </Btn>
+          </div>
         </Card>
       )}
       {leaseEnabled(s) && (!shop.tenant || shop.tenant.own) && (

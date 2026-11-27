@@ -151,6 +151,8 @@ export interface BuildTask {
   cost: number;
   /** 招商簽約後租戶自己裝修：完工時開成這個租戶的店 */
   tenant?: Tenant;
+  /** 自營新店的店名（沒有＝依業態自動命名） */
+  name?: string;
 }
 
 /** 白名單效果：事件只能使用這些，並且數值會被夾限。 */

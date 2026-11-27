@@ -18,6 +18,15 @@ export const LEASE_TERMS = [30, 60, 90] as const;
 export const RENEWAL_TTL = 2 * TICKS_PER_DAY;
 /** 提前解約的違約金：剩餘租期租金的 30% */
 export const TERMINATE_PENALTY = 0.3;
+/** 自營店店名長度上限 */
+export const SHOP_NAME_MAX = 12;
+
+/** 整理店名：去頭尾空白、壓縮連續空白、拿掉控制字元；不合格回 null */
+export function cleanShopName(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const t = raw.replace(/[\u0000-\u001f\u007f<>]/g, "").replace(/\s+/g, " ").trim();
+  return t.length >= 1 && [...t].length <= SHOP_NAME_MAX ? t : null;
+}
 export const LOW_SAT = 30;
 export const LOW_SAT_DAYS = 4;
 export const MAX_LEASE_LOG = 20;

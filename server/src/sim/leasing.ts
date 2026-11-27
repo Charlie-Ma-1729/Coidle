@@ -14,6 +14,7 @@ import {
   TICKS_PER_DAY,
   baselineRevenue,
   brandName,
+  brandsOfCategory,
   isCategoryAvailable,
   isZoneUnlocked,
   leaseEnabled,
@@ -60,15 +61,22 @@ function makeCandidate(s: MallState, rng: Rng): TenantCandidate | null {
   const cat = cats[rng.weighted(weights)] as CategoryDef | undefined;
   if (!cat) return null;
   const fx = techFx(s.tech.done);
-  const fame = clamp(Math.round(20 + rng.next() * 70), 0, 100);
-  const quality = Math.round(clamp(0.5 + rng.next() * 0.35 + fx.candidateQuality + s.level * 0.01, 0.5, 0.95) * 100) / 100;
+  const taken = new Set([...s.shops.map((x) => x.name), ...s.leasing.candidates.map((c) => c.brand), ...s.builds.map((x) => x.name ?? "")]);
+  // 品牌目錄裡這個業態還沒進駐本商場的品牌：七成機率從裡面挑（連鎖品牌，知名度與品質依目錄）
+  const catalog = brandsOfCategory(cat.id).filter((x) => !taken.has(x.name));
+  const fromCatalog = catalog.length > 0 && rng.chance(0.7) ? catalog[rng.int(0, catalog.length - 1)]! : null;
+  const fame = fromCatalog ? fromCatalog.fame : clamp(Math.round(20 + rng.next() * 70), 0, 100);
+  const quality = fromCatalog
+    ? Math.round(clamp(fromCatalog.quality + fx.candidateQuality, 0.5, 0.95) * 100) / 100
+    : Math.round(clamp(0.5 + rng.next() * 0.35 + fx.candidateQuality + s.level * 0.01, 0.5, 0.95) * 100) / 100;
   const rent = Math.max(1000, Math.round((marketRent(cat.id) * (1.15 - 0.35 * (fame / 100)) * (0.9 + 0.2 * rng.next())) / 100) * 100);
-  const taken = new Set([...s.shops.map((x) => x.name), ...s.leasing.candidates.map((c) => c.brand)]);
-  let brand = "";
-  let blurb: string | undefined;
+  let brand = fromCatalog?.name ?? "";
+  let blurb: string | undefined = fromCatalog?.blurb;
   // 內容池裡有 AI 想的品牌名時，一半的機率用它（池子是空的就完全不動亂數，結果和以前一樣）
-  const pool = (flavor().brands?.(cat.id) ?? []).filter((b) => !taken.has(b.name));
-  if (pool.length > 0 && rng.chance(0.5)) {
+  const pool = fromCatalog ? [] : (flavor().brands?.(cat.id) ?? []).filter((b) => !taken.has(b.name));
+  if (fromCatalog) {
+    // 已從品牌目錄決定
+  } else if (pool.length > 0 && rng.chance(0.5)) {
     const pick = pool[rng.int(0, pool.length - 1)]!;
     brand = pick.name;
     blurb = pick.blurb;
@@ -140,7 +148,7 @@ export function declineTenant(s: MallState, candidateId: string): GuestResult {
   return { ok: true, note: `婉拒了「${c.brand}」` };
 }
 
-function vacate(s: MallState, shop: Shop): void {
+export function vacate(s: MallState, shop: Shop): void {
   const slot = s.slots[shop.slot];
   if (slot) slot.shopId = null;
   s.shops = s.shops.filter((x) => x.id !== shop.id);

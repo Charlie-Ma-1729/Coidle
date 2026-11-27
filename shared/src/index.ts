@@ -30,6 +30,7 @@ export * from "./game/techPlay";
 export * from "./game/tax";
 export * from "./game/tech";
 export * from "./game/lease";
+export * from "./game/brands";
 export * from "./game/expansion";
 export * from "./game/world";
 export * from "./game/meta";

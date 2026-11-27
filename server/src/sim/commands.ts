@@ -20,6 +20,8 @@ import {
   categoryHasStock,
   conceptChangeCost,
   leaseEnabled,
+  cleanShopName,
+  SHOP_NAME_MAX,
   licenseOf,
   TICKS_PER_DAY,
   type Command,
@@ -41,7 +43,7 @@ import { rivalCounter, rivalIntel, rivalPact } from "./rivals";
 import { cancelContract, chooseSupplier, signContract } from "./suppliers";
 import { rngForTick } from "./rng";
 import { bump, checkStarters, contribute, guessPlace, trackActor, type Actor } from "./meta";
-import { counterTenant, declineTenant, resolveRenewal, signTenant, terminateLease } from "./leasing";
+import { counterTenant, declineTenant, resolveRenewal, signTenant, terminateLease, vacate } from "./leasing";
 import { cancelTech, startTech, techExperiment } from "./tech";
 import { cancelRnd, discardDish, listDish, startRnd, syncWorkshop, tastingAction, unlistDish } from "./workshop";
 import { addLog, isFeatureEnabled, isZoneUnlocked, nextId } from "./state";
@@ -79,6 +81,9 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
   const err = (error: string): CommandResult => ({ ok: false, error });
   const findShop = (id: string) => s.shops.find((x) => x.id === id);
 
+  /** 店名是否已被其他店（含施工中的新店）使用 */
+  const nameTaken = (n: string, exceptShopId?: string) =>
+    s.shops.some((x) => x.id !== exceptShopId && x.name === n) || s.builds.some((b) => b.name === n);
   switch (cmd.type) {
     case "touch":
       break;
@@ -185,6 +190,13 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
       const total = cat.buildCost + (lic?.fee ?? 0);
       if (s.funds < total) return err("資金不足");
       s.funds -= total;
+      let name: string | undefined;
+      if (cmd.name !== undefined && cmd.name !== "") {
+        const n = cleanShopName(cmd.name);
+        if (!n) return err(`店名要 1–${SHOP_NAME_MAX} 個字`);
+        if (nameTaken(n)) return err("已經有同名的店了");
+        name = n;
+      }
       s.builds.push({
         id: nextId(s, "bld"),
         kind: "open",
@@ -194,6 +206,7 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
         cost: total,
       });
       addLog(s, "build", `開始興建「${cat.name}」。${lic ? `（同步辦理：${lic.name}）` : ""}`);
+        ...(name ? { name } : {}),
       break;
     }
 
@@ -549,6 +562,29 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
       shop.mode = cmd.enabled ? "lease" : "direct";
       if (!cmd.enabled) shop.tenant = null;
       else if (!shop.tenant) shop.tenant = { brand: shop.name, quality: 0.65, fame: 30, rent: shop.rent, commission: shop.commission, startTick: s.tick, endTick: s.tick + 60 * TICKS_PER_DAY, satisfaction: 60, lowDays: 0, own: true };
+    case "renameShop": {
+      const shop = findShop(cmd.shopId);
+      if (!shop) return err("找不到這間店");
+      if (shop.mode === "lease") return err("出租中的店名稱由租戶品牌決定");
+      const n = cleanShopName(cmd.name);
+      if (!n) return err(`店名要 1–${SHOP_NAME_MAX} 個字`);
+      if (nameTaken(n, shop.id)) return err("已經有同名的店了");
+      shop.name = n;
+      break;
+    }
+
+    case "closeShop": {
+      const shop = findShop(cmd.shopId);
+      if (!shop) return err("找不到這間店");
+      if (shop.mode === "lease") return err("出租中的店請用「解約」或「收回自營」");
+      if (s.builds.some((b) => b.shopId === shop.id)) return err("翻新施工中，完工後才能歇業");
+      if (s.shops.length <= 1) return err("商場至少要留一間店");
+      const old = shop.name;
+      vacate(s, shop);
+      addLog(s, "build", `「${old}」歇業了，店面空出來了。`);
+      break;
+    }
+
       if (cmd.rent !== undefined) shop.rent = Math.round(clamp(cmd.rent, 0, 1_000_000));
       if (cmd.commission !== undefined) shop.commission = clamp(cmd.commission, 0, 0.4);
       break;

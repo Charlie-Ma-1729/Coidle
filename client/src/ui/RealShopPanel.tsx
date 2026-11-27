@@ -1,9 +1,10 @@
 import { useEffect, useState } from "preact/hooks";
-import { CATEGORY_BY_ID, MAX_SHOP_LEVEL, PRICE_TOLERANCE, REFRESH_COST, PRICE_MIN, PRICE_HARD_MAX, UPGRADE_BASE_COST, UPGRADE_TICKS, categoryHasStock, currentUnitCost, leaseEnabled } from "@coidle/shared";
+import { CATEGORY_BY_ID, MAX_SHOP_LEVEL, PRICE_TOLERANCE, REFRESH_COST, PRICE_MIN, PRICE_HARD_MAX, UPGRADE_BASE_COST, UPGRADE_TICKS, categoryHasStock, currentUnitCost, leaseEnabled, leaseRemainingRent, TERMINATE_PENALTY } from "@coidle/shared";
 import { gameDeadline, gameDuration, money, num } from "../format";
 import { workshopFocus } from "../screens/Workshop";
 import type { HubId, StageFloor } from "../stage/model";
 import { busy, run, state } from "../store";
+import { confirmThen } from "../components/ConfirmHost";
 
 const hex = (n: number): string => `#${n.toString(16).padStart(6, "0")}`;
 
@@ -224,6 +225,24 @@ export function RealShopPanel(props: {
             {shop.tenant && !shop.tenant.own && (
               <button class="st-btn" onClick={() => props.openHub("develop", "leasing")}>
                 租戶：{shop.tenant.brand}
+              </button>
+            )}
+            {shop.tenant && !shop.tenant.own && (
+              <button
+                class="st-btn"
+                disabled={busy.value}
+                onClick={() => {
+                  const t = shop.tenant!;
+                  const penalty = Math.round(leaseRemainingRent(t.rent, t.endTick, s.tick) * TERMINATE_PENALTY);
+                  confirmThen(`提前解約要付違約金 ${money(penalty)}，店面會空出來，確定嗎？`, () => run({ type: "terminateLease", shopId: shop.id }, "已解約"));
+                }}
+              >
+                解約
+              </button>
+            )}
+            {shop.mode === "direct" && (
+              <button class="st-btn" disabled={busy.value} onClick={() => confirmThen(`讓「${shop.name}」歇業？\n店面會空出來，庫存與研發進度作廢、不退費。`, () => run({ type: "closeShop", shopId: shop.id }, "已歇業"))}>
+                歇業
               </button>
             )}
           </div>

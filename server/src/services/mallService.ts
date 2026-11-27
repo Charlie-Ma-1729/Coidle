@@ -234,6 +234,10 @@ export function describeCommand(s: MallState, cmd: Command, actor: string): stri
     case "startRnd":
       return `${actor} 讓「${shopName(cmd.shopId)}」開始研發新作品`;
     case "cancelRnd":
+    case "renameShop":
+      return `${actor} 把「${shopName(cmd.shopId)}」改名為「${String(cmd.name).slice(0, 12)}」`;
+    case "closeShop":
+      return `${actor} 讓「${shopName(cmd.shopId)}」歇業了`;
       return `${actor} 取消了「${shopName(cmd.shopId)}」的研發`;
     case "tastingAction":
       return `${actor} 處理了一份試吃結果`;

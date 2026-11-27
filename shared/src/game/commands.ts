@@ -13,7 +13,11 @@ export type Command =
   | { type: "orderStock"; shopId: string; qty: number; /** 急件：貴三成、交期縮短 */ rush?: boolean }
   | { type: "setCleaning"; level: 0 | 1 | 2 }
   | { type: "setMaintenance"; level: 0 | 1 | 2 }
-  | { type: "buildShop"; slot: number; category: string }
+  | { type: "buildShop"; slot: number; category: string; /** 店名（沒有＝依業態自動命名） */ name?: string }
+  /** 自營店改店名（出租中的租戶店名由品牌決定） */
+  | { type: "renameShop"; shopId: string; name: string }
+  /** 自營店歇業：店面空出來，庫存與工坊進度作廢，不退費 */
+  | { type: "closeShop"; shopId: string }
   | { type: "upgradeShop"; shopId: string }
   /** 擴建：在已開放的區域多蓋一個店面（越蓋越貴） */
   | { type: "expandZone"; zone: string }

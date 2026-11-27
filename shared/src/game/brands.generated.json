@@ -1,0 +1,3971 @@
+[
+ {
+  "id": "ramen_g1",
+  "name": "早安拉麵",
+  "category": "ramen",
+  "tier": "budget",
+  "fame": 43,
+  "quality": 0.61,
+  "blurb": "十分鐘內端上熱騰騰的一碗，價格親民，上班族的午間救星。"
+ },
+ {
+  "id": "ramen_g2",
+  "name": "竹林湯屋",
+  "category": "ramen",
+  "tier": "standard",
+  "fame": 55,
+  "quality": 0.74,
+  "blurb": "每天清晨熬煮的雞白湯，口感濃郁順口，搭配手切叉燒最對味。"
+ },
+ {
+  "id": "ramen_g3",
+  "name": "月見職人",
+  "category": "ramen",
+  "tier": "premium",
+  "fame": 65,
+  "quality": 0.82,
+  "blurb": "店主親手揉製麵條，依季節更換湯底，每一碗都講究到最後一滴。"
+ },
+ {
+  "id": "takoyaki_g1",
+  "name": "小麥色章魚燒",
+  "category": "takoyaki",
+  "tier": "budget",
+  "fame": 42,
+  "quality": 0.63,
+  "blurb": "一顆十日圓的溫熱幸福，下班路上最快的小點心，站著吃也很自在。"
+ },
+ {
+  "id": "takoyaki_g2",
+  "name": "夜市通章魚燒",
+  "category": "takoyaki",
+  "tier": "standard",
+  "fame": 57,
+  "quality": 0.71,
+  "blurb": "外酥內軟，醬汁與美乃滋的比例恰到好處，是老街人最常排隊的那一家。"
+ },
+ {
+  "id": "takoyaki_g3",
+  "name": "晨霧匠人燒",
+  "category": "takoyaki",
+  "tier": "premium",
+  "fame": 69,
+  "quality": 0.85,
+  "blurb": "嚴選北海道章魚，師傅每一顆都以炭火慢烤，講究每一口的湯汁與香氣。"
+ },
+ {
+  "id": "kushikatsu_g1",
+  "name": "炸物小路",
+  "category": "kushikatsu",
+  "tier": "budget",
+  "fame": 39,
+  "quality": 0.61,
+  "blurb": "一串一串現炸現送，價格親切又快速，邊走邊吃也不會有負擔。"
+ },
+ {
+  "id": "kushikatsu_g2",
+  "name": "白鷺串炸屋",
+  "category": "kushikatsu",
+  "tier": "standard",
+  "fame": 45,
+  "quality": 0.74,
+  "blurb": "蔬菜與肉類輪番上陣，炸衣輕薄酥脆，搭配高麗菜絲吃起來特別清爽。"
+ },
+ {
+  "id": "kushikatsu_g3",
+  "name": "月白串揚房",
+  "category": "kushikatsu",
+  "tier": "premium",
+  "fame": 70,
+  "quality": 0.81,
+  "blurb": "依季節挑選食材，油溫與厚度都經過細琢，講究一口咬下的鮮甜與留香。"
+ },
+ {
+  "id": "kissaten_g1",
+  "name": "小鳥咖啡站",
+  "category": "kissaten",
+  "tier": "budget",
+  "fame": 33,
+  "quality": 0.59,
+  "blurb": "一杯熱咖啡加一片吐司，早起趕路時最貼心的補給，價格也很友善。"
+ },
+ {
+  "id": "kissaten_g2",
+  "name": "窗邊時光咖啡",
+  "category": "kissaten",
+  "tier": "standard",
+  "fame": 49,
+  "quality": 0.67,
+  "blurb": "木質桌椅配上柔和燈光，適合和朋友慢慢聊天，咖啡與甜點都穩定好喝。"
+ },
+ {
+  "id": "kissaten_g3",
+  "name": "琥珀手沖館",
+  "category": "kissaten",
+  "tier": "premium",
+  "fame": 59,
+  "quality": 0.83,
+  "blurb": "由咖啡師親手沖煮每一杯單品豆，從豆子產地到杯中的風味都細細說給你聽。"
+ },
+ {
+  "id": "grocery_g1",
+  "name": "早市小舖",
+  "category": "grocery",
+  "tier": "budget",
+  "fame": 38,
+  "quality": 0.61,
+  "blurb": "新鮮蔬果與便當每天早上準時補貨，忙碌的日子裡，最實惠的一站式採買。"
+ },
+ {
+  "id": "grocery_g2",
+  "name": "四季食材屋",
+  "category": "grocery",
+  "tier": "standard",
+  "fame": 45,
+  "quality": 0.72,
+  "blurb": "精選當季蔬菜與常備調味料，貨架整齊好找，老街阿姨們都說這裡最安心。"
+ },
+ {
+  "id": "grocery_g3",
+  "name": "琺瑯果物庫",
+  "category": "grocery",
+  "tier": "premium",
+  "fame": 66,
+  "quality": 0.89,
+  "blurb": "產地直送的水果與各國進口食材，陳列如畫廊，送禮自用兩相宜。"
+ },
+ {
+  "id": "udon_g1",
+  "name": "麵條小亭",
+  "category": "udon",
+  "tier": "budget",
+  "fame": 35,
+  "quality": 0.61,
+  "blurb": "一碗熱騰騰的烏龍麵，湯頭清爽不膩，填飽肚子最划算的選擇。"
+ },
+ {
+  "id": "udon_g2",
+  "name": "細雨暖簾",
+  "category": "udon",
+  "tier": "standard",
+  "fame": 54,
+  "quality": 0.7,
+  "blurb": "Q彈的手工麵條配上柴魚高湯，溫暖的店內氣氛讓人想再多待一會兒。"
+ },
+ {
+  "id": "udon_g3",
+  "name": "松風手打所",
+  "category": "udon",
+  "tier": "premium",
+  "fame": 65,
+  "quality": 0.86,
+  "blurb": "麵團由師傅每日手揉熟成，高湯以昆布與鰹節細熬，是一碗講究到底的細緻美味。"
+ },
+ {
+  "id": "bubble_tea_g1",
+  "name": "彩虹杯車",
+  "category": "bubble_tea",
+  "tier": "budget",
+  "fame": 39,
+  "quality": 0.57,
+  "blurb": "十元起的手搖飲，糖冰隨心調，下課放學順手就能帶走。"
+ },
+ {
+  "id": "bubble_tea_g2",
+  "name": "月見茶舖",
+  "category": "bubble_tea",
+  "tier": "standard",
+  "fame": 44,
+  "quality": 0.66,
+  "blurb": "每日現泡的烏龍與綠茶，珍珠煮得Q彈，是街坊常點的老味道。"
+ },
+ {
+  "id": "bubble_tea_g3",
+  "name": "霧溪茶室",
+  "category": "bubble_tea",
+  "tier": "premium",
+  "fame": 63,
+  "quality": 0.88,
+  "blurb": "嚴選產地茶葉，以手工萃取與季節水果調配，喝一口便有山林的清香。"
+ },
+ {
+  "id": "sweets_g1",
+  "name": "甜豆小鋪",
+  "category": "sweets",
+  "tier": "budget",
+  "fame": 38,
+  "quality": 0.56,
+  "blurb": "紅豆麻糬與銅鑼燒一個就飽，價格親切，適合邊走邊吃。"
+ },
+ {
+  "id": "sweets_g2",
+  "name": "櫻花餅堂",
+  "category": "sweets",
+  "tier": "standard",
+  "fame": 51,
+  "quality": 0.66,
+  "blurb": "手工製作的和菓子與季節限定點心，包裝精緻，送禮也合適。"
+ },
+ {
+  "id": "sweets_g3",
+  "name": "硯墨菓匠",
+  "category": "sweets",
+  "tier": "premium",
+  "fame": 68,
+  "quality": 0.84,
+  "blurb": "由職人一件件捏製的生菓子，講究四季風物，每一口都是一幅小畫。"
+ },
+ {
+  "id": "curry_g1",
+  "name": "快樂咖哩車",
+  "category": "curry",
+  "tier": "budget",
+  "fame": 41,
+  "quality": 0.59,
+  "blurb": "濃郁咖哩淋上白飯，份量十足、價格實在，是午餐時段的救星。"
+ },
+ {
+  "id": "curry_g2",
+  "name": "小麥咖哩屋",
+  "category": "curry",
+  "tier": "standard",
+  "fame": 54,
+  "quality": 0.68,
+  "blurb": "慢火熬煮的家庭風咖哩，配菜豐富，吃得安心又滿足。"
+ },
+ {
+  "id": "curry_g3",
+  "name": "琥珀洋燉室",
+  "category": "curry",
+  "tier": "premium",
+  "fame": 64,
+  "quality": 0.82,
+  "blurb": "以數十種香料細細調和，搭配熟成牛肉，講究每一層風味的層次。"
+ },
+ {
+  "id": "gyoza_g1",
+  "name": "熱騰餃子站",
+  "category": "gyoza",
+  "tier": "budget",
+  "fame": 30,
+  "quality": 0.58,
+  "blurb": "現煎現賣，外酥內嫩，六個一份的平價美味，站著吃也很痛快。"
+ },
+ {
+  "id": "gyoza_g2",
+  "name": "煙火點心坊",
+  "category": "gyoza",
+  "tier": "standard",
+  "fame": 50,
+  "quality": 0.7,
+  "blurb": "手工包製的鍋貼與蒸餃，湯汁飽滿，適合三五好友共享。"
+ },
+ {
+  "id": "gyoza_g3",
+  "name": "青瓷點心閣",
+  "category": "gyoza",
+  "tier": "premium",
+  "fame": 65,
+  "quality": 0.89,
+  "blurb": "精選時令食材入餡，薄皮輕煎，搭配特製醋汁，細緻又講究。"
+ },
+ {
+  "id": "onigiri_g1",
+  "name": "早安握飯",
+  "category": "onigiri",
+  "tier": "budget",
+  "fame": 42,
+  "quality": 0.56,
+  "blurb": "手捏飯糰用料實在，鮭魚與梅子口味人氣旺，早上趕時間的好夥伴。"
+ },
+ {
+  "id": "onigiri_g2",
+  "name": "竹籠便當",
+  "category": "onigiri",
+  "tier": "standard",
+  "fame": 57,
+  "quality": 0.73,
+  "blurb": "每日更換的便當菜色，飯糰與小菜搭配均衡，午休時光的小確幸。"
+ },
+ {
+  "id": "onigiri_g3",
+  "name": "松風御膳屋",
+  "category": "onigiri",
+  "tier": "premium",
+  "fame": 61,
+  "quality": 0.81,
+  "blurb": "以當季高湯與米飯精心製作，一盒便當如同小型懷石，雅致又溫暖。"
+ },
+ {
+  "id": "taiyaki_g1",
+  "name": "鯛一郎",
+  "category": "taiyaki",
+  "tier": "budget",
+  "fame": 38,
+  "quality": 0.59,
+  "blurb": "十圓有找的街邊小鯛魚燒，外皮酥脆、紅豆餡燙嘴，下班路上順手一買最剛好。"
+ },
+ {
+  "id": "taiyaki_g2",
+  "name": "朔月堂",
+  "category": "taiyaki",
+  "tier": "standard",
+  "fame": 53,
+  "quality": 0.68,
+  "blurb": "每日現烤的經典鯛魚燒，紅豆、卡士達、芝麻三種餡料輪流換，是街坊最常排的那一味。"
+ },
+ {
+  "id": "taiyaki_g3",
+  "name": "季之尾",
+  "category": "taiyaki",
+  "tier": "premium",
+  "fame": 64,
+  "quality": 0.86,
+  "blurb": "以北海道小豆與和三盆熬煮內餡，每尾都由師傅手工捏形，講究每一口的細緻甘潤。"
+ },
+ {
+  "id": "oden_g1",
+  "name": "鍋邊屋",
+  "category": "oden",
+  "tier": "budget",
+  "fame": 36,
+  "quality": 0.57,
+  "blurb": "一大鍋清湯慢慢滾著，蘿蔔、蛋與魚丸隨手夾，幾十圓就能暖胃又暖心。"
+ },
+ {
+  "id": "oden_g2",
+  "name": "湯煙亭",
+  "category": "oden",
+  "tier": "standard",
+  "fame": 49,
+  "quality": 0.7,
+  "blurb": "高湯熬得清透醇厚，配菜豐富又有季節限定，適合一邊喝湯一邊跟朋友閒聊。"
+ },
+ {
+  "id": "oden_g3",
+  "name": "柴火野",
+  "category": "oden",
+  "tier": "premium",
+  "fame": 69,
+  "quality": 0.81,
+  "blurb": "主廚堅持以昆布與柴魚慢熬三日，每一樣關東煮都像一道小料理，細細品嚐才顯真味。"
+ },
+ {
+  "id": "soba_g1",
+  "name": "早風",
+  "category": "soba",
+  "tier": "budget",
+  "fame": 38,
+  "quality": 0.59,
+  "blurb": "站著吃就能飽足的快速蕎麥麵，湯頭清爽、價格親切，趕時間的上班族最愛。"
+ },
+ {
+  "id": "soba_g2",
+  "name": "清月庵",
+  "category": "soba",
+  "tier": "premium",
+  "fame": 66,
+  "quality": 0.87,
+  "blurb": "嚴選當季蕎麥粉現場石臼磨製，麵條細滑有嚼勁，講究的職人味讓人吃完還想再來。"
+ },
+ {
+  "id": "soba_g3",
+  "name": "霧岬庵",
+  "category": "soba",
+  "tier": "standard",
+  "fame": 50,
+  "quality": 0.68,
+  "blurb": "用山間湧泉現打蕎麥麵，湯頭清爽，一碗就能吃到小鎮的晨霧。"
+ },
+ {
+  "id": "bakery_g1",
+  "name": "麥穗屋",
+  "category": "bakery",
+  "tier": "budget",
+  "fame": 41,
+  "quality": 0.58,
+  "blurb": "每天清晨出爐的厚實吐司與小餐包，價格實在，帶回家當早餐再剛好不過。"
+ },
+ {
+  "id": "bakery_g2",
+  "name": "晨露坊",
+  "category": "bakery",
+  "tier": "standard",
+  "fame": 49,
+  "quality": 0.7,
+  "blurb": "奶油香與麥香交織的各式麵包，可頌、貝果、總匯三明治一應俱全，是街區的好鄰居。"
+ },
+ {
+  "id": "bakery_g3",
+  "name": "白檀工房",
+  "category": "bakery",
+  "tier": "premium",
+  "fame": 62,
+  "quality": 0.81,
+  "blurb": "以天然酵母慢發酵，搭配進口發酵奶油烘焙，每一款麵包都講究層次與口感。"
+ },
+ {
+  "id": "karaage_g1",
+  "name": "小炸丸",
+  "category": "karaage",
+  "tier": "budget",
+  "fame": 33,
+  "quality": 0.61,
+  "blurb": "外皮香酥、雞肉多汁的唐揚雞，一份便宜又大塊，配著白飯或直接拿著吃都很過癮。"
+ },
+ {
+  "id": "karaage_g2",
+  "name": "木槌屋",
+  "category": "karaage",
+  "tier": "standard",
+  "fame": 55,
+  "quality": 0.68,
+  "blurb": "醃漬入味的唐揚雞有醬油、檸檬、蒜香等口味，外酥內嫩，是朋友聚會的好選擇。"
+ },
+ {
+  "id": "karaage_g3",
+  "name": "鶴紋",
+  "category": "karaage",
+  "tier": "premium",
+  "fame": 67,
+  "quality": 0.87,
+  "blurb": "選用當日新鮮的土雞腿，以獨家秘方醃製一夜，炸出的雞肉香嫩多汁，職人手藝令人折服。"
+ },
+ {
+  "id": "juice_bar_g1",
+  "name": "早安果汁站",
+  "category": "juice_bar",
+  "tier": "budget",
+  "fame": 43,
+  "quality": 0.64,
+  "blurb": "現場榨的鮮果汁，價格親切，下班路上順手帶一杯就很滿足。"
+ },
+ {
+  "id": "juice_bar_g2",
+  "name": "橘色小窗",
+  "category": "juice_bar",
+  "tier": "standard",
+  "fame": 48,
+  "quality": 0.76,
+  "blurb": "每季換不同水果，招牌是當天最好的那顆，老客人都會先問今天有什麼。"
+ },
+ {
+  "id": "juice_bar_g3",
+  "name": "柚匠工房",
+  "category": "juice_bar",
+  "tier": "premium",
+  "fame": 65,
+  "quality": 0.86,
+  "blurb": "由職人挑果、低溫慢榨，一杯果汁就是一堂講究的風味課。"
+ },
+ {
+  "id": "fashion_g1",
+  "name": "百搭衣櫃",
+  "category": "fashion",
+  "tier": "budget",
+  "fame": 43,
+  "quality": 0.6,
+  "blurb": "基本款與當季小物一應俱全，價格實在，隨手就能找到合穿的一件。"
+ },
+ {
+  "id": "fashion_g2",
+  "name": "街角穿搭所",
+  "category": "fashion",
+  "tier": "budget",
+  "fame": 43,
+  "quality": 0.62,
+  "blurb": "日常好穿、不過度設計的平價服飾，上班放假都能配。"
+ },
+ {
+  "id": "fashion_g3",
+  "name": "四季針織屋",
+  "category": "fashion",
+  "tier": "standard",
+  "fame": 56,
+  "quality": 0.67,
+  "blurb": "主打舒適針織與棉麻材質，隨季節更換的穿搭讓人每次都有新發現。"
+ },
+ {
+  "id": "fashion_g4",
+  "name": "晴天襯衫舍",
+  "category": "fashion",
+  "tier": "standard",
+  "fame": 56,
+  "quality": 0.75,
+  "blurb": "輕便剪裁的襯衫與外套，通勤與週末之間轉換自如。"
+ },
+ {
+  "id": "fashion_g5",
+  "name": "手縫工坊 Ito",
+  "category": "fashion",
+  "tier": "premium",
+  "fame": 67,
+  "quality": 0.81,
+  "blurb": "小批量手作的服飾與配件，每件都帶著職人縫線的溫度。"
+ },
+ {
+  "id": "fashion_g6",
+  "name": "靜謐衣廊",
+  "category": "fashion",
+  "tier": "premium",
+  "fame": 64,
+  "quality": 0.84,
+  "blurb": "極簡剪裁與天然纖維，為重視質感的人準備的一季一件。"
+ },
+ {
+  "id": "drugstore_g1",
+  "name": "好日子藥局",
+  "category": "drugstore",
+  "tier": "budget",
+  "fame": 44,
+  "quality": 0.62,
+  "blurb": "日常保養與急用藥品都備得齊，價格貼近生活，逛完就能回家。"
+ },
+ {
+  "id": "drugstore_g2",
+  "name": "快速補給藥妝",
+  "category": "drugstore",
+  "tier": "budget",
+  "fame": 34,
+  "quality": 0.58,
+  "blurb": "洗護用品大容量補貨很划算，還有每週限定的小特價。"
+ },
+ {
+  "id": "drugstore_g3",
+  "name": "花見美容堂",
+  "category": "drugstore",
+  "tier": "standard",
+  "fame": 46,
+  "quality": 0.71,
+  "blurb": "從臉部保養到彩妝小物，店員會依膚質推薦最適合的組合。"
+ },
+ {
+  "id": "drugstore_g4",
+  "name": "月光健康屋",
+  "category": "drugstore",
+  "tier": "standard",
+  "fame": 56,
+  "quality": 0.66,
+  "blurb": "維他命、保健食品與舒適的生活用品，陳列整齊、找東西很方便。"
+ },
+ {
+  "id": "drugstore_g5",
+  "name": "清透肌研所",
+  "category": "drugstore",
+  "tier": "premium",
+  "fame": 68,
+  "quality": 0.87,
+  "blurb": "以敏感肌為核心研發的精選保養品，附設免費的膚質諮詢區。"
+ },
+ {
+  "id": "drugstore_g6",
+  "name": "琥珀香氛閣",
+  "category": "drugstore",
+  "tier": "premium",
+  "fame": 60,
+  "quality": 0.89,
+  "blurb": "精油、香氛與高端護理品，店內瀰漫的淡淡木質香讓人放慢腳步。"
+ },
+ {
+  "id": "select_shop_g1",
+  "name": "手拿雜貨店",
+  "category": "select_shop",
+  "tier": "budget",
+  "fame": 32,
+  "quality": 0.63,
+  "blurb": "廚房小物、文具與居家雜貨，價格親切，逛起來很有驚喜。"
+ },
+ {
+  "id": "select_shop_g2",
+  "name": "小小收納鋪",
+  "category": "select_shop",
+  "tier": "budget",
+  "fame": 40,
+  "quality": 0.6,
+  "blurb": "平價好用的收納盒與文具，讓居家空間慢慢變整齊。"
+ },
+ {
+  "id": "select_shop_g3",
+  "name": "木紋生活館",
+  "category": "select_shop",
+  "tier": "standard",
+  "fame": 53,
+  "quality": 0.75,
+  "blurb": "嚴選國內外設計的日用品，木質與陶器為主，越用越有味道。"
+ },
+ {
+  "id": "select_shop_g4",
+  "name": "窗邊選物",
+  "category": "select_shop",
+  "tier": "standard",
+  "fame": 45,
+  "quality": 0.68,
+  "blurb": "每月換一個主題，從茶具到小擺飾，適合送禮也適合自己留著。"
+ },
+ {
+  "id": "select_shop_g5",
+  "name": "匠心器物庫",
+  "category": "select_shop",
+  "tier": "premium",
+  "fame": 65,
+  "quality": 0.83,
+  "blurb": "與各地工匠合作的限量器物，每件都附上製作者的小故事卡。"
+ },
+ {
+  "id": "select_shop_g6",
+  "name": "靜水設計所",
+  "category": "select_shop",
+  "tier": "premium",
+  "fame": 58,
+  "quality": 0.8,
+  "blurb": "精選北歐與本地設計的家具與餐具，為講究生活美學的人而開。"
+ },
+ {
+  "id": "brunch_g1",
+  "name": "晨光三明治",
+  "category": "brunch",
+  "tier": "budget",
+  "fame": 43,
+  "quality": 0.59,
+  "blurb": "現點現做的三明治與熱飲，份量足、價格輕，趕時間也吃得飽。"
+ },
+ {
+  "id": "brunch_g2",
+  "name": "每日鬆餅坊",
+  "category": "brunch",
+  "tier": "budget",
+  "fame": 43,
+  "quality": 0.59,
+  "blurb": "酥軟的鬆餅配上當季水果，早晨來一份就開始愉快的一天。"
+ },
+ {
+  "id": "brunch_g3",
+  "name": "露台早午餐",
+  "category": "brunch",
+  "tier": "standard",
+  "fame": 46,
+  "quality": 0.71,
+  "blurb": "蛋料理、沙拉與咖啡的組合，窗邊座位適合慢慢聊天。"
+ },
+ {
+  "id": "brunch_g4",
+  "name": "麥穗廚房",
+  "category": "brunch",
+  "tier": "standard",
+  "fame": 47,
+  "quality": 0.7,
+  "blurb": "以全麥與自家烘焙為主的早午餐，健康又有飽足感。"
+ },
+ {
+  "id": "brunch_g5",
+  "name": "晨露料理室",
+  "category": "brunch",
+  "tier": "premium",
+  "fame": 62,
+  "quality": 0.88,
+  "blurb": "主廚每日更換菜單，精緻擺盤搭配精選的手沖咖啡，是週末的小奢侈。"
+ },
+ {
+  "id": "brunch_g6",
+  "name": "一隅餐桌",
+  "category": "brunch",
+  "tier": "premium",
+  "fame": 59,
+  "quality": 0.84,
+  "blurb": "講究食材產地與調味層次的早午餐，為慢慢品味的人準備。"
+ },
+ {
+  "id": "italian_g1",
+  "name": "麵屋小蒜",
+  "category": "italian",
+  "tier": "budget",
+  "fame": 39,
+  "quality": 0.64,
+  "blurb": "現點現煮的義大利麵，份量足、價格輕鬆，下班路上順路來一碗剛剛好。"
+ },
+ {
+  "id": "italian_g2",
+  "name": "披薩小窯",
+  "category": "italian",
+  "tier": "budget",
+  "fame": 42,
+  "quality": 0.57,
+  "blurb": "窯烤薄脆披薩，十分鐘就能上桌，適合趕時間的午餐與放學後的小聚。"
+ },
+ {
+  "id": "italian_g3",
+  "name": "橄欖月",
+  "category": "italian",
+  "tier": "standard",
+  "fame": 46,
+  "quality": 0.74,
+  "blurb": "家常風味的義式料理，鄰桌笑聲不斷，是常客們最愛的熱鬧角落。"
+ },
+ {
+  "id": "italian_g4",
+  "name": "麥穗餐桌",
+  "category": "italian",
+  "tier": "standard",
+  "fame": 44,
+  "quality": 0.72,
+  "blurb": "燉飯與手工義式麵食，份量實在，適合和朋友慢慢聊、一起分享。"
+ },
+ {
+  "id": "italian_g5",
+  "name": "琥珀工坊",
+  "category": "italian",
+  "tier": "premium",
+  "fame": 71,
+  "quality": 0.89,
+  "blurb": "主廚每日手作的生火腿與松露料理，講究食材本味，安靜優雅的晚餐首選。"
+ },
+ {
+  "id": "italian_g6",
+  "name": "聖櫻匠廚",
+  "category": "italian",
+  "tier": "premium",
+  "fame": 59,
+  "quality": 0.89,
+  "blurb": "以季節時蔬搭配慢燉肉排，醬汁層次細膩，適合想好好犒賞自己的夜晚。"
+ },
+ {
+  "id": "fastfood_g1",
+  "name": "快樂火車",
+  "category": "fastfood",
+  "tier": "budget",
+  "fame": 41,
+  "quality": 0.61,
+  "blurb": "經典漢堡與薯條，點餐快、價格親切，孩子們最愛的平價美味。"
+ },
+ {
+  "id": "fastfood_g2",
+  "name": "嘎啦炸雞",
+  "category": "fastfood",
+  "tier": "budget",
+  "fame": 31,
+  "quality": 0.57,
+  "blurb": "現炸雞塊酥脆多汁，單點就能填飽肚子，是逛街途中的好夥伴。"
+ },
+ {
+  "id": "fastfood_g3",
+  "name": "蜂蜜小丘",
+  "category": "fastfood",
+  "tier": "standard",
+  "fame": 49,
+  "quality": 0.74,
+  "blurb": "鬆軟的早餐堡與香甜鬆餅，從清晨到午後都能來一份，很有家的味道。"
+ },
+ {
+  "id": "fastfood_g4",
+  "name": "極光炭烤屋",
+  "category": "fastfood",
+  "tier": "premium",
+  "fame": 66,
+  "quality": 0.88,
+  "blurb": "炭火現烤的和牛漢堡，搭配職人手作的醬汁，是速食裡的小小奢華。"
+ },
+ {
+  "id": "fastfood_g5",
+  "name": "鳳凰燒肉堡",
+  "category": "fastfood",
+  "tier": "premium",
+  "fame": 70,
+  "quality": 0.83,
+  "blurb": "選用嚴選豬肉與時令配料，每一個都用心組合，講究的食客會特地前來。"
+ },
+ {
+  "id": "convenience_g1",
+  "name": "早安小舖",
+  "category": "convenience",
+  "tier": "budget",
+  "fame": 39,
+  "quality": 0.57,
+  "blurb": "二十四小時營業的鄰里小店，飲料、零食與即食便當一應俱全，隨時都能來。"
+ },
+ {
+  "id": "convenience_g2",
+  "name": "好鄰居超商",
+  "category": "convenience",
+  "tier": "budget",
+  "fame": 33,
+  "quality": 0.58,
+  "blurb": "價格實惠的日常必需品店，從早餐到深夜宵夜，陪你度過每一個匆忙時刻。"
+ },
+ {
+  "id": "convenience_g3",
+  "name": "海風便利",
+  "category": "convenience",
+  "tier": "standard",
+  "fame": 54,
+  "quality": 0.76,
+  "blurb": "新鮮的三明治與手捲飯糰每日上架，結帳快速，上班族的好幫手。"
+ },
+ {
+  "id": "convenience_g4",
+  "name": "橡果生活館",
+  "category": "convenience",
+  "tier": "standard",
+  "fame": 49,
+  "quality": 0.69,
+  "blurb": "除了日用品，還有各地限定的小點心與伴手禮，逛起來很有驚喜。"
+ },
+ {
+  "id": "convenience_g5",
+  "name": "月見精選",
+  "category": "convenience",
+  "tier": "premium",
+  "fame": 68,
+  "quality": 0.82,
+  "blurb": "嚴選進口零食與季節限定飲品，包裝精緻，適合買來送人或自己慢慢品嚐。"
+ },
+ {
+  "id": "convenience_g6",
+  "name": "琉璃小館",
+  "category": "convenience",
+  "tier": "premium",
+  "fame": 63,
+  "quality": 0.83,
+  "blurb": "走精品路線的便利小店，提供手沖咖啡與烘焙點心，安靜又講究。"
+ },
+ {
+  "id": "cosmetics_g1",
+  "name": "彩虹小鋪",
+  "category": "cosmetics",
+  "tier": "budget",
+  "fame": 35,
+  "quality": 0.62,
+  "blurb": "平價彩妝與護膚用品一次找齊，學生與初學者都能輕鬆挑到喜歡的顏色。"
+ },
+ {
+  "id": "cosmetics_g2",
+  "name": "小鹿美妝",
+  "category": "cosmetics",
+  "tier": "budget",
+  "fame": 32,
+  "quality": 0.57,
+  "blurb": "試用包與基礎保養品種類多，價格親切，適合每天都想換點小心情。"
+ },
+ {
+  "id": "cosmetics_g3",
+  "name": "花見肌膚",
+  "category": "cosmetics",
+  "tier": "standard",
+  "fame": 49,
+  "quality": 0.72,
+  "blurb": "主打溫和保養與日常妝容，店員會細心推薦適合你膚質的產品。"
+ },
+ {
+  "id": "cosmetics_g4",
+  "name": "晨露美容所",
+  "category": "cosmetics",
+  "tier": "standard",
+  "fame": 48,
+  "quality": 0.72,
+  "blurb": "提供免費膚質諮詢與試擦服務，從粉底到精華液，陪你找到最合適的一款。"
+ },
+ {
+  "id": "cosmetics_g5",
+  "name": "月華精萃",
+  "category": "cosmetics",
+  "tier": "premium",
+  "fame": 71,
+  "quality": 0.82,
+  "blurb": "嚴選高單價保養系列與限量香氛，包裝與服務都講究，是送禮的好選擇。"
+ },
+ {
+  "id": "cosmetics_g6",
+  "name": "鏡湖沙龍",
+  "category": "cosmetics",
+  "tier": "premium",
+  "fame": 66,
+  "quality": 0.84,
+  "blurb": "專業師傅親自示範妝容，搭配頂級護理產品，讓每一次來訪都像一場小小的儀式。"
+ },
+ {
+  "id": "shoes_g1",
+  "name": "跳跳鞋屋",
+  "category": "shoes",
+  "tier": "budget",
+  "fame": 30,
+  "quality": 0.61,
+  "blurb": "輕便好走的休閒鞋款，價格實惠，天天穿也不心疼，逛街走累了的好選擇。"
+ },
+ {
+  "id": "shoes_g2",
+  "name": "輕步小舖",
+  "category": "shoes",
+  "tier": "budget",
+  "fame": 31,
+  "quality": 0.59,
+  "blurb": "帆布鞋與涼鞋款式多變，顏色繽紛，是學生與年輕人最愛的日常鞋店。"
+ },
+ {
+  "id": "shoes_g3",
+  "name": "石板路鞋坊",
+  "category": "shoes",
+  "tier": "standard",
+  "fame": 50,
+  "quality": 0.68,
+  "blurb": "融合舒適與時尚的日常鞋款，鞋底減震好，從上班到週末出遊都合適。"
+ },
+ {
+  "id": "shoes_g4",
+  "name": "檜木工房",
+  "category": "shoes",
+  "tier": "standard",
+  "fame": 46,
+  "quality": 0.73,
+  "blurb": "穿搭感強的皮革包鞋與短靴，款式耐看，店員會幫你挑出最襯腳型的款式。"
+ },
+ {
+  "id": "shoes_g5",
+  "name": "手工匠人鞋",
+  "category": "shoes",
+  "tier": "premium",
+  "fame": 68,
+  "quality": 0.85,
+  "blurb": "師傅一雙一雙手工縫製的皮鞋，訂製與修改都可以談，穿久了更有味道。"
+ },
+ {
+  "id": "shoes_g6",
+  "name": "雪松工作室",
+  "category": "shoes",
+  "tier": "premium",
+  "fame": 68,
+  "quality": 0.87,
+  "blurb": "嚴選義大利與日本皮料，以經典版型為基礎，講究每一道細節的職人鞋舖。"
+ },
+ {
+  "id": "accessory_g1",
+  "name": "小光銀飾",
+  "category": "accessory",
+  "tier": "budget",
+  "fame": 31,
+  "quality": 0.63,
+  "blurb": "一件兩三百元就能帶走的小巧飾品，下班路上隨手加點亮眼。"
+ },
+ {
+  "id": "accessory_g2",
+  "name": "三步髮飾",
+  "category": "accessory",
+  "tier": "budget",
+  "fame": 36,
+  "quality": 0.62,
+  "blurb": "髮夾、耳環、手鍊樣樣有，逛累了順手挑一件，快速又實惠。"
+ },
+ {
+  "id": "accessory_g3",
+  "name": "橋邊手作",
+  "category": "accessory",
+  "tier": "standard",
+  "fame": 51,
+  "quality": 0.73,
+  "blurb": "在地創作者的小物集合，材質不貴但每件都有點手作的溫度。"
+ },
+ {
+  "id": "accessory_g4",
+  "name": "貓尾琥珀",
+  "category": "accessory",
+  "tier": "standard",
+  "fame": 49,
+  "quality": 0.67,
+  "blurb": "款式多、價位親切，從日常通勤到假日出遊都能找到合適的一款。"
+ },
+ {
+  "id": "accessory_g5",
+  "name": "月白工房",
+  "category": "accessory",
+  "tier": "premium",
+  "fame": 68,
+  "quality": 0.82,
+  "blurb": "職人一針一線打磨的飾品，每件都是獨一無二的珍藏。"
+ },
+ {
+  "id": "accessory_g6",
+  "name": "鏡湖珠寶閣",
+  "category": "accessory",
+  "tier": "premium",
+  "fame": 67,
+  "quality": 0.83,
+  "blurb": "精緻的設計與嚴選的材料，適合為重要的日子留下一件傳世之物。"
+ },
+ {
+  "id": "toy_store_g1",
+  "name": "彈珠小鋪",
+  "category": "toy_store",
+  "tier": "budget",
+  "fame": 41,
+  "quality": 0.6,
+  "blurb": "扭蛋、小公仔與簡易模型應有盡有，花一點零錢就能湊齊收藏的樂趣。"
+ },
+ {
+  "id": "toy_store_g2",
+  "name": "小太鼓玩具",
+  "category": "toy_store",
+  "tier": "budget",
+  "fame": 36,
+  "quality": 0.57,
+  "blurb": "價格親切的玩具與文具組合，適合帶小朋友來挑一個歡喜的禮物。"
+ },
+ {
+  "id": "toy_store_g3",
+  "name": "木偶與紙鶴",
+  "category": "toy_store",
+  "tier": "standard",
+  "fame": 57,
+  "quality": 0.73,
+  "blurb": "經典木製玩具與益智積木，陪著孩子一起慢慢玩出創意。"
+ },
+ {
+  "id": "toy_store_g4",
+  "name": "星期模型",
+  "category": "toy_store",
+  "tier": "standard",
+  "fame": 47,
+  "quality": 0.7,
+  "blurb": "組裝模型與收藏公仔的常備店，新品與老款都能在這裡找到。"
+ },
+ {
+  "id": "toy_store_g5",
+  "name": "工匠玩具館",
+  "category": "toy_store",
+  "tier": "premium",
+  "fame": 65,
+  "quality": 0.85,
+  "blurb": "限量公仔與精密模型的專門店，每一件都是職人細心打造的作品。"
+ },
+ {
+  "id": "toy_store_g6",
+  "name": "銀杏收藏堂",
+  "category": "toy_store",
+  "tier": "premium",
+  "fame": 71,
+  "quality": 0.81,
+  "blurb": "嚴選絕版與限定款，適合認真收藏、細細品味的玩家光臨。"
+ },
+ {
+  "id": "florist_g1",
+  "name": "小路花舖",
+  "category": "florist",
+  "tier": "budget",
+  "fame": 34,
+  "quality": 0.57,
+  "blurb": "一把剛剛好的小花束，幾十元就能讓桌面與心情都亮起來。"
+ },
+ {
+  "id": "florist_g2",
+  "name": "路口四季花",
+  "category": "florist",
+  "tier": "budget",
+  "fame": 34,
+  "quality": 0.56,
+  "blurb": "應季花材種類多、價格好親近，順路買一束回家最剛好。"
+ },
+ {
+  "id": "florist_g3",
+  "name": "晨露花房",
+  "category": "florist",
+  "tier": "standard",
+  "fame": 46,
+  "quality": 0.68,
+  "blurb": "精心搭配的花藝與盆栽，送禮自用都很得體，店員也很樂意給建議。"
+ },
+ {
+  "id": "florist_g4",
+  "name": "綠芽花坊",
+  "category": "florist",
+  "tier": "standard",
+  "fame": 57,
+  "quality": 0.71,
+  "blurb": "從小盆栽到花籃都有，適合想為居家添一點綠意的你。"
+ },
+ {
+  "id": "florist_g5",
+  "name": "月下花藝",
+  "category": "florist",
+  "tier": "premium",
+  "fame": 60,
+  "quality": 0.84,
+  "blurb": "出自資深花藝師之手的獨特設計，每一束都像一幅精心構圖的畫。"
+ },
+ {
+  "id": "florist_g6",
+  "name": "白檀花苑",
+  "category": "florist",
+  "tier": "premium",
+  "fame": 68,
+  "quality": 0.9,
+  "blurb": "嚴選稀有花材與高品質容器，為典禮與重要場合量身打造花藝。"
+ },
+ {
+  "id": "cinema_g1",
+  "name": "小燈影院",
+  "category": "cinema",
+  "tier": "budget",
+  "fame": 31,
+  "quality": 0.63,
+  "blurb": "票價親民、座位舒適，是家人朋友週末小聚的好去處。"
+ },
+ {
+  "id": "cinema_g2",
+  "name": "三街影城",
+  "category": "cinema",
+  "tier": "budget",
+  "fame": 43,
+  "quality": 0.59,
+  "blurb": "場次多、價格實惠，下班後想看場電影隨時都能走進來。"
+ },
+ {
+  "id": "cinema_g3",
+  "name": "橋上放映室",
+  "category": "cinema",
+  "tier": "standard",
+  "fame": 55,
+  "quality": 0.68,
+  "blurb": "大小廳兼備，畫面與音響都穩定，適合各種類型的電影。"
+ },
+ {
+  "id": "cinema_g4",
+  "name": "鈴蘭電影館",
+  "category": "cinema",
+  "tier": "standard",
+  "fame": 54,
+  "quality": 0.68,
+  "blurb": "午夜場與獨立影展都有安排，喜歡看電影的人會很有歸屬感。"
+ },
+ {
+  "id": "cinema_g5",
+  "name": "銀幕之丘",
+  "category": "cinema",
+  "tier": "premium",
+  "fame": 71,
+  "quality": 0.87,
+  "blurb": "頂級音響與寬敞豪華的包廂座位，讓每一部電影都像一場儀式。"
+ },
+ {
+  "id": "cinema_g6",
+  "name": "月光劇場",
+  "category": "cinema",
+  "tier": "premium",
+  "fame": 69,
+  "quality": 0.81,
+  "blurb": "精緻的放映環境與專屬休息區，專為懂電影的人打造的私人空間。"
+ },
+ {
+  "id": "kids_play_g1",
+  "name": "小花兒童樂園",
+  "category": "kids_play",
+  "tier": "budget",
+  "fame": 37,
+  "quality": 0.58,
+  "blurb": "滑梯、球池與益智區一應俱全，花費不多就能玩得開心一整個下午。"
+ },
+ {
+  "id": "kids_play_g2",
+  "name": "小麻雀遊樂區",
+  "category": "kids_play",
+  "tier": "budget",
+  "fame": 43,
+  "quality": 0.57,
+  "blurb": "適合學步幼兒的軟墊空間，媽媽們可以在旁邊輕鬆休息。"
+ },
+ {
+  "id": "kids_play_g3",
+  "name": "彩虹積木屋",
+  "category": "kids_play",
+  "tier": "standard",
+  "fame": 45,
+  "quality": 0.67,
+  "blurb": "主題遊戲區與創意工作坊結合，孩子玩樂之餘還能動手學習。"
+ },
+ {
+  "id": "kids_play_g4",
+  "name": "風車遊戲場",
+  "category": "kids_play",
+  "tier": "standard",
+  "fame": 48,
+  "quality": 0.66,
+  "blurb": "寬敞的室內場地與多樣的遊具，適合不同年齡的孩子一起玩。"
+ },
+ {
+  "id": "kids_play_g5",
+  "name": "星語親子館",
+  "category": "kids_play",
+  "tier": "premium",
+  "fame": 61,
+  "quality": 0.87,
+  "blurb": "嚴選教具與專業陪玩老師，讓孩子在精心設計的環境中自在探索。"
+ },
+ {
+  "id": "kids_play_g6",
+  "name": "月見遊樂莊園",
+  "category": "kids_play",
+  "tier": "premium",
+  "fame": 59,
+  "quality": 0.8,
+  "blurb": "高規格的安全設施與寬敞的親子休憩區，陪伴孩子慢慢長大的好地方。"
+ },
+ {
+  "id": "arcade_vr_g1",
+  "name": "光點電玩",
+  "category": "arcade_vr",
+  "tier": "budget",
+  "fame": 34,
+  "quality": 0.56,
+  "blurb": "十元起跳的街機與小型VR體驗，下班順路玩一局剛剛好。"
+ },
+ {
+  "id": "arcade_vr_g2",
+  "name": "彈珠小窩",
+  "category": "arcade_vr",
+  "tier": "budget",
+  "fame": 39,
+  "quality": 0.57,
+  "blurb": "經典街機加上快速VR關卡，零錢就能玩得很開心。"
+ },
+ {
+  "id": "arcade_vr_g3",
+  "name": "夜航站",
+  "category": "arcade_vr",
+  "tier": "standard",
+  "fame": 48,
+  "quality": 0.71,
+  "blurb": "熱門電競機台與沉浸式VR區，適合朋友一起衝分。"
+ },
+ {
+  "id": "arcade_vr_g4",
+  "name": "虹色遊樂",
+  "category": "arcade_vr",
+  "tier": "standard",
+  "fame": 55,
+  "quality": 0.68,
+  "blurb": "多人對戰與家庭向VR遊戲都有，週末總是熱熱鬧鬧。"
+ },
+ {
+  "id": "arcade_vr_g5",
+  "name": "水晶幻境",
+  "category": "arcade_vr",
+  "tier": "premium",
+  "fame": 66,
+  "quality": 0.81,
+  "blurb": "高規格VR艙與限量體感作品，每一場都是講究的沉浸旅程。"
+ },
+ {
+  "id": "arcade_vr_g6",
+  "name": "月光工房",
+  "category": "arcade_vr",
+  "tier": "premium",
+  "fame": 61,
+  "quality": 0.87,
+  "blurb": "由職人調校的頂級設備，為重度玩家準備的私密遊戲空間。"
+ },
+ {
+  "id": "karaoke_g1",
+  "name": "小鈴歌房",
+  "category": "karaoke",
+  "tier": "budget",
+  "fame": 35,
+  "quality": 0.59,
+  "blurb": "平日時段價格超親民，唱完一首還想再來一首。"
+ },
+ {
+  "id": "karaoke_g2",
+  "name": "麥芽KTV",
+  "category": "karaoke",
+  "tier": "budget",
+  "fame": 31,
+  "quality": 0.6,
+  "blurb": "輕鬆歡唱的小包廂，點歌機好用，零負擔的快樂時光。"
+ },
+ {
+  "id": "karaoke_g3",
+  "name": "櫻花音樂站",
+  "category": "karaoke",
+  "tier": "standard",
+  "fame": 44,
+  "quality": 0.73,
+  "blurb": "包廂寬敞、音響清晰，大家輪流唱，氣氛總是最好。"
+ },
+ {
+  "id": "karaoke_g4",
+  "name": "海藍唱片屋",
+  "category": "karaoke",
+  "tier": "standard",
+  "fame": 46,
+  "quality": 0.72,
+  "blurb": "精選歌庫與舒適沙發，聚會慶生的好選擇。"
+ },
+ {
+  "id": "karaoke_g5",
+  "name": "琥珀音樂殿",
+  "category": "karaoke",
+  "tier": "premium",
+  "fame": 64,
+  "quality": 0.87,
+  "blurb": "專業隔音與調音師打造的豪華包廂，為歌聲而生。"
+ },
+ {
+  "id": "karaoke_g6",
+  "name": "絹之調",
+  "category": "karaoke",
+  "tier": "premium",
+  "fame": 62,
+  "quality": 0.87,
+  "blurb": "細緻的空間設計與頂級音響，每首歌都像一場小型演出。"
+ },
+ {
+  "id": "bowling_g1",
+  "name": "木槌球館",
+  "category": "bowling",
+  "tier": "budget",
+  "fame": 32,
+  "quality": 0.59,
+  "blurb": "球道不算新但手感親切，週間夜晚的球友最愛來。"
+ },
+ {
+  "id": "bowling_g2",
+  "name": "小松保齡",
+  "category": "bowling",
+  "tier": "budget",
+  "fame": 44,
+  "quality": 0.62,
+  "blurb": "便宜又好上手，初學者也能很快打出一個全倒。"
+ },
+ {
+  "id": "bowling_g3",
+  "name": "風車球場",
+  "category": "bowling",
+  "tier": "standard",
+  "fame": 45,
+  "quality": 0.75,
+  "blurb": "明亮寬敞的球道，附設小吃區，打完一局就去吃點東西。"
+ },
+ {
+  "id": "bowling_g4",
+  "name": "燈籠球院",
+  "category": "bowling",
+  "tier": "premium",
+  "fame": 66,
+  "quality": 0.84,
+  "blurb": "木質裝潢與精調球道，講究手感的老球迷會一直回來。"
+ },
+ {
+  "id": "bowling_g5",
+  "name": "鶴之間",
+  "category": "bowling",
+  "tier": "premium",
+  "fame": 62,
+  "quality": 0.81,
+  "blurb": "高級包廂式球道搭配精緻餐點，是安靜又優雅的夜晚。"
+ },
+ {
+  "id": "bowling_g6",
+  "name": "月見球場",
+  "category": "bowling",
+  "tier": "standard",
+  "fame": 49,
+  "quality": 0.72,
+  "blurb": "開到深夜的保齡球館，附設小吃區，下班後來一局最解壓。"
+ },
+ {
+  "id": "claw_g1",
+  "name": "娃娃小站",
+  "category": "claw",
+  "tier": "budget",
+  "fame": 33,
+  "quality": 0.58,
+  "blurb": "一次投幣就有機會，小獎品多到讓人忍不住再試一次。"
+ },
+ {
+  "id": "claw_g2",
+  "name": "軟糖機台",
+  "category": "claw",
+  "tier": "budget",
+  "fame": 38,
+  "quality": 0.62,
+  "blurb": "可愛娃娃塞滿整排機台，零錢就能帶一隻回家。"
+ },
+ {
+  "id": "claw_g3",
+  "name": "星屑夾夾",
+  "category": "claw",
+  "tier": "standard",
+  "fame": 55,
+  "quality": 0.71,
+  "blurb": "人氣角色與季節限定款輪番上陣，挑戰手感最有意思。"
+ },
+ {
+  "id": "claw_g4",
+  "name": "毛球樂園",
+  "category": "claw",
+  "tier": "standard",
+  "fame": 45,
+  "quality": 0.68,
+  "blurb": "機台新穎、獎品豐富，帶朋友來比誰夾得快最有樂趣。"
+ },
+ {
+  "id": "claw_g5",
+  "name": "蜜糖工坊",
+  "category": "claw",
+  "tier": "premium",
+  "fame": 62,
+  "quality": 0.82,
+  "blurb": "精選限量公仔與原創設計，每一隻都像是精心挑選的收藏。"
+ },
+ {
+  "id": "claw_g6",
+  "name": "黑曜收藏",
+  "category": "claw",
+  "tier": "premium",
+  "fame": 67,
+  "quality": 0.88,
+  "blurb": "高端收藏級公仔的專屬夾取區，為挑剔的玩家而設。"
+ },
+ {
+  "id": "escape_room_g1",
+  "name": "鑰匙小屋",
+  "category": "escape_room",
+  "tier": "budget",
+  "fame": 31,
+  "quality": 0.56,
+  "blurb": "題目簡單好上手，適合第一次玩密室的新手團體。"
+ },
+ {
+  "id": "escape_room_g2",
+  "name": "暗巷謎團",
+  "category": "escape_room",
+  "tier": "budget",
+  "fame": 36,
+  "quality": 0.64,
+  "blurb": "價格親切、關卡輕鬆，十來個人一起解謎也很熱鬧。"
+ },
+ {
+  "id": "escape_room_g3",
+  "name": "迷霧信箋",
+  "category": "escape_room",
+  "tier": "standard",
+  "fame": 47,
+  "quality": 0.7,
+  "blurb": "劇情完整、機關有趣，解開最後一道鎖的那一刻超有成就感。"
+ },
+ {
+  "id": "escape_room_g4",
+  "name": "時鐘偵探社",
+  "category": "escape_room",
+  "tier": "standard",
+  "fame": 45,
+  "quality": 0.69,
+  "blurb": "推理與實體機關並重，團隊默契是勝利的關鍵。"
+ },
+ {
+  "id": "escape_room_g5",
+  "name": "紫檀密室",
+  "category": "escape_room",
+  "tier": "premium",
+  "fame": 63,
+  "quality": 0.81,
+  "blurb": "場景由美術團隊精心打造，每一個細節都藏著線索。"
+ },
+ {
+  "id": "escape_room_g6",
+  "name": "金箔迷宮",
+  "category": "escape_room",
+  "tier": "premium",
+  "fame": 70,
+  "quality": 0.84,
+  "blurb": "高難度原創劇本與精緻布景，給真正的解謎高手挑戰。"
+ },
+ {
+  "id": "live_house_g1",
+  "name": "鈴音小舞台",
+  "category": "live_house",
+  "tier": "budget",
+  "fame": 32,
+  "quality": 0.61,
+  "blurb": "平價樂手的練團據點，週末有免費開放的小型演出，適合剛起步的音樂人。"
+ },
+ {
+  "id": "live_house_g2",
+  "name": "夜燈地下室",
+  "category": "live_house",
+  "tier": "budget",
+  "fame": 34,
+  "quality": 0.58,
+  "blurb": "收費親民的小型展演場，常有獨立樂團與新人創作者登台，氣氛輕鬆隨性。"
+ },
+ {
+  "id": "live_house_g3",
+  "name": "朝霧音樂箱",
+  "category": "live_house",
+  "tier": "standard",
+  "fame": 58,
+  "quality": 0.66,
+  "blurb": "橫跨爵士、搖滾與民謠的綜合展演空間，每晚都有不同風格的現場演出。"
+ },
+ {
+  "id": "live_house_g4",
+  "name": "蜂蜜唱盤",
+  "category": "live_house",
+  "tier": "standard",
+  "fame": 48,
+  "quality": 0.71,
+  "blurb": "音響穩定、座位舒適，從懷舊黑膠夜到流行樂團場都能輕鬆享受。"
+ },
+ {
+  "id": "live_house_g5",
+  "name": "月白劇場",
+  "category": "live_house",
+  "tier": "premium",
+  "fame": 68,
+  "quality": 0.85,
+  "blurb": "講究聲場與燈光設計的精緻展演廳，邀請資深樂師與小型劇團定期駐演。"
+ },
+ {
+  "id": "live_house_g6",
+  "name": "琥珀音響院",
+  "category": "live_house",
+  "tier": "premium",
+  "fame": 67,
+  "quality": 0.84,
+  "blurb": "以頂級音響系統為賣點的私密音樂空間，每場演出限量入場，重視聆聽體驗。"
+ },
+ {
+  "id": "craft_studio_g1",
+  "name": "小麻雀手作坊",
+  "category": "craft_studio",
+  "tier": "budget",
+  "fame": 35,
+  "quality": 0.57,
+  "blurb": "一小時就能做出第一件作品的入門工房，材料備齊，新手也能輕鬆上手。"
+ },
+ {
+  "id": "craft_studio_g2",
+  "name": "風車手藝屋",
+  "category": "craft_studio",
+  "tier": "budget",
+  "fame": 32,
+  "quality": 0.57,
+  "blurb": "陶藝、編織、彩繪等多種體驗課程任選，價格實惠，適合親子同樂。"
+ },
+ {
+  "id": "craft_studio_g3",
+  "name": "楓葉工房",
+  "category": "craft_studio",
+  "tier": "standard",
+  "fame": 49,
+  "quality": 0.67,
+  "blurb": "由在地職人帶領的手作教室，從皮革小物到木作擺飾，都能親手完成。"
+ },
+ {
+  "id": "craft_studio_g4",
+  "name": "柴田細工所",
+  "category": "craft_studio",
+  "tier": "standard",
+  "fame": 49,
+  "quality": 0.72,
+  "blurb": "提供多元素材的創作體驗，課程節奏舒服，讓人慢慢做出屬於自己的東西。"
+ },
+ {
+  "id": "craft_studio_g5",
+  "name": "藏青匠房",
+  "category": "craft_studio",
+  "tier": "premium",
+  "fame": 68,
+  "quality": 0.83,
+  "blurb": "以傳統工藝為核心的進階工房，師傅一對一指導，作品可長久珍藏。"
+ },
+ {
+  "id": "craft_studio_g6",
+  "name": "白鷺漆器堂",
+  "category": "craft_studio",
+  "tier": "premium",
+  "fame": 58,
+  "quality": 0.85,
+  "blurb": "專研漆藝與金繕的精品工房，每件作品都經過數週細緻打磨，講究職人精神。"
+ },
+ {
+  "id": "electronics_g1",
+  "name": "跳跳電器行",
+  "category": "electronics",
+  "tier": "budget",
+  "fame": 31,
+  "quality": 0.62,
+  "blurb": "日常家電與周邊配件應有盡有，價格透明、快速結帳，逛起來很有效率。"
+ },
+ {
+  "id": "electronics_g2",
+  "name": "小電熊商店",
+  "category": "electronics",
+  "tier": "budget",
+  "fame": 38,
+  "quality": 0.6,
+  "blurb": "手機配件與線材的平價補給站，急需時來這裡最快解決問題。"
+ },
+ {
+  "id": "electronics_g3",
+  "name": "星軌數位館",
+  "category": "electronics",
+  "tier": "standard",
+  "fame": 50,
+  "quality": 0.71,
+  "blurb": "涵蓋電腦、相機與智慧家居，店員會依照你的使用習慣推薦合適產品。"
+ },
+ {
+  "id": "electronics_g4",
+  "name": "灰狼科技站",
+  "category": "electronics",
+  "tier": "standard",
+  "fame": 54,
+  "quality": 0.75,
+  "blurb": "新品體驗區規劃完整，可以實際試用各種裝置，再安心挑選適合的一台。"
+ },
+ {
+  "id": "electronics_g5",
+  "name": "極光音影館",
+  "category": "electronics",
+  "tier": "premium",
+  "fame": 66,
+  "quality": 0.83,
+  "blurb": "高階影音設備的旗艦展示空間，提供專業校調服務，追求極致畫質與音質的首選。"
+ },
+ {
+  "id": "electronics_g6",
+  "name": "銀河精工坊",
+  "category": "electronics",
+  "tier": "premium",
+  "fame": 63,
+  "quality": 0.9,
+  "blurb": "精選頂級電腦與創作器材，店內配有專業顧問，為職業創作者量身規劃配置。"
+ },
+ {
+  "id": "bookstore_g1",
+  "name": "早安讀書所",
+  "category": "bookstore",
+  "tier": "budget",
+  "fame": 35,
+  "quality": 0.57,
+  "blurb": "平價文庫本與漫畫選擇豐富，窩在角落翻幾頁，就能度過一個悠閒午後。"
+ },
+ {
+  "id": "bookstore_g2",
+  "name": "麵包樹書房",
+  "category": "bookstore",
+  "tier": "budget",
+  "fame": 42,
+  "quality": 0.63,
+  "blurb": "二手書與新書並陳，價格親民，常有店主推薦的小書展，適合愛逛書的人。"
+ },
+ {
+  "id": "bookstore_g3",
+  "name": "海鷗文庫",
+  "category": "bookstore",
+  "tier": "standard",
+  "fame": 48,
+  "quality": 0.69,
+  "blurb": "涵蓋小說、生活與藝術類書籍，定期舉辦讀書會與作者簽售活動。"
+ },
+ {
+  "id": "bookstore_g4",
+  "name": "檸檬頁面",
+  "category": "bookstore",
+  "tier": "standard",
+  "fame": 55,
+  "quality": 0.68,
+  "blurb": "選書有溫度，店內還附設咖啡區，讀累了可以點杯飲品慢慢翻書。"
+ },
+ {
+  "id": "bookstore_g5",
+  "name": "墨染書院",
+  "category": "bookstore",
+  "tier": "premium",
+  "fame": 69,
+  "quality": 0.83,
+  "blurb": "專營精裝限定版與絕版書籍，店主親自挑選，每一本都值得收藏。"
+ },
+ {
+  "id": "bookstore_g6",
+  "name": "琉璃圖冊館",
+  "category": "bookstore",
+  "tier": "premium",
+  "fame": 62,
+  "quality": 0.84,
+  "blurb": "聚焦攝影集與設計類大開本書籍，紙質與印刷講究，適合細細品味。"
+ },
+ {
+  "id": "stationery_g1",
+  "name": "橘子筆記鋪",
+  "category": "stationery",
+  "tier": "budget",
+  "fame": 36,
+  "quality": 0.6,
+  "blurb": "平價筆記本與便條紙種類齊全，顏色鮮豔，是學生和上班族的好夥伴。"
+ },
+ {
+  "id": "stationery_g2",
+  "name": "小松鼠文具",
+  "category": "stationery",
+  "tier": "budget",
+  "fame": 31,
+  "quality": 0.6,
+  "blurb": "便宜又好用的筆、膠帶與貼紙一次買齊，逛起來讓人心情很好。"
+ },
+ {
+  "id": "stationery_g3",
+  "name": "四季信箋屋",
+  "category": "stationery",
+  "tier": "standard",
+  "fame": 51,
+  "quality": 0.71,
+  "blurb": "依季節更換主題的信紙與明信片，寫信給遠方的朋友特別有感覺。"
+ },
+ {
+  "id": "stationery_g4",
+  "name": "木蓮文具室",
+  "category": "stationery",
+  "tier": "standard",
+  "fame": 54,
+  "quality": 0.73,
+  "blurb": "精選國內外設計師的文具品牌，從鋼筆到手帳本都有好看又耐用的選擇。"
+ },
+ {
+  "id": "stationery_g5",
+  "name": "凝墨工藝堂",
+  "category": "stationery",
+  "tier": "premium",
+  "fame": 65,
+  "quality": 0.83,
+  "blurb": "專售手工紙與高階鋼筆墨水，店員會協助挑選適合書寫習慣的筆款。"
+ },
+ {
+  "id": "stationery_g6",
+  "name": "白檀選物所",
+  "category": "stationery",
+  "tier": "premium",
+  "fame": 69,
+  "quality": 0.85,
+  "blurb": "嚴選職人手作的皮革文具與精緻印章，每件都能陪伴你多年。"
+ },
+ {
+  "id": "popup_g1",
+  "name": "一番市集",
+  "category": "popup",
+  "tier": "budget",
+  "fame": 36,
+  "quality": 0.6,
+  "blurb": "快閃限定小物一字排開，逛一圈就能帶走喜歡的小驚喜，價格超親民。"
+ },
+ {
+  "id": "popup_g2",
+  "name": "百貨速攻",
+  "category": "popup",
+  "tier": "budget",
+  "fame": 41,
+  "quality": 0.56,
+  "blurb": "每週換主題的快閃攤位，平價好貨一次掃光，手快有手慢無。"
+ },
+ {
+  "id": "popup_g3",
+  "name": "街角小鋪",
+  "category": "popup",
+  "tier": "standard",
+  "fame": 50,
+  "quality": 0.66,
+  "blurb": "雜貨、文具與在地手作輪流登場，逛起來像在老街巷弄裡尋寶。"
+ },
+ {
+  "id": "popup_g4",
+  "name": "季節百寶箱",
+  "category": "popup",
+  "tier": "standard",
+  "fame": 47,
+  "quality": 0.74,
+  "blurb": "跟著季節推出限定商品，春櫻夏海秋楓冬雪，每次來都有新發現。"
+ },
+ {
+  "id": "popup_g5",
+  "name": "藏寶工坊",
+  "category": "popup",
+  "tier": "premium",
+  "fame": 60,
+  "quality": 0.84,
+  "blurb": "精選職人限量作品與設計師聯名單品，每一件都經過細心挑選。"
+ },
+ {
+  "id": "popup_g6",
+  "name": "鑑賞之窗",
+  "category": "popup",
+  "tier": "premium",
+  "fame": 61,
+  "quality": 0.81,
+  "blurb": "以策展方式呈現少量精緻商品，適合慢慢欣賞、值得珍藏的一期一會。"
+ },
+ {
+  "id": "camera_g1",
+  "name": "快門小站",
+  "category": "camera",
+  "tier": "budget",
+  "fame": 38,
+  "quality": 0.63,
+  "blurb": "入門相機與底片、保護貼一站補齊，新手上路也能輕鬆負擔。"
+ },
+ {
+  "id": "camera_g2",
+  "name": "取景一號",
+  "category": "camera",
+  "tier": "budget",
+  "fame": 43,
+  "quality": 0.56,
+  "blurb": "二手與平價鏡頭都有，試拍體驗友善，學生族最愛的相機店。"
+ },
+ {
+  "id": "camera_g3",
+  "name": "光影工房",
+  "category": "camera",
+  "tier": "standard",
+  "fame": 57,
+  "quality": 0.67,
+  "blurb": "單眼、微單與各類鏡頭齊備，店員會依拍攝習慣細心推薦。"
+ },
+ {
+  "id": "camera_g4",
+  "name": "焦點堂",
+  "category": "camera",
+  "tier": "standard",
+  "fame": 53,
+  "quality": 0.68,
+  "blurb": "提供器材試用與保養服務，讓你挑到順手又耐用的最佳夥伴。"
+ },
+ {
+  "id": "camera_g5",
+  "name": "銀鹽舍",
+  "category": "camera",
+  "tier": "premium",
+  "fame": 69,
+  "quality": 0.85,
+  "blurb": "專注膠片機與經典光學，收藏級器材與職人調校服務一應俱全。"
+ },
+ {
+  "id": "camera_g6",
+  "name": "極光鏡房",
+  "category": "camera",
+  "tier": "premium",
+  "fame": 59,
+  "quality": 0.81,
+  "blurb": "頂級鏡頭與中片幅系統，為追求極致畫質的攝影師準備的殿堂。"
+ },
+ {
+  "id": "anime_goods_g1",
+  "name": "小夜周邊",
+  "category": "anime_goods",
+  "tier": "budget",
+  "fame": 40,
+  "quality": 0.6,
+  "blurb": "吊飾、貼紙與小徽章應有盡有，喜歡的角色隨手就能帶回家。"
+ },
+ {
+  "id": "anime_goods_g2",
+  "name": "彩色糖果屋",
+  "category": "anime_goods",
+  "tier": "budget",
+  "fame": 30,
+  "quality": 0.62,
+  "blurb": "甜美風的小物與文具，一包包都是迷你驚喜，零用錢也逛得開心。"
+ },
+ {
+  "id": "anime_goods_g3",
+  "name": "星辰會館",
+  "category": "anime_goods",
+  "tier": "standard",
+  "fame": 53,
+  "quality": 0.68,
+  "blurb": "人氣作品的公仔、模型與周邊齊全，還有定期的粉絲限定活動。"
+ },
+ {
+  "id": "anime_goods_g4",
+  "name": "朝霧動畫屋",
+  "category": "anime_goods",
+  "tier": "standard",
+  "fame": 52,
+  "quality": 0.74,
+  "blurb": "新番與經典作品並陳，店內還設有小小的收藏展示角落。"
+ },
+ {
+  "id": "anime_goods_g5",
+  "name": "珍藏刻印",
+  "category": "anime_goods",
+  "tier": "premium",
+  "fame": 64,
+  "quality": 0.87,
+  "blurb": "高完成度的限量模型與原畫複製品，為真正的收藏家而設。"
+ },
+ {
+  "id": "anime_goods_g6",
+  "name": "月下典藏",
+  "category": "anime_goods",
+  "tier": "premium",
+  "fame": 70,
+  "quality": 0.86,
+  "blurb": "精工限定公仔與授權原畫周邊，每件都附上編號與證明書。"
+ },
+ {
+  "id": "gamestore_g1",
+  "name": "按鍵驛站",
+  "category": "gamestore",
+  "tier": "budget",
+  "fame": 43,
+  "quality": 0.64,
+  "blurb": "二手遊戲片與主機配件價格實在，換片回收也很方便。"
+ },
+ {
+  "id": "gamestore_g2",
+  "name": "通關補給站",
+  "category": "gamestore",
+  "tier": "budget",
+  "fame": 38,
+  "quality": 0.6,
+  "blurb": "熱門遊戲的特價片與點數卡一次備齊，玩家的省錢好夥伴。"
+ },
+ {
+  "id": "gamestore_g3",
+  "name": "像素工房",
+  "category": "gamestore",
+  "tier": "standard",
+  "fame": 53,
+  "quality": 0.67,
+  "blurb": "新作首發、實體特典與周邊都有，還能預約下一款期待的遊戲。"
+ },
+ {
+  "id": "gamestore_g4",
+  "name": "雙搖桿俱樂部",
+  "category": "gamestore",
+  "tier": "standard",
+  "fame": 47,
+  "quality": 0.68,
+  "blurb": "主機、遊戲與配件一站購足，店內還有試玩區隨時可以上手。"
+ },
+ {
+  "id": "gamestore_g5",
+  "name": "典藏卡帶閣",
+  "category": "gamestore",
+  "tier": "premium",
+  "fame": 66,
+  "quality": 0.85,
+  "blurb": "經典復刻版與收藏級實體片，為懷舊玩家挑選每一份珍貴回憶。"
+ },
+ {
+  "id": "gamestore_g6",
+  "name": "限定收藏館",
+  "category": "gamestore",
+  "tier": "premium",
+  "fame": 62,
+  "quality": 0.82,
+  "blurb": "豪華版、限量典藏與稀有絕版品精選陳列，講究品味的玩家首選。"
+ },
+ {
+  "id": "vinyl_g1",
+  "name": "唱針小站",
+  "category": "vinyl",
+  "tier": "budget",
+  "fame": 40,
+  "quality": 0.63,
+  "blurb": "新品與二手黑膠價格親切，翻翻箱子常有意外的好聽驚喜。"
+ },
+ {
+  "id": "vinyl_g2",
+  "name": "黑膠百圓屋",
+  "category": "vinyl",
+  "tier": "budget",
+  "fame": 33,
+  "quality": 0.57,
+  "blurb": "平價專輯與舊版唱片任你挑，入門聽黑膠從這裡開始最剛好。"
+ },
+ {
+  "id": "vinyl_g3",
+  "name": "旋律唱片行",
+  "category": "vinyl",
+  "tier": "standard",
+  "fame": 57,
+  "quality": 0.7,
+  "blurb": "涵蓋流行、爵士與搖滾等多種類型，店員都很懂音樂，愛聊歌。"
+ },
+ {
+  "id": "vinyl_g4",
+  "name": "午後留聲館",
+  "category": "vinyl",
+  "tier": "standard",
+  "fame": 51,
+  "quality": 0.76,
+  "blurb": "精選新版黑膠與復刻盤，店內的小沙發適合邊聽邊慢慢挑選。"
+ },
+ {
+  "id": "vinyl_g5",
+  "name": "珍品唱片閣",
+  "category": "vinyl",
+  "tier": "premium",
+  "fame": 61,
+  "quality": 0.8,
+  "blurb": "絕版初版與限量彩膠專輯陳列，每張都有故事，值得細細品味。"
+ },
+ {
+  "id": "vinyl_g6",
+  "name": "音域典藏",
+  "category": "vinyl",
+  "tier": "premium",
+  "fame": 67,
+  "quality": 0.89,
+  "blurb": "高音質重刷與收藏級黑膠精選，為重視音色的樂迷準備的殿堂。"
+ },
+ {
+  "id": "art_gallery_g1",
+  "name": "小小畫廊",
+  "category": "art_gallery",
+  "tier": "budget",
+  "fame": 43,
+  "quality": 0.59,
+  "blurb": "每週換展的平價小展間，十幾塊錢就能看一場畫展，逛累了順路坐坐。"
+ },
+ {
+  "id": "art_gallery_g2",
+  "name": "街角相框",
+  "category": "art_gallery",
+  "tier": "budget",
+  "fame": 33,
+  "quality": 0.57,
+  "blurb": "把路人與街景做成小型展覽，入場免費，離開時還能帶走一張明信片。"
+ },
+ {
+  "id": "art_gallery_g3",
+  "name": "四季畫廊",
+  "category": "art_gallery",
+  "tier": "standard",
+  "fame": 47,
+  "quality": 0.7,
+  "blurb": "每個季節換一次主題，從插畫到攝影都有，適合週末慢慢逛。"
+ },
+ {
+  "id": "art_gallery_g4",
+  "name": "月見展間",
+  "category": "art_gallery",
+  "tier": "standard",
+  "fame": 56,
+  "quality": 0.73,
+  "blurb": "以夜景與光影為主題的展覽空間，常有配合策展的小型工作坊。"
+ },
+ {
+  "id": "art_gallery_g5",
+  "name": "硯台藝廊",
+  "category": "art_gallery",
+  "tier": "premium",
+  "fame": 62,
+  "quality": 0.88,
+  "blurb": "精選名家原作與限量版畫，店員會替您講解每件作品的來歷與技法。"
+ },
+ {
+  "id": "art_gallery_g6",
+  "name": "雲錦畫堂",
+  "category": "art_gallery",
+  "tier": "premium",
+  "fame": 64,
+  "quality": 0.82,
+  "blurb": "典雅安靜的私藏型畫廊，備有專屬的鑑賞室，預約制的導覽行程很受歡迎。"
+ },
+ {
+  "id": "gym_g1",
+  "name": "快步健身",
+  "category": "gym",
+  "tier": "budget",
+  "fame": 44,
+  "quality": 0.56,
+  "blurb": "二十四小時可進出的平價健身空間，器材齊全，月費便宜又不綁約。"
+ },
+ {
+  "id": "gym_g2",
+  "name": "早起運動",
+  "category": "gym",
+  "tier": "budget",
+  "fame": 33,
+  "quality": 0.62,
+  "blurb": "清晨六點開門，主打短時間高效率訓練，下班前也能快速流一身汗。"
+ },
+ {
+  "id": "gym_g3",
+  "name": "木槿健身",
+  "category": "gym",
+  "tier": "standard",
+  "fame": 51,
+  "quality": 0.69,
+  "blurb": "器材與團課兼具的大眾型健身房，教練親切，新手入門很安心。"
+ },
+ {
+  "id": "gym_g4",
+  "name": "鍛造工房",
+  "category": "gym",
+  "tier": "premium",
+  "fame": 67,
+  "quality": 0.89,
+  "blurb": "由國家認證教練一對一指導，依照體態數據量身訂做課表與飲食建議。"
+ },
+ {
+  "id": "gym_g5",
+  "name": "白鶴訓練院",
+  "category": "gym",
+  "tier": "premium",
+  "fame": 64,
+  "quality": 0.86,
+  "blurb": "講究器材品質與恢復空間，附設冷熱水療區，是追求極致體態的首選。"
+ },
+ {
+  "id": "gym_g6",
+  "name": "晨光健身",
+  "category": "gym",
+  "tier": "standard",
+  "fame": 55,
+  "quality": 0.68,
+  "blurb": "從清晨五點營業，器材齊全，還有一對一的基礎體能指導。"
+ },
+ {
+  "id": "spa_g1",
+  "name": "暖暖足湯",
+  "category": "spa",
+  "tier": "budget",
+  "fame": 34,
+  "quality": 0.58,
+  "blurb": "平價足部按摩與肩頸放鬆，四十分鐘就能讓疲憊的腳重新有精神。"
+ },
+ {
+  "id": "spa_g2",
+  "name": "小池按摩",
+  "category": "spa",
+  "tier": "budget",
+  "fame": 31,
+  "quality": 0.61,
+  "blurb": "座位式的快速按摩服務，不用脫鞋，午休時間就能舒舒服服放鬆一下。"
+ },
+ {
+  "id": "spa_g3",
+  "name": "竹林溫泉屋",
+  "category": "spa",
+  "tier": "standard",
+  "fame": 51,
+  "quality": 0.66,
+  "blurb": "仿造老溫泉的日式氛圍，全身油壓與熱石按摩，價格實在又療癒。"
+ },
+ {
+  "id": "spa_g4",
+  "name": "柚子湯館",
+  "category": "spa",
+  "tier": "standard",
+  "fame": 54,
+  "quality": 0.73,
+  "blurb": "以柑橘精油為特色的放鬆療程，香氣清爽，洗完澡後整個人都亮了起來。"
+ },
+ {
+  "id": "spa_g5",
+  "name": "靜水蘭庭",
+  "category": "spa",
+  "tier": "premium",
+  "fame": 71,
+  "quality": 0.87,
+  "blurb": "私人包廂式的高端 SPA，搭配客製化精油與花草茶，是給自己的慢時光。"
+ },
+ {
+  "id": "spa_g6",
+  "name": "月白殿",
+  "category": "spa",
+  "tier": "premium",
+  "fame": 61,
+  "quality": 0.85,
+  "blurb": "由資深治療師主理，依照體質調配療程，講究每一個細節的安靜奢華。"
+ },
+ {
+  "id": "clinic_g1",
+  "name": "平安藥局診所",
+  "category": "clinic",
+  "tier": "budget",
+  "fame": 35,
+  "quality": 0.62,
+  "blurb": "藥品價格實在，醫師看診後也能即時領藥，是附近居民的日常好幫手。"
+ },
+ {
+  "id": "clinic_g2",
+  "name": "和風內科",
+  "category": "clinic",
+  "tier": "standard",
+  "fame": 52,
+  "quality": 0.72,
+  "blurb": "內科與家醫科並重的診所，醫師耐心仔細，有問題都能好好說清楚。"
+ },
+ {
+  "id": "clinic_g3",
+  "name": "鶴鳴綜合醫療所",
+  "category": "clinic",
+  "tier": "premium",
+  "fame": 68,
+  "quality": 0.87,
+  "blurb": "設有完整的健康檢查與專科門診，預約時還能選擇專屬的醫師與時段。"
+ },
+ {
+  "id": "clinic_g4",
+  "name": "月光皮膚科",
+  "category": "clinic",
+  "tier": "premium",
+  "fame": 71,
+  "quality": 0.87,
+  "blurb": "專業團隊提供醫美與皮膚治療，諮詢流程細緻，重視每位患者的感受。"
+ },
+ {
+  "id": "salon_g1",
+  "name": "快剪小舖",
+  "category": "salon",
+  "tier": "budget",
+  "fame": 36,
+  "quality": 0.58,
+  "blurb": "平價剪髮與基本護理，不用預約也能進來，二十分鐘就能煥然一新。"
+ },
+ {
+  "id": "salon_g2",
+  "name": "街角理髮",
+  "category": "salon",
+  "tier": "budget",
+  "fame": 34,
+  "quality": 0.58,
+  "blurb": "老派又親切的理髮店，師傅手藝扎實，剪完還會幫您把頸後修得乾乾淨淨。"
+ },
+ {
+  "id": "salon_g3",
+  "name": "櫻花髮廊",
+  "category": "salon",
+  "tier": "standard",
+  "fame": 46,
+  "quality": 0.73,
+  "blurb": "燙染與造型一應俱全，店內配色多、氣氛輕鬆，常有熟客大聊近況。"
+ },
+ {
+  "id": "salon_g4",
+  "name": "木蓮美容",
+  "category": "salon",
+  "tier": "standard",
+  "fame": 46,
+  "quality": 0.71,
+  "blurb": "結合臉部護理與美甲的一站式服務，價格透明，適合固定來做保養。"
+ },
+ {
+  "id": "salon_g5",
+  "name": "珠光沙龍",
+  "category": "salon",
+  "tier": "premium",
+  "fame": 62,
+  "quality": 0.8,
+  "blurb": "由國際造型師坐鎮，從髮型設計到護膚療程都有專屬顧問，體驗講究細緻。"
+ },
+ {
+  "id": "salon_g6",
+  "name": "銀杏私享",
+  "category": "salon",
+  "tier": "premium",
+  "fame": 66,
+  "quality": 0.86,
+  "blurb": "一對一的私人美容空間，依照個人風格量身打造，是給自己的專屬時光。"
+ },
+ {
+  "id": "daycare_g1",
+  "name": "小麥園托育",
+  "category": "daycare",
+  "tier": "budget",
+  "fame": 38,
+  "quality": 0.61,
+  "blurb": "放學後順路接送，課後照顧實惠又快速，家長下班前都能安心等。"
+ },
+ {
+  "id": "daycare_g2",
+  "name": "笑笑小熊窩",
+  "category": "daycare",
+  "tier": "budget",
+  "fame": 38,
+  "quality": 0.58,
+  "blurb": "平價時段托育，有遊戲角與點心時間，孩子玩得開心，爸媽省心。"
+ },
+ {
+  "id": "daycare_g3",
+  "name": "朝陽童園",
+  "category": "daycare",
+  "tier": "standard",
+  "fame": 54,
+  "quality": 0.7,
+  "blurb": "親切的老師陪孩子讀繪本、畫圖做手工，每天都有小小的成長紀錄。"
+ },
+ {
+  "id": "daycare_g4",
+  "name": "綠葉小學堂",
+  "category": "daycare",
+  "tier": "standard",
+  "fame": 48,
+  "quality": 0.71,
+  "blurb": "循序漸進的生活課程加上戶外活動，讓孩子學會分享與自理。"
+ },
+ {
+  "id": "daycare_g5",
+  "name": "月光工房幼育",
+  "category": "daycare",
+  "tier": "premium",
+  "fame": 61,
+  "quality": 0.9,
+  "blurb": "小班制講究教具與環境，每位孩子都有專屬的照顧計畫與成長日誌。"
+ },
+ {
+  "id": "daycare_g6",
+  "name": "雪松庭院托育",
+  "category": "daycare",
+  "tier": "premium",
+  "fame": 63,
+  "quality": 0.83,
+  "blurb": "木質空間配上雙語師資，精緻點心與安靜的午睡區，讓孩子舒適自在。"
+ },
+ {
+  "id": "laundry_g1",
+  "name": "泡泡速洗站",
+  "category": "laundry",
+  "tier": "budget",
+  "fame": 39,
+  "quality": 0.6,
+  "blurb": "投幣就能洗，烘乾也很快，趕時間的上班族最愛來這裡。"
+ },
+ {
+  "id": "laundry_g2",
+  "name": "三色球洗衣",
+  "category": "laundry",
+  "tier": "budget",
+  "fame": 30,
+  "quality": 0.62,
+  "blurb": "自助洗衣機排排站，價格親民，洗完還能順便買杯飲料。"
+ },
+ {
+  "id": "laundry_g3",
+  "name": "白鷺共享洗",
+  "category": "laundry",
+  "tier": "standard",
+  "fame": 51,
+  "quality": 0.71,
+  "blurb": "提供洗、烘、摺一條龍服務，還有可以邊等邊工作的休憩區。"
+ },
+ {
+  "id": "laundry_g4",
+  "name": "陽台洗衣所",
+  "category": "laundry",
+  "tier": "standard",
+  "fame": 55,
+  "quality": 0.68,
+  "blurb": "寬敞的共享洗衣空間，附設晾曬區與毛巾租借，居家感十足。"
+ },
+ {
+  "id": "laundry_g5",
+  "name": "絹織衣庫",
+  "category": "laundry",
+  "tier": "premium",
+  "fame": 70,
+  "quality": 0.83,
+  "blurb": "專業職人手洗羊毛與絲質衣物，每件都仔細熨燙，讓心愛的衣服重獲新生。"
+ },
+ {
+  "id": "laundry_g6",
+  "name": "月白洗衣院",
+  "category": "laundry",
+  "tier": "premium",
+  "fame": 61,
+  "quality": 0.85,
+  "blurb": "精選天然洗劑與香氛，提供取送衣服的預約服務，講究每一道工序。"
+ },
+ {
+  "id": "nail_g1",
+  "name": "小鈴美甲",
+  "category": "nail",
+  "tier": "budget",
+  "fame": 33,
+  "quality": 0.59,
+  "blurb": "快速平價的基礎美甲，下班順路就能做完，色系選擇多又不貴。"
+ },
+ {
+  "id": "nail_g2",
+  "name": "蝴蝶結指甲",
+  "category": "nail",
+  "tier": "budget",
+  "fame": 41,
+  "quality": 0.58,
+  "blurb": "十五分鐘完成的簡單彩繪與護甲，學生族和上班族都很喜歡。"
+ },
+ {
+  "id": "nail_g3",
+  "name": "櫻花指間",
+  "category": "nail",
+  "tier": "standard",
+  "fame": 50,
+  "quality": 0.71,
+  "blurb": "溫柔的手部按摩加上流行設計，每季都有新款式，讓指尖更有個性。"
+ },
+ {
+  "id": "nail_g4",
+  "name": "楓葉美甲室",
+  "category": "nail",
+  "tier": "standard",
+  "fame": 50,
+  "quality": 0.71,
+  "blurb": "師傅依照手型與服裝量身搭配色彩，凝膠與甲油都能自由選擇。"
+ },
+ {
+  "id": "nail_g5",
+  "name": "墨染工藝甲",
+  "category": "nail",
+  "tier": "premium",
+  "fame": 67,
+  "quality": 0.86,
+  "blurb": "手繪細緻的日式紋樣，搭配精油護理與安靜的包廂，是一段慢下來的時光。"
+ },
+ {
+  "id": "nail_g6",
+  "name": "金箔匠人指間",
+  "category": "nail",
+  "tier": "premium",
+  "fame": 68,
+  "quality": 0.87,
+  "blurb": "以金箔與貝殼片等天然素材創作指甲藝術，每一款都是獨一無二的作品。"
+ },
+ {
+  "id": "yoga_g1",
+  "name": "晨光體能館",
+  "category": "yoga",
+  "tier": "budget",
+  "fame": 39,
+  "quality": 0.61,
+  "blurb": "早晨快速的基礎瑜伽課，入門價格親切，讓身體從一天開始就舒展。"
+ },
+ {
+  "id": "yoga_g2",
+  "name": "小石頭瑜伽",
+  "category": "yoga",
+  "tier": "budget",
+  "fame": 38,
+  "quality": 0.58,
+  "blurb": "團體課程時間彈性，不用預約也能隨時來動一動，適合初學者。"
+ },
+ {
+  "id": "yoga_g3",
+  "name": "竹林伸展室",
+  "category": "yoga",
+  "tier": "standard",
+  "fame": 49,
+  "quality": 0.72,
+  "blurb": "結合呼吸與伸展的一般課程，老師講解仔細，課後還有輕鬆的茶室。"
+ },
+ {
+  "id": "yoga_g4",
+  "name": "山岳流動教室",
+  "category": "yoga",
+  "tier": "standard",
+  "fame": 44,
+  "quality": 0.69,
+  "blurb": "動態流瑜伽與力量訓練並重，從新手到進階都能找到適合的節奏。"
+ },
+ {
+  "id": "yoga_g5",
+  "name": "靜湖禪意瑜伽",
+  "category": "yoga",
+  "tier": "premium",
+  "fame": 70,
+  "quality": 0.89,
+  "blurb": "小班制精緻課程，搭配冥想與調香，讓身心在安靜的空間中慢慢甦醒。"
+ },
+ {
+  "id": "yoga_g6",
+  "name": "月見修身工房",
+  "category": "yoga",
+  "tier": "premium",
+  "fame": 60,
+  "quality": 0.82,
+  "blurb": "由資深講師一對一指導，依體態量身設計課表，講究每一個細節。"
+ },
+ {
+  "id": "dental_g1",
+  "name": "笑顏齒科",
+  "category": "dental",
+  "tier": "budget",
+  "fame": 35,
+  "quality": 0.59,
+  "blurb": "洗牙與基本檢查價格透明，週末也開診，帶孩子來也很放心。"
+ },
+ {
+  "id": "dental_g2",
+  "name": "小小牙醫室",
+  "category": "dental",
+  "tier": "budget",
+  "fame": 34,
+  "quality": 0.63,
+  "blurb": "看診流程簡單快速，櫃檯親切，讓怕看牙的人也能放鬆一點。"
+ },
+ {
+  "id": "dental_g3",
+  "name": "楓葉口腔",
+  "category": "dental",
+  "tier": "standard",
+  "fame": 50,
+  "quality": 0.73,
+  "blurb": "常見牙科問題一站式處理，醫師會耐心說明每個選項的差異。"
+ },
+ {
+  "id": "dental_g4",
+  "name": "白石牙科",
+  "category": "dental",
+  "tier": "standard",
+  "fame": 51,
+  "quality": 0.73,
+  "blurb": "設備更新快，數位掃描取代傳統印模，讓治療過程更舒適安心。"
+ },
+ {
+  "id": "dental_g5",
+  "name": "琥珀齒藝",
+  "category": "dental",
+  "tier": "premium",
+  "fame": 65,
+  "quality": 0.83,
+  "blurb": "注重美學與咬合平衡，從諮詢到完成都有專人陪伴，細緻到每一顆牙。"
+ },
+ {
+  "id": "dental_g6",
+  "name": "靜川牙醫",
+  "category": "dental",
+  "tier": "premium",
+  "fame": 61,
+  "quality": 0.85,
+  "blurb": "採預約制的私密診間，重視長期口腔健康，為每位客人量身規劃療程。"
+ },
+ {
+  "id": "cram_school_g1",
+  "name": "早稻補習所",
+  "category": "cram_school",
+  "tier": "budget",
+  "fame": 31,
+  "quality": 0.63,
+  "blurb": "放學後的小班輔導，價格實在，作業時間有老師陪伴解惑。"
+ },
+ {
+  "id": "cram_school_g2",
+  "name": "大橋學習屋",
+  "category": "cram_school",
+  "tier": "budget",
+  "fame": 41,
+  "quality": 0.57,
+  "blurb": "週間晚間的短期班與考前衝刺課，學費平易近人，學生進步看得見。"
+ },
+ {
+  "id": "cram_school_g3",
+  "name": "燈塔進學館",
+  "category": "cram_school",
+  "tier": "standard",
+  "fame": 48,
+  "quality": 0.66,
+  "blurb": "按照學生程度分班教學，定期模擬考與學習報告，家長都能即時掌握進度。"
+ },
+ {
+  "id": "cram_school_g4",
+  "name": "松葉個別指導",
+  "category": "cram_school",
+  "tier": "standard",
+  "fame": 46,
+  "quality": 0.74,
+  "blurb": "一對二的個別輔導配合學習計畫，讓每位學生都能找到自己的弱點與強項。"
+ },
+ {
+  "id": "cram_school_g5",
+  "name": "鶴鳴精英塾",
+  "category": "cram_school",
+  "tier": "premium",
+  "fame": 60,
+  "quality": 0.86,
+  "blurb": "名師親授的精選課程，搭配升學諮詢與專屬讀書計畫，講究每一步的規劃。"
+ },
+ {
+  "id": "cram_school_g6",
+  "name": "墨硯書院",
+  "category": "cram_school",
+  "tier": "premium",
+  "fame": 66,
+  "quality": 0.8,
+  "blurb": "以深度思辨與寫作培養為核心，小班精緻教學，陪伴學生走穩每一步。"
+ },
+ {
+  "id": "photo_studio_g1",
+  "name": "小鹿快拍館",
+  "category": "photo_studio",
+  "tier": "budget",
+  "fame": 42,
+  "quality": 0.61,
+  "blurb": "學生與上班族的好夥伴，價格實在，每次拍照都有輕鬆的笑容。"
+ },
+ {
+  "id": "photo_studio_g2",
+  "name": "櫻町影像",
+  "category": "photo_studio",
+  "tier": "standard",
+  "fame": 47,
+  "quality": 0.76,
+  "blurb": "從證件到生活紀錄都能拍，燈光柔和，讓每張照片都有溫度。"
+ },
+ {
+  "id": "photo_studio_g3",
+  "name": "檜木寫真堂",
+  "category": "photo_studio",
+  "tier": "standard",
+  "fame": 52,
+  "quality": 0.74,
+  "blurb": "以自然的木質布景為背景，適合家庭與情侶留下日常的好時光。"
+ },
+ {
+  "id": "photo_studio_g4",
+  "name": "金箔工房寫真",
+  "category": "photo_studio",
+  "tier": "premium",
+  "fame": 67,
+  "quality": 0.81,
+  "blurb": "由資深攝影師一人一人調光修圖，講究質感，是重要紀念的首選。"
+ },
+ {
+  "id": "photo_studio_g5",
+  "name": "月白寫真邸",
+  "category": "photo_studio",
+  "tier": "premium",
+  "fame": 66,
+  "quality": 0.85,
+  "blurb": "高級訂製寫真，從造型到底片沖洗都親自把關，珍藏每一刻的美。"
+ },
+ {
+  "id": "photo_studio_g6",
+  "name": "小鳥快照",
+  "category": "photo_studio",
+  "tier": "budget",
+  "fame": 41,
+  "quality": 0.56,
+  "blurb": "十分鐘完成拍攝，即拍即印，價格實惠，適合學生與情侶的隨興紀念。"
+ },
+ {
+  "id": "repair_g1",
+  "name": "快修小鈴",
+  "category": "repair",
+  "tier": "budget",
+  "fame": 34,
+  "quality": 0.6,
+  "blurb": "手機換螢幕、衣服改短褲管，當天就能取件，價格透明好放心。"
+ },
+ {
+  "id": "repair_g2",
+  "name": "三分鐘修繕",
+  "category": "repair",
+  "tier": "budget",
+  "fame": 44,
+  "quality": 0.56,
+  "blurb": "拉鍊、鈕扣、破洞一次搞定，等待的時間剛好夠你喝一杯咖啡。"
+ },
+ {
+  "id": "repair_g3",
+  "name": "匠木電修",
+  "category": "repair",
+  "tier": "standard",
+  "fame": 50,
+  "quality": 0.68,
+  "blurb": "電腦、平板與家電維修，師傅耐心解說問題，修好還會教你保養。"
+ },
+ {
+  "id": "repair_g4",
+  "name": "針線日和",
+  "category": "repair",
+  "tier": "standard",
+  "fame": 58,
+  "quality": 0.68,
+  "blurb": "衣物修補與改版一條龍服務，把舊衣變回你喜歡的樣子。"
+ },
+ {
+  "id": "repair_g5",
+  "name": "鍛銀工房",
+  "category": "repair",
+  "tier": "premium",
+  "fame": 70,
+  "quality": 0.88,
+  "blurb": "精密手錶與高級配件的保養調整，每件作品都由職人親手完成。"
+ },
+ {
+  "id": "repair_g6",
+  "name": "寒梅修衣院",
+  "category": "repair",
+  "tier": "premium",
+  "fame": 68,
+  "quality": 0.9,
+  "blurb": "珍藏西裝、和服與手工針織的專業修復，細緻到看不出修補過的痕跡。"
+ },
+ {
+  "id": "yakiniku_g1",
+  "name": "炭火小鎮",
+  "category": "yakiniku",
+  "tier": "budget",
+  "fame": 43,
+  "quality": 0.63,
+  "blurb": "平日午餐套餐超划算，熱騰騰的炭火肉片讓上班族一口就有精神。"
+ },
+ {
+  "id": "yakiniku_g2",
+  "name": "肉舞市場",
+  "category": "yakiniku",
+  "tier": "budget",
+  "fame": 36,
+  "quality": 0.59,
+  "blurb": "自助式點單，大份量肉盤隨你挑，吃得開心又不會傷荷包。"
+ },
+ {
+  "id": "yakiniku_g3",
+  "name": "炙煙橫丁",
+  "category": "yakiniku",
+  "tier": "standard",
+  "fame": 56,
+  "quality": 0.74,
+  "blurb": "店內的炭香飄散整條巷子，招牌牛五花搭配自家醬汁，回味無窮。"
+ },
+ {
+  "id": "yakiniku_g4",
+  "name": "灯籠燒肉",
+  "category": "yakiniku",
+  "tier": "standard",
+  "fame": 56,
+  "quality": 0.75,
+  "blurb": "溫暖的燈籠光影下，依季節推出限定部位，適合和朋友慢慢聊天。"
+ },
+ {
+  "id": "yakiniku_g5",
+  "name": "極炭燒肉處",
+  "category": "yakiniku",
+  "tier": "premium",
+  "fame": 60,
+  "quality": 0.87,
+  "blurb": "嚴選和牛由師傅現場切割，炭火溫度精準控制，是饕客心中的聖地。"
+ },
+ {
+  "id": "yakiniku_g6",
+  "name": "雪桐燒肉亭",
+  "category": "yakiniku",
+  "tier": "premium",
+  "fame": 64,
+  "quality": 0.81,
+  "blurb": "靜謐包廂，一份一份呈上的頂級霜降肉，讓每次用餐都像一場儀式。"
+ },
+ {
+  "id": "sushi_g1",
+  "name": "迴轉小浪",
+  "category": "sushi",
+  "tier": "budget",
+  "fame": 32,
+  "quality": 0.58,
+  "blurb": "新鮮壽司隨盤流動，色彩繽紛，想吃什麼就伸手拿，輕鬆又划算。"
+ },
+ {
+  "id": "sushi_g2",
+  "name": "海風握壽司",
+  "category": "sushi",
+  "tier": "budget",
+  "fame": 39,
+  "quality": 0.59,
+  "blurb": "每日早市直送的食材，價格親民，讓想吃海鮮的人都能常常來。"
+ },
+ {
+  "id": "sushi_g3",
+  "name": "潮見壽司",
+  "category": "sushi",
+  "tier": "standard",
+  "fame": 50,
+  "quality": 0.71,
+  "blurb": "師傅手捏的握壽司份量十足，搭配季節魚種，吃得又飽又滿足。"
+ },
+ {
+  "id": "sushi_g4",
+  "name": "朝霧鮨屋",
+  "category": "sushi",
+  "tier": "standard",
+  "fame": 52,
+  "quality": 0.69,
+  "blurb": "吧台式座位能看見師傅手藝，醋飯與魚料的平衡拿捏得恰到好處。"
+ },
+ {
+  "id": "sushi_g5",
+  "name": "靜川鮨割烹",
+  "category": "sushi",
+  "tier": "premium",
+  "fame": 72,
+  "quality": 0.82,
+  "blurb": "依客人當日狀況安排菜單，每一貫壽司都是職人對食材的誠實表達。"
+ },
+ {
+  "id": "sushi_g6",
+  "name": "雪見鮨庵",
+  "category": "sushi",
+  "tier": "premium",
+  "fame": 61,
+  "quality": 0.9,
+  "blurb": "少數座位的隱密空間，嚴選天然魚獲與手工醋飯，講究到每一口。"
+ },
+ {
+  "id": "izakaya_g1",
+  "name": "暖簾小酌",
+  "category": "izakaya",
+  "tier": "budget",
+  "fame": 35,
+  "quality": 0.61,
+  "blurb": "下班後的第一站，便宜又大碗的串燒與生啤，人人都能輕鬆坐下。"
+ },
+ {
+  "id": "izakaya_g2",
+  "name": "燈火橫丁",
+  "category": "izakaya",
+  "tier": "standard",
+  "fame": 47,
+  "quality": 0.76,
+  "blurb": "大家圍著吧台乾杯，時令小菜豐富，聊天聊到打烊也不嫌晚。"
+ },
+ {
+  "id": "izakaya_g3",
+  "name": "石板居酒屋",
+  "category": "izakaya",
+  "tier": "standard",
+  "fame": 57,
+  "quality": 0.72,
+  "blurb": "現點現烤的海鮮與燒物，搭配各式日本清酒，適合慢慢喝。"
+ },
+ {
+  "id": "izakaya_g4",
+  "name": "月見酒肴堂",
+  "category": "izakaya",
+  "tier": "premium",
+  "fame": 66,
+  "quality": 0.89,
+  "blurb": "精選季節食材與稀有日本酒，每道小菜都是職人精心製作的一幕風景。"
+ },
+ {
+  "id": "izakaya_g5",
+  "name": "霜月割烹庵",
+  "category": "izakaya",
+  "tier": "premium",
+  "fame": 69,
+  "quality": 0.85,
+  "blurb": "私人包廂與講究的料理節奏，適合談重要的事或慶祝特別的夜晚。"
+ },
+ {
+  "id": "bar_g1",
+  "name": "小路口酒場",
+  "category": "bar",
+  "tier": "budget",
+  "fame": 31,
+  "quality": 0.58,
+  "blurb": "一人一杯也能喝得開心，下班路上順路進來，老闆會記得你的口味。"
+ },
+ {
+  "id": "bar_g2",
+  "name": "夜燈小酌",
+  "category": "bar",
+  "tier": "budget",
+  "fame": 40,
+  "quality": 0.57,
+  "blurb": "平價調酒配下酒小菜，晚上九點後最熱鬧，適合和朋友隨意聊聊。"
+ },
+ {
+  "id": "bar_g3",
+  "name": "月見吧台",
+  "category": "bar",
+  "tier": "standard",
+  "fame": 47,
+  "quality": 0.71,
+  "blurb": "調酒與威士忌都是店主親手挑選的，氣氛安靜，適合慢慢喝一杯。"
+ },
+ {
+  "id": "bar_g4",
+  "name": "櫻下酒屋",
+  "category": "bar",
+  "tier": "standard",
+  "fame": 56,
+  "quality": 0.75,
+  "blurb": "木質吧台加上溫暖燈光，招牌烤串配上季節限定的梅酒最受歡迎。"
+ },
+ {
+  "id": "bar_g5",
+  "name": "琥珀侍酒",
+  "category": "bar",
+  "tier": "premium",
+  "fame": 67,
+  "quality": 0.89,
+  "blurb": "由侍酒師依照每位客人的喜好調製餐前酒與單一麥芽威士忌，講究細節。"
+ },
+ {
+  "id": "bar_g6",
+  "name": "雲篆酒廊",
+  "category": "bar",
+  "tier": "premium",
+  "fame": 60,
+  "quality": 0.89,
+  "blurb": "高樓層的私密吧檯，搭配手工冰塊與限量香檳，適合重要的夜晚。"
+ },
+ {
+  "id": "fine_dining_g1",
+  "name": "晴空午膳",
+  "category": "fine_dining",
+  "tier": "budget",
+  "fame": 42,
+  "quality": 0.57,
+  "blurb": "窗邊的套餐份量十足、價格親切，中午來一趟就能吃得很滿足。"
+ },
+ {
+  "id": "fine_dining_g2",
+  "name": "風之食卓",
+  "category": "fine_dining",
+  "tier": "budget",
+  "fame": 36,
+  "quality": 0.61,
+  "blurb": "平日的定食套餐簡單實在，搭配大窗景，讓忙碌的午餐多一點悠閒。"
+ },
+ {
+  "id": "fine_dining_g3",
+  "name": "四季景觀亭",
+  "category": "fine_dining",
+  "tier": "standard",
+  "fame": 53,
+  "quality": 0.75,
+  "blurb": "隨季節更換菜單，以當季食材搭配窗外夜景，用餐時光格外從容。"
+ },
+ {
+  "id": "fine_dining_g4",
+  "name": "遠眺食堂",
+  "category": "fine_dining",
+  "tier": "standard",
+  "fame": 47,
+  "quality": 0.71,
+  "blurb": "開放式廚房現烤現煮，主廚會親自介紹當日的料理，吃得自在又親切。"
+ },
+ {
+  "id": "fine_dining_g5",
+  "name": "星落殿堂",
+  "category": "fine_dining",
+  "tier": "premium",
+  "fame": 63,
+  "quality": 0.81,
+  "blurb": "十二道式主廚套餐，每道菜都搭配一段故事，是特別日子的首選。"
+ },
+ {
+  "id": "fine_dining_g6",
+  "name": "天際食巡",
+  "category": "fine_dining",
+  "tier": "premium",
+  "fame": 60,
+  "quality": 0.88,
+  "blurb": "俯瞰全城的旗艦餐廳，以職人技藝重新詮釋時令料理，服務細緻周到。"
+ },
+ {
+  "id": "hotpot_g1",
+  "name": "快煮小鍋",
+  "category": "hotpot",
+  "tier": "budget",
+  "fame": 31,
+  "quality": 0.6,
+  "blurb": "單人一鍋也能快速吃飽，湯底選擇多，下班後來一鍋暖暖身子剛剛好。"
+ },
+ {
+  "id": "hotpot_g2",
+  "name": "熱騰騰食堂",
+  "category": "hotpot",
+  "tier": "budget",
+  "fame": 40,
+  "quality": 0.58,
+  "blurb": "自助吧式的鍋物，蔬菜與肉品都能無限取用，大家一起吃最划算。"
+ },
+ {
+  "id": "hotpot_g3",
+  "name": "炭火鍋屋",
+  "category": "hotpot",
+  "tier": "standard",
+  "fame": 48,
+  "quality": 0.71,
+  "blurb": "以炭火慢燉的湯頭為特色，鍋底香氣濃郁，是冬天聚餐的熱門選擇。"
+ },
+ {
+  "id": "hotpot_g4",
+  "name": "山葵鍋處",
+  "category": "hotpot",
+  "tier": "standard",
+  "fame": 46,
+  "quality": 0.67,
+  "blurb": "清爽的昆布湯底搭配自製醬料，食材新鮮，吃完身體格外輕盈。"
+ },
+ {
+  "id": "hotpot_g5",
+  "name": "極品白湯堂",
+  "category": "hotpot",
+  "tier": "premium",
+  "fame": 64,
+  "quality": 0.86,
+  "blurb": "選用頂級高湯熬煮數十小時，搭配產地直送的和牛，講究每一口滋味。"
+ },
+ {
+  "id": "hotpot_g6",
+  "name": "錦繡鍋物",
+  "category": "hotpot",
+  "tier": "premium",
+  "fame": 68,
+  "quality": 0.87,
+  "blurb": "包廂式用餐空間，由專人調理鍋底與盛盤，適合商務宴請或慶祝場合。"
+ },
+ {
+  "id": "tonkatsu_g1",
+  "name": "香脆定食屋",
+  "category": "tonkatsu",
+  "tier": "budget",
+  "fame": 32,
+  "quality": 0.63,
+  "blurb": "炸得金黃酥脆的豬排定食，附白飯與味噌湯，平價又能快速上桌。"
+ },
+ {
+  "id": "tonkatsu_g2",
+  "name": "小豬排亭",
+  "category": "tonkatsu",
+  "tier": "budget",
+  "fame": 43,
+  "quality": 0.58,
+  "blurb": "現點現炸的小份豬排，一個人吃也很合適，是午休時間的好夥伴。"
+ },
+ {
+  "id": "tonkatsu_g3",
+  "name": "黃金衣職人",
+  "category": "tonkatsu",
+  "tier": "standard",
+  "fame": 55,
+  "quality": 0.66,
+  "blurb": "麵衣使用細碎麵包粉，口感輕盈蓬鬆，搭配自家特調的濃厚醬汁。"
+ },
+ {
+  "id": "tonkatsu_g4",
+  "name": "黑豚里脊堂",
+  "category": "tonkatsu",
+  "tier": "premium",
+  "fame": 65,
+  "quality": 0.89,
+  "blurb": "精選黑豚里脊肉，以低溫油炸鎖住肉汁，搭配鹽味與山葵等多款沾料。"
+ },
+ {
+  "id": "tonkatsu_g5",
+  "name": "極上炸亭",
+  "category": "tonkatsu",
+  "tier": "premium",
+  "fame": 60,
+  "quality": 0.89,
+  "blurb": "師傅每日挑選當季豬肉，以傳統技法手作，每一塊豬排都有自己的風味。"
+ },
+ {
+  "id": "tonkatsu_g6",
+  "name": "金麥豬排",
+  "category": "tonkatsu",
+  "tier": "standard",
+  "fame": 46,
+  "quality": 0.73,
+  "blurb": "麵衣酥脆、豬肉多汁，附上無限供應的高麗菜絲與特製芝麻醬。"
+ },
+ {
+  "id": "craft_beer_g1",
+  "name": "街角精釀站",
+  "category": "craft_beer",
+  "tier": "budget",
+  "fame": 36,
+  "quality": 0.56,
+  "blurb": "每週輪替的精釀啤酒價格親民，站著喝一杯，聊聊天就很愜意。"
+ },
+ {
+  "id": "craft_beer_g2",
+  "name": "麥芽小酒館",
+  "category": "craft_beer",
+  "tier": "budget",
+  "fame": 44,
+  "quality": 0.58,
+  "blurb": "入門款精釀與經典下酒菜組合，適合第一次嘗試精釀的朋友。"
+ },
+ {
+  "id": "craft_beer_g3",
+  "name": "釀造工房",
+  "category": "craft_beer",
+  "tier": "standard",
+  "fame": 52,
+  "quality": 0.67,
+  "blurb": "店內設有小型釀造區，可以看到啤酒從麥汁到杯中的每個步驟。"
+ },
+ {
+  "id": "craft_beer_g4",
+  "name": "蜂蜜與麥穗",
+  "category": "craft_beer",
+  "tier": "standard",
+  "fame": 47,
+  "quality": 0.67,
+  "blurb": "以季節水果與蜂蜜入酒的特色精釀，口感層次豐富，女生也很愛。"
+ },
+ {
+  "id": "craft_beer_g5",
+  "name": "琥珀釀所",
+  "category": "craft_beer",
+  "tier": "premium",
+  "fame": 70,
+  "quality": 0.87,
+  "blurb": "與釀酒師合作的限定精釀，搭配主廚設計的料理，適合細細品味。"
+ },
+ {
+  "id": "craft_beer_g6",
+  "name": "暗夜釀室",
+  "category": "craft_beer",
+  "tier": "premium",
+  "fame": 63,
+  "quality": 0.89,
+  "blurb": "陳年桶裝精釀與珍稀酒款齊全，服務人員會依據味道為您推薦搭配。"
+ },
+ {
+  "id": "unagi_g1",
+  "name": "晴れ鰻屋",
+  "category": "unagi",
+  "tier": "budget",
+  "fame": 39,
+  "quality": 0.63,
+  "blurb": "一人份也能輕鬆吃上一尾的平價鰻魚飯，快速上桌，下班路上就能解饞。"
+ },
+ {
+  "id": "unagi_g2",
+  "name": "小判うなぎ",
+  "category": "unagi",
+  "tier": "budget",
+  "fame": 43,
+  "quality": 0.6,
+  "blurb": "醬汁香氣撲鼻的親民鰻魚丼，份量實在，老客人都說是街角的安心味道。"
+ },
+ {
+  "id": "unagi_g3",
+  "name": "川辺の鰻處",
+  "category": "unagi",
+  "tier": "standard",
+  "fame": 48,
+  "quality": 0.68,
+  "blurb": "炭火慢烤、外皮酥脆的大眾鰻魚飯，配上一碗清爽的肝湯，吃得很滿足。"
+ },
+ {
+  "id": "unagi_g4",
+  "name": "風鈴うなぎ",
+  "category": "unagi",
+  "tier": "standard",
+  "fame": 51,
+  "quality": 0.68,
+  "blurb": "每一尾都用備長炭細細燒烤，搭配季節小菜，是家人聚餐的好選擇。"
+ },
+ {
+  "id": "unagi_g5",
+  "name": "極め鰻 蒼",
+  "category": "unagi",
+  "tier": "premium",
+  "fame": 65,
+  "quality": 0.82,
+  "blurb": "嚴選當季活鰻，由職人一尾一尾手作，講究火候與醬汁的平衡，值得細細品味。"
+ },
+ {
+  "id": "unagi_g6",
+  "name": "白檀の鰻",
+  "category": "unagi",
+  "tier": "premium",
+  "fame": 64,
+  "quality": 0.86,
+  "blurb": "以古法蒸焼工序製作的高級鰻重，搭配精心挑選的漬物與清湯，宴席首選。"
+ },
+ {
+  "id": "wine_bar_g1",
+  "name": "杯酒小路",
+  "category": "wine_bar",
+  "tier": "budget",
+  "fame": 31,
+  "quality": 0.6,
+  "blurb": "一杯起跳的平易近人葡萄酒，搭配簡單小點，下班後來一杯剛剛好。"
+ },
+ {
+  "id": "wine_bar_g2",
+  "name": "ほろ酔いバル",
+  "category": "wine_bar",
+  "tier": "budget",
+  "fame": 37,
+  "quality": 0.6,
+  "blurb": "輕鬆隨性的小酒館，紅白氣泡任你挑，讓人喝得開心又不花大錢。"
+ },
+ {
+  "id": "wine_bar_g3",
+  "name": "月見ワイン堂",
+  "category": "wine_bar",
+  "tier": "standard",
+  "fame": 53,
+  "quality": 0.7,
+  "blurb": "精選各國產地的日常好酒，店員會依你的口味推薦，適合朋友小聚。"
+ },
+ {
+  "id": "wine_bar_g4",
+  "name": "霧の樽室",
+  "category": "wine_bar",
+  "tier": "standard",
+  "fame": 54,
+  "quality": 0.69,
+  "blurb": "木桶陳列的溫暖空間，豐富的起司拼盤與葡萄酒搭配，聊天時光特別悠閒。"
+ },
+ {
+  "id": "wine_bar_g5",
+  "name": "琥珀の酒蔵",
+  "category": "wine_bar",
+  "tier": "premium",
+  "fame": 64,
+  "quality": 0.84,
+  "blurb": "收藏逾百款珍藏年份酒，由侍酒師為你細說每一杯的風土與故事。"
+ },
+ {
+  "id": "wine_bar_g6",
+  "name": "星霜セラー",
+  "category": "wine_bar",
+  "tier": "premium",
+  "fame": 64,
+  "quality": 0.89,
+  "blurb": "以恆溫酒窖為核心的頂級品酒空間，精緻套餐與稀有佳釀，適合重要的夜晚。"
+ },
+ {
+  "id": "teppanyaki_g1",
+  "name": "鉄板の看板娘",
+  "category": "teppanyaki",
+  "tier": "budget",
+  "fame": 31,
+  "quality": 0.56,
+  "blurb": "香煎牛排與炒麵就在眼前現做，份量足、價錢親民，熱鬧又有活力。"
+ },
+ {
+  "id": "teppanyaki_g2",
+  "name": "ジュージュー亭",
+  "category": "teppanyaki",
+  "tier": "budget",
+  "fame": 44,
+  "quality": 0.58,
+  "blurb": "鐵板滋滋作響的快樂午餐，平價定食讓人一口接一口，吃完心情都變好。"
+ },
+ {
+  "id": "teppanyaki_g3",
+  "name": "炎の舞台",
+  "category": "teppanyaki",
+  "tier": "standard",
+  "fame": 50,
+  "quality": 0.73,
+  "blurb": "座位圍著鐵板，邊看廚師翻炒邊品嚐當季食材，氣氛熱絡又有趣。"
+ },
+ {
+  "id": "teppanyaki_g4",
+  "name": "極鉄 紫苑",
+  "category": "teppanyaki",
+  "tier": "premium",
+  "fame": 65,
+  "quality": 0.85,
+  "blurb": "精選A5和牛與時令海味，每一道都在鐵板上精準控溫，展現職人的細膩功夫。"
+ },
+ {
+  "id": "teppanyaki_g5",
+  "name": "鉄颯 朧月",
+  "category": "teppanyaki",
+  "tier": "premium",
+  "fame": 68,
+  "quality": 0.84,
+  "blurb": "以個人包廂提供全程料理，依季節搭配食材與調味，是慶祝時刻的高雅選擇。"
+ },
+ {
+  "id": "teppanyaki_g6",
+  "name": "朝霧鐵板",
+  "category": "teppanyaki",
+  "tier": "standard",
+  "fame": 54,
+  "quality": 0.68,
+  "blurb": "每日清晨備料，一塊牛肋排配上當季蔬菜，香氣在鐵板上慢慢化開。"
+ },
+ {
+  "id": "kaiseki_g1",
+  "name": "季の小膳",
+  "category": "kaiseki",
+  "tier": "budget",
+  "fame": 31,
+  "quality": 0.6,
+  "blurb": "以當季食材組成的平價御膳，清爽精緻又不拘形式，午間就能輕鬆享用。"
+ },
+ {
+  "id": "kaiseki_g2",
+  "name": "四季の膳処",
+  "category": "kaiseki",
+  "tier": "standard",
+  "fame": 56,
+  "quality": 0.69,
+  "blurb": "隨季節更換的懷石小品，器皿與擺盤講究，適合想放慢步調的午後。"
+ },
+ {
+  "id": "kaiseki_g3",
+  "name": "月影の食卓",
+  "category": "kaiseki",
+  "tier": "standard",
+  "fame": 51,
+  "quality": 0.73,
+  "blurb": "以清淡高湯為基底的完整懷石套餐，每一道都細緻入口，吃得安靜又滿足。"
+ },
+ {
+  "id": "kaiseki_g4",
+  "name": "極 懐石 松韻",
+  "category": "kaiseki",
+  "tier": "premium",
+  "fame": 71,
+  "quality": 0.88,
+  "blurb": "由主廚依當日食材量身設計的全程懷石，講究器皿與季節意象，宴客首選。"
+ },
+ {
+  "id": "kaiseki_g5",
+  "name": "雪霞の割烹",
+  "category": "kaiseki",
+  "tier": "premium",
+  "fame": 63,
+  "quality": 0.83,
+  "blurb": "僅接待預約的割烹空間，每一道料理都是職人精心構思的一期一會，值得慢慢品嚐。"
+ },
+ {
+  "id": "observatory_g1",
+  "name": "てっぺん展望",
+  "category": "observatory",
+  "tier": "budget",
+  "fame": 35,
+  "quality": 0.57,
+  "blurb": "搭電梯直達的平價展望台，門票不貴，夜景與城市風光一次收進眼底。"
+ },
+ {
+  "id": "observatory_g2",
+  "name": "雲の回廊",
+  "category": "observatory",
+  "tier": "standard",
+  "fame": 44,
+  "quality": 0.71,
+  "blurb": "環繞式的觀景迴廊，白天可俯瞰老街屋頂，傍晚則能看見城市點燈的瞬間。"
+ },
+ {
+  "id": "observatory_g3",
+  "name": "星見テラス",
+  "category": "observatory",
+  "tier": "standard",
+  "fame": 57,
+  "quality": 0.73,
+  "blurb": "設有寬敞露台與互動式導覽，讓每位遊客都能認識這座城市的天際線。"
+ },
+ {
+  "id": "observatory_g4",
+  "name": "天穹ラウンジ",
+  "category": "observatory",
+  "tier": "premium",
+  "fame": 69,
+  "quality": 0.9,
+  "blurb": "高空私密觀景廳，附設香檳吧台與落地窗景，是夜晚約會與慶祝的理想場所。"
+ },
+ {
+  "id": "observatory_g5",
+  "name": "天際小窗",
+  "category": "observatory",
+  "tier": "budget",
+  "fame": 33,
+  "quality": 0.58,
+  "blurb": "輕鬆搭電梯就能俯瞰整條街的夜景，門票親切，逛累了順路看看城市的燈火。"
+ },
+ {
+  "id": "observatory_g6",
+  "name": "月舞雅閣",
+  "category": "observatory",
+  "tier": "premium",
+  "fame": 63,
+  "quality": 0.84,
+  "blurb": "以精緻茶點與低調的燈光打造靜謐的高空時光，每個細節都講究，適合慢慢品味夜景。"
+ },
+ {
+  "id": "event_space_g1",
+  "name": "月見場",
+  "category": "event_space",
+  "tier": "budget",
+  "fame": 35,
+  "quality": 0.57,
+  "blurb": "租借單位便宜又快速，從派對到小型發表會都能輕鬆搞定，大家都能負擔得起。"
+ },
+ {
+  "id": "event_space_g2",
+  "name": "喜樂箱",
+  "category": "event_space",
+  "tier": "budget",
+  "fame": 38,
+  "quality": 0.64,
+  "blurb": "按時數計費的小型活動空間，桌椅音響一應俱全，適合學生社團與街坊聚會。"
+ },
+ {
+  "id": "event_space_g3",
+  "name": "朝霧廳",
+  "category": "event_space",
+  "tier": "standard",
+  "fame": 50,
+  "quality": 0.73,
+  "blurb": "中型多功能會場，投影、收音都備妥，講座、課程與企業說明會的熱門選擇。"
+ },
+ {
+  "id": "event_space_g4",
+  "name": "石橋堂",
+  "category": "event_space",
+  "tier": "standard",
+  "fame": 49,
+  "quality": 0.7,
+  "blurb": "可自由調整格局的場地，從研討到慶生都順手，服務人員親切又有效率。"
+ },
+ {
+  "id": "event_space_g5",
+  "name": "琥珀館",
+  "category": "event_space",
+  "tier": "premium",
+  "fame": 70,
+  "quality": 0.88,
+  "blurb": "選用高品質音響與木質陳設的私人宴會空間，從籌備到收場皆由專人細心服務。"
+ },
+ {
+  "id": "event_space_g6",
+  "name": "松風庭",
+  "category": "event_space",
+  "tier": "premium",
+  "fame": 60,
+  "quality": 0.86,
+  "blurb": "挑高木質廳堂配上細緻的燈光設計，從婚宴到發表會都能量身打造，每場活動都有職人把關。"
+ },
+ {
+  "id": "food_truck_g1",
+  "name": "快樂輪",
+  "category": "food_truck",
+  "tier": "budget",
+  "fame": 41,
+  "quality": 0.58,
+  "blurb": "輪子上的街頭小吃，炸物、烤串與飲料都是親民價，邊走邊吃剛剛好。"
+ },
+ {
+  "id": "food_truck_g2",
+  "name": "小麥車",
+  "category": "food_truck",
+  "tier": "budget",
+  "fame": 41,
+  "quality": 0.61,
+  "blurb": "現點現包的餅皮捲物，份量大又便宜，是放學後與下班路上的救星。"
+ },
+ {
+  "id": "food_truck_g3",
+  "name": "海風廚房",
+  "category": "food_truck",
+  "tier": "standard",
+  "fame": 51,
+  "quality": 0.76,
+  "blurb": "每週更換主題的移動料理車，海鮮丼與炊飯都有一定水準，份量也實在。"
+ },
+ {
+  "id": "food_truck_g4",
+  "name": "炭火巡禮",
+  "category": "food_truck",
+  "tier": "standard",
+  "fame": 46,
+  "quality": 0.7,
+  "blurb": "用炭火慢烤的雞肉與蔬菜串，醬汁各有特色，邊排隊邊聞香就是一種享受。"
+ },
+ {
+  "id": "food_truck_g5",
+  "name": "一期一會",
+  "category": "food_truck",
+  "tier": "premium",
+  "fame": 63,
+  "quality": 0.81,
+  "blurb": "每日限定的時令食材料理，主廚親手挑選素材，少量供應，吃完會想再來。"
+ },
+ {
+  "id": "food_truck_g6",
+  "name": "瑞雪庵",
+  "category": "food_truck",
+  "tier": "premium",
+  "fame": 68,
+  "quality": 0.85,
+  "blurb": "職人手作的精緻甜點與和風小食車，材料講究、擺盤細膩，適合慢慢品味。"
+ },
+ {
+  "id": "flea_market_g1",
+  "name": "百寶箱",
+  "category": "flea_market",
+  "tier": "budget",
+  "fame": 39,
+  "quality": 0.6,
+  "blurb": "舊物、二手雜貨一堆淘寶好物，價格便宜，翻到寶的那一刻超有成就感。"
+ },
+ {
+  "id": "flea_market_g2",
+  "name": "跳跳屋",
+  "category": "flea_market",
+  "tier": "budget",
+  "fame": 33,
+  "quality": 0.58,
+  "blurb": "文具、小飾品與生活用品一字排開，十元到百元之間就能帶走一整袋驚喜。"
+ },
+ {
+  "id": "flea_market_g3",
+  "name": "木槿商店",
+  "category": "flea_market",
+  "tier": "standard",
+  "fame": 51,
+  "quality": 0.73,
+  "blurb": "精選國內設計師的日常雜貨與手作小物，實用又可愛，送禮自用兩相宜。"
+ },
+ {
+  "id": "flea_market_g4",
+  "name": "雨後堂",
+  "category": "flea_market",
+  "tier": "standard",
+  "fame": 44,
+  "quality": 0.74,
+  "blurb": "復古唱片、手作包與季節限定商品齊聚，逛起來像在翻一本老相簿。"
+ },
+ {
+  "id": "flea_market_g5",
+  "name": "山雀工房",
+  "category": "flea_market",
+  "tier": "premium",
+  "fame": 65,
+  "quality": 0.85,
+  "blurb": "職人手工製作的皮革與陶器，每件都有編號，講究材質與細節的人會愛上。"
+ },
+ {
+  "id": "flea_market_g6",
+  "name": "銀杏書房",
+  "category": "flea_market",
+  "tier": "premium",
+  "fame": 58,
+  "quality": 0.86,
+  "blurb": "精選絕版書、限量版畫與收藏級文具，店主親自挑選，每件都值得珍藏。"
+ },
+ {
+  "id": "beer_garden_g1",
+  "name": "屋頂小酌",
+  "category": "beer_garden",
+  "tier": "budget",
+  "fame": 31,
+  "quality": 0.59,
+  "blurb": "平價生啤與下酒小菜，吹著夜風聊天，是下班後最輕鬆的開場。"
+ },
+ {
+  "id": "beer_garden_g2",
+  "name": "星空杯",
+  "category": "beer_garden",
+  "tier": "budget",
+  "fame": 33,
+  "quality": 0.62,
+  "blurb": "大杯啤酒搭配炸物拼盤，花小錢就能享受屋頂上的熱鬧氣氛。"
+ },
+ {
+  "id": "beer_garden_g3",
+  "name": "晚風樽",
+  "category": "beer_garden",
+  "tier": "standard",
+  "fame": 45,
+  "quality": 0.69,
+  "blurb": "精選國內外啤酒與調酒，搭配季節小菜，露天座位視野開闊，適合約會小聚。"
+ },
+ {
+  "id": "beer_garden_g4",
+  "name": "月光桶",
+  "category": "beer_garden",
+  "tier": "standard",
+  "fame": 51,
+  "quality": 0.69,
+  "blurb": "現開的木桶生啤與燒烤拼盤，熱鬧的音樂和星空讓人一坐就捨不得走。"
+ },
+ {
+  "id": "beer_garden_g5",
+  "name": "霧之杜",
+  "category": "beer_garden",
+  "tier": "premium",
+  "fame": 65,
+  "quality": 0.86,
+  "blurb": "由職人調配的精品啤酒與威士忌，搭配主廚料理，寧靜的私密座位適合深談。"
+ },
+ {
+  "id": "beer_garden_g6",
+  "name": "瑪瑙吧",
+  "category": "beer_garden",
+  "tier": "premium",
+  "fame": 61,
+  "quality": 0.9,
+  "blurb": "限量釀造的精釀啤酒與高級酒單，每季更新菜單，為懂酒的人準備的夜晚。"
+ },
+ {
+  "id": "coworking_g1",
+  "name": "便當桌",
+  "category": "coworking",
+  "tier": "budget",
+  "fame": 40,
+  "quality": 0.6,
+  "blurb": "按時計費的開放式工作位，網速穩定、插座充足，學生與自由工作者的好去處。"
+ },
+ {
+  "id": "coworking_g2",
+  "name": "早起鳥",
+  "category": "coworking",
+  "tier": "budget",
+  "fame": 42,
+  "quality": 0.61,
+  "blurb": "清晨開放的平價共享座位，附免費咖啡一杯，趕稿或溫書都很合適。"
+ },
+ {
+  "id": "coworking_g3",
+  "name": "灰鷺空間",
+  "category": "coworking",
+  "tier": "standard",
+  "fame": 46,
+  "quality": 0.67,
+  "blurb": "有獨立隔間與會議室的共享辦公室，設備齊全，適合小團隊長期進駐。"
+ },
+ {
+  "id": "coworking_g4",
+  "name": "檸檬實驗室",
+  "category": "coworking",
+  "tier": "standard",
+  "fame": 46,
+  "quality": 0.7,
+  "blurb": "結合創業交流活動的共享空間，午餐會與工作坊頻繁，容易認識新朋友。"
+ },
+ {
+  "id": "coworking_g5",
+  "name": "白樺書室",
+  "category": "coworking",
+  "tier": "premium",
+  "fame": 69,
+  "quality": 0.81,
+  "blurb": "安靜高雅的專屬辦公室，附置物櫃與接待區，給需要專注與形象的專業人士。"
+ },
+ {
+  "id": "coworking_g6",
+  "name": "竹庭樓",
+  "category": "coworking",
+  "tier": "premium",
+  "fame": 68,
+  "quality": 0.87,
+  "blurb": "可客製化的獨立辦公套房，配有專人秘書服務與高階會議設施，講究品味與效率。"
+ },
+ {
+  "id": "conference_g1",
+  "name": "會場便利社",
+  "category": "conference",
+  "tier": "budget",
+  "fame": 41,
+  "quality": 0.6,
+  "blurb": "場地租借與會議茶點一次到位，不用跑外面，開會開得輕鬆又划算。"
+ },
+ {
+  "id": "conference_g2",
+  "name": "早安會所",
+  "category": "conference",
+  "tier": "budget",
+  "fame": 44,
+  "quality": 0.64,
+  "blurb": "半天、一天都能租的小型會議室，附投影設備，價格親民，適合小團體。"
+ },
+ {
+  "id": "conference_g3",
+  "name": "櫻見會館",
+  "category": "conference",
+  "tier": "standard",
+  "fame": 54,
+  "quality": 0.73,
+  "blurb": "大小會議廳齊備，音響燈光配合得體，中大型活動也能穩穩接住。"
+ },
+ {
+  "id": "conference_g4",
+  "name": "並木會議屋",
+  "category": "conference",
+  "tier": "standard",
+  "fame": 57,
+  "quality": 0.71,
+  "blurb": "靠近走廊的明亮會議空間，桌椅可隨需求調整，適合研討與工作坊。"
+ },
+ {
+  "id": "conference_g5",
+  "name": "月白宴會堂",
+  "category": "conference",
+  "tier": "premium",
+  "fame": 60,
+  "quality": 0.83,
+  "blurb": "由職人布置的高規格宴會廳，從餐點擺盤到燈光細節都講究到底。"
+ },
+ {
+  "id": "conference_g6",
+  "name": "硯台廳苑",
+  "category": "conference",
+  "tier": "premium",
+  "fame": 66,
+  "quality": 0.9,
+  "blurb": "僅接待少數重要場次的精緻會議廳，隔音與採光都是一流的選擇。"
+ },
+ {
+  "id": "hotel_g1",
+  "name": "小太陽旅宿",
+  "category": "hotel",
+  "tier": "budget",
+  "fame": 44,
+  "quality": 0.64,
+  "blurb": "乾淨舒適的標準客房，離車站步行可達，住一晚不用花太多錢。"
+ },
+ {
+  "id": "hotel_g2",
+  "name": "旅人一宿",
+  "category": "hotel",
+  "tier": "budget",
+  "fame": 44,
+  "quality": 0.64,
+  "blurb": "房價實在、早餐簡單但暖胃，是背包客與短暫停留旅人的好夥伴。"
+ },
+ {
+  "id": "hotel_g3",
+  "name": "海鳥酒店",
+  "category": "hotel",
+  "tier": "standard",
+  "fame": 51,
+  "quality": 0.74,
+  "blurb": "窗景開闊的現代客房，樓層設有休息區，兼顧商務與觀光的需求。"
+ },
+ {
+  "id": "hotel_g4",
+  "name": "銀杏御所",
+  "category": "hotel",
+  "tier": "premium",
+  "fame": 65,
+  "quality": 0.82,
+  "blurb": "以木質與和紙為基調的精緻客房，每一晚都像被細心款待的小旅行。"
+ },
+ {
+  "id": "hotel_g5",
+  "name": "靜川別館",
+  "category": "hotel",
+  "tier": "premium",
+  "fame": 59,
+  "quality": 0.81,
+  "blurb": "房數不多、服務貼心，提供季節懷石與私人溫泉，適合慢慢地好好住。"
+ },
+ {
+  "id": "hotel_g6",
+  "name": "晴川旅舍",
+  "category": "hotel",
+  "tier": "standard",
+  "fame": 53,
+  "quality": 0.7,
+  "blurb": "乾淨舒適的平價客房，離商場與老街都近，走路就能逛遍周邊的美食與小店。"
+ },
+ {
+  "id": "capsule_hotel_g1",
+  "name": "夜車膠囊",
+  "category": "capsule_hotel",
+  "tier": "budget",
+  "fame": 43,
+  "quality": 0.6,
+  "blurb": "一個人也能好好睡的小艙位，價格實在，隔音與照明都很貼心。"
+ },
+ {
+  "id": "capsule_hotel_g2",
+  "name": "月台小窩",
+  "category": "capsule_hotel",
+  "tier": "budget",
+  "fame": 41,
+  "quality": 0.6,
+  "blurb": "收費便宜、進出方便，趕末班車或臨時過夜時的最佳選擇。"
+ },
+ {
+  "id": "capsule_hotel_g3",
+  "name": "雲朵小屋",
+  "category": "capsule_hotel",
+  "tier": "standard",
+  "fame": 57,
+  "quality": 0.68,
+  "blurb": "加大床位與獨立電源插座，附淋浴間，睡眠品質比想像中更好。"
+ },
+ {
+  "id": "capsule_hotel_g4",
+  "name": "薄荷膠囊館",
+  "category": "capsule_hotel",
+  "tier": "standard",
+  "fame": 56,
+  "quality": 0.67,
+  "blurb": "公共休息區與洗衣設施齊全，喜歡自在出入的旅人會很喜歡這裡。"
+ },
+ {
+  "id": "capsule_hotel_g5",
+  "name": "竹林臥室",
+  "category": "capsule_hotel",
+  "tier": "premium",
+  "fame": 58,
+  "quality": 0.83,
+  "blurb": "以竹與木打造的私密艙房，夜裡燈光柔和，像一間小小的隱居房間。"
+ },
+ {
+  "id": "capsule_hotel_g6",
+  "name": "燭光睡寮",
+  "category": "capsule_hotel",
+  "tier": "premium",
+  "fame": 69,
+  "quality": 0.88,
+  "blurb": "精選寢具與香氛服務，每個艙位都附有獨立小窗，睡前多一分安心。"
+ },
+ {
+  "id": "travel_agency_g1",
+  "name": "小旅行社",
+  "category": "travel_agency",
+  "tier": "budget",
+  "fame": 43,
+  "quality": 0.64,
+  "blurb": "一日遊、近郊小旅行的行程規劃，價格透明，初次出門也能放心報名。"
+ },
+ {
+  "id": "travel_agency_g2",
+  "name": "順風旅舍館",
+  "category": "travel_agency",
+  "tier": "budget",
+  "fame": 43,
+  "quality": 0.57,
+  "blurb": "機票、車票與住宿一站搞定，替你省下跑來跑去的時間與費用。"
+ },
+ {
+  "id": "travel_agency_g3",
+  "name": "四季遊學",
+  "category": "travel_agency",
+  "tier": "standard",
+  "fame": 48,
+  "quality": 0.74,
+  "blurb": "依季節設計主題路線，從賞花到美食巡禮，每趟都有不同的風景。"
+ },
+ {
+  "id": "travel_agency_g4",
+  "name": "羅盤旅遊社",
+  "category": "travel_agency",
+  "tier": "standard",
+  "fame": 58,
+  "quality": 0.68,
+  "blurb": "熟悉在地的導遊陪你走小巷，路線彈性，適合想深入體驗的旅人。"
+ },
+ {
+  "id": "travel_agency_g5",
+  "name": "鶴之翼旅行",
+  "category": "travel_agency",
+  "tier": "premium",
+  "fame": 61,
+  "quality": 0.87,
+  "blurb": "量身訂製的深度行程，從住宿到專屬體驗都由職人親自安排。"
+ },
+ {
+  "id": "travel_agency_g6",
+  "name": "硯山私旅",
+  "category": "travel_agency",
+  "tier": "premium",
+  "fame": 61,
+  "quality": 0.83,
+  "blurb": "小團精緻包團，重視每一處細節，讓您的旅途像是一封精心寫好的信。"
+ },
+ {
+  "id": "luggage_g1",
+  "name": "小包寄放所",
+  "category": "luggage",
+  "tier": "budget",
+  "fame": 33,
+  "quality": 0.62,
+  "blurb": "行李寄放按件計費、取件快速，短時間逛街或趕車前最實用。"
+ },
+ {
+  "id": "luggage_g2",
+  "name": "手提暫放處",
+  "category": "luggage",
+  "tier": "budget",
+  "fame": 37,
+  "quality": 0.64,
+  "blurb": "夜間也能寄放的平價櫃位，附貼心的行李包覆服務，讓您輕鬆逛街。"
+ },
+ {
+  "id": "luggage_g3",
+  "name": "白貓行李店",
+  "category": "luggage",
+  "tier": "standard",
+  "fame": 47,
+  "quality": 0.76,
+  "blurb": "大小櫃位齊全，還能代為送機、送飯店，寄放之後完全不用再操心。"
+ },
+ {
+  "id": "luggage_g4",
+  "name": "浪花寄物館",
+  "category": "luggage",
+  "tier": "standard",
+  "fame": 47,
+  "quality": 0.66,
+  "blurb": "提供多種尺寸的寄物櫃與線上預約，旅客來來去去都能快速完成。"
+ },
+ {
+  "id": "luggage_g5",
+  "name": "花筏行李庫",
+  "category": "luggage",
+  "tier": "premium",
+  "fame": 59,
+  "quality": 0.84,
+  "blurb": "恆溫恆濕的專屬保管室，貴重物品與樂器都能安心交付，附專人接送。"
+ },
+ {
+  "id": "luggage_g6",
+  "name": "鹿角保管所",
+  "category": "luggage",
+  "tier": "premium",
+  "fame": 67,
+  "quality": 0.81,
+  "blurb": "一對一的行李管家服務，從寄放到配送全程追蹤，為您的旅程畫上精緻句點。"
+ },
+ {
+  "id": "print_shop_g1",
+  "name": "快印小鈴",
+  "category": "print_shop",
+  "tier": "budget",
+  "fame": 35,
+  "quality": 0.63,
+  "blurb": "影印、列印、郵寄一次搞定，排隊時間短，價錢也很親民，趕時間的人最愛。"
+ },
+ {
+  "id": "print_shop_g2",
+  "name": "百寶箱速送",
+  "category": "print_shop",
+  "tier": "budget",
+  "fame": 39,
+  "quality": 0.61,
+  "blurb": "文件、傳真與包裹寄送樣樣有，平日下午還有學生優惠，省錢又方便。"
+ },
+ {
+  "id": "print_shop_g3",
+  "name": "花見紙舖",
+  "category": "print_shop",
+  "tier": "standard",
+  "fame": 44,
+  "quality": 0.7,
+  "blurb": "列印、裝訂與明信片寄送一條龍，紙張種類多，小禮物也能順便挑。"
+ },
+ {
+  "id": "print_shop_g4",
+  "name": "墨硯工房",
+  "category": "print_shop",
+  "tier": "premium",
+  "fame": 70,
+  "quality": 0.89,
+  "blurb": "職人手工裝裱、精緻燙金與文件設計，為重要的日子留下有溫度的紙本。"
+ },
+ {
+  "id": "print_shop_g5",
+  "name": "月白紙藝所",
+  "category": "print_shop",
+  "tier": "premium",
+  "fame": 68,
+  "quality": 0.87,
+  "blurb": "嚴選和紙與高級信封，提供代寫與禮品包裝，每一份寄出的心意都講究細節。"
+ }
+]

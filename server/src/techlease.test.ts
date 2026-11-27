@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   STARTER_QUESTS,
+  BRANDS,
+  CATEGORIES,
+  INITIAL_SHOPS,
+  brandByName,
+  brandsOfCategory,
   CANDIDATE_MAX,
   CANDIDATE_TTL,
   CATEGORY_BY_ID,
@@ -322,6 +327,72 @@ describe("leasing: signing and living with tenants", () => {
     expect(r.shops.some((x) => x.id === shop.id)).toBe(false);
     expect(fails({ ...t, funds: 0 }, { type: "terminateLease", shopId: shop.id })).toContain("資金不足");
     expect(fails(t, { type: "terminateLease", shopId: t.shops[0]!.id })).toContain("不是出租");
+  });
+
+  it("direct shops can be renamed and closed; leased ones cannot", () => {
+    const s = mk(7, 1);
+    const shop = s.shops[0]!;
+    const other = s.shops[1]!;
+    const r = apply(s, { type: "renameShop", shopId: shop.id, name: "  我的   小店 " });
+    expect(r.shops[0]!.name).toBe("我的 小店");
+    expect(fails(s, { type: "renameShop", shopId: shop.id, name: "" })).toContain("店名");
+    expect(fails(s, { type: "renameShop", shopId: shop.id, name: "一二三四五六七八九十一二三" })).toContain("店名");
+    expect(fails(s, { type: "renameShop", shopId: shop.id, name: other.name })).toContain("同名");
+    const c = apply(s, { type: "closeShop", shopId: shop.id });
+    expect(c.shops.some((x) => x.id === shop.id)).toBe(false);
+    expect(c.slots[shop.slot]!.shopId).toBeNull();
+    expect(fails({ ...s, shops: [shop] }, { type: "closeShop", shopId: shop.id })).toContain("至少");
+    const t = mk(7, 3);
+    const leased = apply(t, { type: "setLease", shopId: t.shops[0]!.id, enabled: true });
+    expect(fails(leased, { type: "closeShop", shopId: t.shops[0]!.id })).toContain("出租");
+    expect(fails(leased, { type: "renameShop", shopId: t.shops[0]!.id, name: "新名" })).toContain("租戶");
+  });
+
+  it("brand catalog is consistent and starter shops are catalog brands", () => {
+    const names = BRANDS.map((x) => x.name);
+    expect(new Set(names).size).toBe(names.length);
+    expect(new Set(BRANDS.map((x) => x.id)).size).toBe(BRANDS.length);
+    for (const x of BRANDS) {
+      expect(CATEGORY_BY_ID[x.category], x.id).toBeDefined();
+      expect([...x.name].length).toBeLessThanOrEqual(12);
+      expect(x.quality).toBeGreaterThanOrEqual(0.5);
+      expect(x.quality).toBeLessThanOrEqual(0.95);
+    }
+    for (const sh of INITIAL_SHOPS) expect(brandByName(sh.name)?.category, sh.name).toBe(sh.category);
+    // 每個（非設施）業態至少 4 個品牌、三種定位都有
+    for (const c of CATEGORIES.filter((x) => !x.facility)) {
+      const bs = brandsOfCategory(c.id);
+      expect(bs.length, c.id).toBeGreaterThanOrEqual(4);
+      for (const t of ["budget", "standard", "premium"]) expect(bs.some((x) => x.tier === t), `${c.id}/${t}`).toBe(true);
+    }
+  });
+
+  it("tenant candidates draw from the brand catalog and never duplicate a shop in the mall", () => {
+    const seen = new Set<string>();
+    for (let seed = 1; seed <= 12; seed++) {
+      let s = mk(seed, 3);
+      s = advanceTo(s, s.tick + 12 * TICKS_PER_DAY);
+      for (const c of s.leasing.candidates) {
+        const def = brandByName(c.brand);
+        if (def) {
+          seen.add(c.brand);
+          expect(def.category).toBe(c.category);
+          expect(c.fame).toBe(def.fame);
+        }
+        expect(s.shops.some((x) => x.name === c.brand)).toBe(false);
+      }
+    }
+    expect(seen.size).toBeGreaterThan(0);
+  });
+
+  it("a new shop can be named when built", () => {
+    const s = mk(7, 1);
+    const free = s.slots.find((x) => !x.shopId)!;
+    const cat = s.shops[0]!.category === "udon" ? "curry" : "udon";
+    expect(fails(s, { type: "buildShop", slot: free.id, category: cat, name: s.shops[0]!.name })).toContain("同名");
+    let t = apply(s, { type: "buildShop", slot: free.id, category: cat, name: "新手食堂" });
+    t = advanceTo(t, t.tick + 400);
+    expect(t.shops.some((x) => x.name === "新手食堂")).toBe(true);
   });
 
   it("converting your own shop to a tenant still works at level 3 and can be reverted", () => {
