@@ -15,6 +15,7 @@ import { GameHub, MenuWindow, PendingWindow, ReportPopup, type MenuPage } from "
 import { HUBS } from "../ui/Dock";
 import { RealShopPanel } from "../ui/RealShopPanel";
 import { FacilityCard } from "../ui/FacilityCard";
+import { Sheet } from "../components/ui";
 import { FacilityMapView } from "./FacilityMapView";
 import { facilitySpec } from "./facilityspec";
 import { BuildSheet } from "../screens/BuildSheet";
@@ -69,6 +70,7 @@ function StageGameInner() {
   const [buildSlot, setBuildSlot] = useState<number | null>(null);
   const [sheetShop, setSheetShop] = useState<string | null>(null);
   const [statusOpen, setStatusOpen] = useState(false);
+  const [facSheet, setFacSheet] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   void hintsVersion.value; // 提示狀態有變時重新計算
 
@@ -296,18 +298,25 @@ function StageGameInner() {
       )}
 
       {floor.facility && (
-        <div class="st-panel st-facfloor" role="region" aria-label={floor.name}>
-          <h3>
-            {floor.label}・{floor.name}
-          </h3>
+        <div class="st-facfloor" role="region" aria-label={floor.name}>
           {facSpec && <FacilityMapView spec={facSpec} minute={liveMinute} open={model.openHour} close={model.closeHour} weekend={model.weekend} flow={timeFlow(s)} />}
-          <div class="st-facinfo">
-            <FacilityCard kind={floor.facility.kind} from={floor.facility.from} to={floor.facility.to} />
+          <div class="st-facbar st-panel">
+            <h3>
+              {floor.label}・{floor.name}
+            </h3>
+            <button class="st-btn" onClick={() => setFacSheet(floor.facility!.kind)}>
+              ⚙ 設施設定與營運
+            </button>
           </div>
         </div>
       )}
+      {facSheet && (
+        <Sheet title="設施設定與營運" onClose={() => setFacSheet(null)}>
+          <FacilityCard kind={facSheet} />
+        </Sheet>
+      )}
 
-      <p class="st-note">畫面上的人潮是示意動畫，實際營收與客數以帳本為準。拖曳平移、滾輪／雙指縮放、點店面操作。</p>
+      {!floor.facility && <p class="st-note">畫面上的人潮是示意動畫，實際營收與客數以帳本為準。拖曳平移、滾輪／雙指縮放、點店面操作。</p>}
 
       {menuOpen && (
         <div class="st-menu st-panel" role="menu">

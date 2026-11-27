@@ -172,6 +172,8 @@ export function facilityFloors(s: Pick<MallState, "facilities">): FacilityFloor[
     const floors = Math.ceil(total / d.perFloor);
     // 旅館類：先有一樓大廳（第一層客房動工就開始蓋大廳），再有標準客房層
     if (d.lobby && total > 0) out.push({ id: `fac:${d.kind}:lobby`, kind: d.kind, label: d.lobby.label, name: d.lobby.name, from: 0, to: d.units.length, part: "lobby" });
+    // 旅館類的標準客房層先封存（只留大廳），之後再開
+    if (d.lobby) continue;
     for (let k = 0; k < floors; k++) {
       out.push({ id: `fac:${d.kind}:${k}`, kind: d.kind, label: d.floorLabel(k), name: d.floorName(k), from: k * d.perFloor, to: Math.min(d.units.length, (k + 1) * d.perFloor) });
     }

@@ -94,6 +94,7 @@ import {
   type ServerClock,
   type MemberInfo,
   type PublicMallState,
+  FACILITY_DEFS,
   type RoleId,
   type ServerMessage,
   type SpeedId,
@@ -564,6 +565,8 @@ export class MallService {
     s.funds = Math.max(s.funds, 100_000_000);
     for (const z of ZONES) s.flags[`zone:${z.id}`] = true;
     s.flags["feature:lease"] = true;
+    // 全開：大型設施也全部蓋好（方便直接看各設施樓層與營運設定）
+    s.facilities = FACILITY_DEFS.map((d) => ({ kind: d.kind, units: d.units.length }));
     s.tech.done = TECHS.map((t) => t.id);
     s.tech.jobs = [];
     for (const q of STARTER_QUESTS) s.meta.achievements[q.id] ??= s.tick;

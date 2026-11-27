@@ -105,8 +105,8 @@ describe("大型設施：地下停車場", () => {
       const a = advanceTo(s, s.tick + 288 * 3);
       expect(a.facilities![0]!.today!.revenue, kind).toBeGreaterThan(0);
       expect(a.funds - before, kind).not.toBeNaN();
-      // 整棟只有一個標準樓層；旅館類另外有一樓大廳
-      expect(facilityFloors(s).filter((f) => f.kind === kind && !f.part)).toHaveLength(1);
+      // 整棟只有一個標準樓層；旅館類只有一樓大廳（客房層先封存）
+      expect(facilityFloors(s).filter((f) => f.kind === kind && !f.part)).toHaveLength(FACILITY_BY_KIND[kind]!.lobby ? 0 : 1);
 
       // 舊存檔的店面轉成設施
       const old = mk(8);
@@ -164,6 +164,6 @@ describe("旅館大廳層", () => {
     const fl = facilityFloors(s);
     expect(fl.filter((f) => f.part === "lobby").map((f) => f.label)).toEqual(["旅廳", "膠廳"]);
     expect(fl.filter((f) => f.kind === "bowling")).toHaveLength(1);
-    expect(fl.filter((f) => f.kind === "hotel")).toHaveLength(2); // 大廳＋標準客房層
+    expect(fl.filter((f) => f.kind === "hotel")).toHaveLength(1); // 只有大廳（標準客房層先封存）
   });
 });

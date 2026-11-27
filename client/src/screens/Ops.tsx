@@ -165,7 +165,6 @@ export function HoursCards() {
       )}
 
       <ConceptCard />
-      <FacilityCard />
 
       <Card title="📅 日本日曆" right={<span class="small dim">連假與節日的人潮</span>}>
         <CalendarCard tick={s.tick} />
@@ -239,6 +238,7 @@ export function FacilityCards() {
   const fixed = UTILITIES_PER_DAY + (CLEANING_COST_PER_DAY[s.cleaningLevel] + MAINTENANCE_COST_PER_DAY[s.maintenanceLevel]) * facilityScale(s) + wages * laborCostFactor(s.hours.open, s.hours.close) + reservedSeats;
   return (
     <>
+      <FacilityCard />
       <div class="grid two">
         <Card title="🧹 清潔等級" right={<span class="small dim">目前整潔度 {Math.round(s.cleanliness)}</span>}>
           <div class="seg">
