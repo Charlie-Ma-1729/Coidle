@@ -137,6 +137,12 @@ export function dishFitsCategory(dish: Pick<Dish, "group" | "categories">, categ
   return !dish.categories || dish.categories.includes(category);
 }
 
+/** 這道作品能不能上架到這間店：業態要合，而且是哪間店研發的就只能在那間店上架 */
+export function dishFitsShop(dish: Pick<Dish, "group" | "categories" | "madeShopId">, shop: Pick<Shop, "id" | "category">): boolean {
+  if (dish.madeShopId && dish.madeShopId !== shop.id) return false;
+  return dishFitsCategory(dish, shop.category);
+}
+
 export function entryFreshFactor(e: Pick<MenuEntry, "novelty">): number {
   return 0.5 + 0.5 * (e.novelty / 100);
 }

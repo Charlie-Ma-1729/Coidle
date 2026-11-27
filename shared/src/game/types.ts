@@ -993,6 +993,8 @@ export interface MenuEntry {
   icon: string;
   signature: boolean;
   recipeId: string | null;
+  /** 研發這道作品的店；有值就只能在那間店上架（舊存檔沒有這欄，只看業態） */
+  madeShopId?: string;
   quality: number;
   appeal: Partial<Record<PersonaId, number>>;
   /** 新鮮度 0–100：上架之後慢慢退流行 */

@@ -21,7 +21,7 @@ import {
   TASTING_TTL,
   WORKSHOP_INFO,
   comboKey,
-  dishFitsCategory,
+  dishFitsShop,
   nextPlaySeed,
   playDifficulty,
   scorePlay,
@@ -124,6 +124,33 @@ function toInfo(d: IngredientData): IngredientInfo {
 const NEW_INGREDIENT_BATCH = 3;
 
 /** 把達成條件的素材與線索加進玩家的筆記（只增不減，可重複呼叫） */
+/**
+ * 舊存檔的作品沒有記研發的店：用 madeAt（店名）對到唯一一間店就回填 madeShopId；
+ * 對不到（店已關、改過名、同名多間）就維持只看業態。回填後，上在別間店的菜單條目下架回食譜本（冪等）。
+ */
+function bindLegacyDishes(s: MallState): void {
+  const ws = s.workshop;
+  for (const d of ws.dishes) {
+    if (d.madeShopId) continue;
+    const owners = s.shops.filter((x) => x.name === d.madeAt);
+    if (owners.length === 1) d.madeShopId = owners[0]!.id;
+  }
+  const byId = new Map(ws.dishes.map((d) => [d.id, d]));
+  let moved = 0;
+  for (const shop of s.shops) {
+    for (let i = shop.menu.length - 1; i >= 0; i--) {
+      const dish = byId.get(shop.menu[i]!.dishId);
+      if (!dish?.madeShopId || dish.madeShopId === shop.id) continue;
+      unlistDish(s, shop.id, i);
+      moved++;
+    }
+  }
+  if (moved > 0) {
+    addLog(s, "info", `🧹 菜單整理：作品只能在研發它的那間店上架，${moved} 道放錯店的已收回食譜本。`);
+    note(s, `${moved} 道放錯店的菜單收回食譜本`);
+  }
+}
+
 export function syncWorkshop(s: MallState): void {
   playSeedOf(s); // 小遊戲的關卡種子（舊存檔補上）
   const ws = s.workshop;
@@ -134,6 +161,7 @@ export function syncWorkshop(s: MallState): void {
     const want = INGREDIENT_BY_ID[info.id]?.categories;
     if (want && JSON.stringify(info.categories) !== JSON.stringify(want)) info.categories = want;
   }
+  bindLegacyDishes(s);
   const fresh: IngredientData[] = [];
   for (const d of INGREDIENTS) {
     if (known.has(d.id) || !unlocked(s, d.unlock)) continue;
@@ -410,6 +438,7 @@ function resolveJob(s: MallState, job: RndJob, rng: Rng): void {
       desc: sigDish && r ? r.desc : "自己摸索出來的搭配。",
       madeTick: s.tick,
       madeAt: shop.name,
+      madeShopId: shop.id,
       picks: { ...job.picks },
       novelty: 100,
       listedCount: 0,
@@ -484,7 +513,7 @@ export function listDish(s: MallState, shopId: string, dishId: string, slotIndex
   const dish = s.workshop.dishes.find((d) => d.id === dishId);
   if (!shop || !dish) return { ok: false, error: "找不到這間店或這道作品" };
   if (shop.mode !== "direct") return { ok: false, error: "出租的店由租戶決定菜單" };
-  if (!dishFitsCategory(dish, shop.category)) return { ok: false, error: "這道作品不適合這間店" };
+  if (!dishFitsShop(dish, shop)) return { ok: false, error: dish.madeShopId && dish.madeShopId !== shop.id ? "這道作品只能在研發它的那間店上架" : "這道作品不適合這間店" };
   if (shop.menu.some((e) => e.dishId === dishId)) return { ok: false, error: "已經在這間店的菜單上了" };
   const slots = menuSlots(shop.level);
   let idx = slotIndex;

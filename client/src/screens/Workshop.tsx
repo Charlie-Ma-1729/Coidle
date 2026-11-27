@@ -11,7 +11,7 @@ import {
   WORKSHOP_INFO,
   ZONES,
   comboKey,
-  dishFitsCategory,
+  dishFitsShop,
   ingredientFitsCategory,
   menuSlots,
   rndCostOf,
@@ -268,7 +268,7 @@ function Research({ s, shop }: { s: PublicMallState; shop: Shop }) {
 
 function MenuView({ s, shop }: { s: PublicMallState; shop: Shop }) {
   const slots = menuSlots(shop.level);
-  const avail = s.workshop.dishes.filter((d) => dishFitsCategory(d, shop.category) && !shop.menu.some((e) => e.dishId === d.id));
+  const avail = s.workshop.dishes.filter((d) => dishFitsShop(d, shop) && !shop.menu.some((e) => e.dishId === d.id));
   const [replace, setReplace] = useState<number | null>(null);
   return (
     <>
@@ -339,7 +339,7 @@ function recipeLine(s: PublicMallState, d: Dish): string {
 /** 食譜本裡的一道作品：可以直接上架到適合的店（菜單滿了就選一道換掉） */
 function BookEntry({ s, d }: { s: PublicMallState; d: Dish }) {
   const [open, setOpen] = useState(false);
-  const fitting = directShops(s).filter((x) => dishFitsCategory(d, x.category));
+  const fitting = directShops(s).filter((x) => dishFitsShop(d, x));
   const listedIn = s.shops.filter((x) => x.menu.some((e) => e.dishId === d.id));
   const free = fitting.filter((x) => !x.menu.some((e) => e.dishId === d.id));
   return (

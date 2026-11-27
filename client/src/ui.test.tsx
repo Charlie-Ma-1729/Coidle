@@ -252,7 +252,7 @@ describe("screens render with real simulated state", () => {
       s.level = 2;
       s.workshop.dishes.push({
         id: "dsh1", name: "柑香酥衣串", icon: "🍢", group: "food", categories: ["kushikatsu"], recipeId: null, signature: false, quality: 70, appeal: {}, tags: [],
-        desc: "測試", madeTick: s.tick, madeAt: shop.name, picks: { base: "f_pork", season: "f_soy", method: "f_fry" }, novelty: 100, listedCount: 0,
+        desc: "測試", madeTick: s.tick, madeAt: shop.name, madeShopId: shop.id, picks: { base: "f_pork", season: "f_soy", method: "f_fry" }, novelty: 100, listedCount: 0,
       });
     });
     const { Workshop } = await import("./screens/Workshop");

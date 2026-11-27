@@ -184,9 +184,33 @@ describe("menu", () => {
     expect(menuQualityBonus(shop)).toBeGreaterThan(0.02);
     expect(shopQuality(shop)).toBeGreaterThan(before);
     expect(fails(s1, { type: "listDish", shopId, dishId })).toContain("已經");
-    expect(fails(s1, { type: "listDish", shopId: shopOf(s1, "ramen").id, dishId })).toContain("不適合");
+    expect(fails(s1, { type: "listDish", shopId: shopOf(s1, "ramen").id, dishId })).toContain("研發它的那間店");
+    // 同業態的另一間店也不行：哪間店研發的就只能在那間店上架
+    expect(s1.workshop.dishes.find((d) => d.id === dishId)!.madeShopId).toBe(shopId);
+    const twin = { ...s1.shops.find((x) => x.id === shopId)!, id: "twin-shop", menu: [] };
+    expect(fails({ ...s1, shops: [...s1.shops, twin] }, { type: "listDish", shopId: "twin-shop", dishId })).toContain("研發它的那間店");
     expect(menuSlots(1)).toBe(2);
     expect(fails(s1, { type: "discardDish", dishId })).toContain("招牌");
+  });
+
+  it("legacy dishes are bound to the shop named in madeAt, and mis-listed entries return to the cookbook", () => {
+    const { s, shopId, dishId } = withDish();
+    const s1 = structuredClone(apply(s, { type: "listDish", shopId, dishId }));
+    const origin = s1.shops.find((x) => x.id === shopId)!;
+    const other = { ...structuredClone(origin), id: "other-shop", name: "別間店", menu: [] as typeof origin.menu };
+    // 模擬舊存檔：作品沒有 madeShopId，而且被放到同業態的另一間店
+    const dish = s1.workshop.dishes.find((d) => d.id === dishId)!;
+    delete dish.madeShopId;
+    other.menu = origin.menu.splice(0);
+    s1.shops.push(other);
+    syncWorkshop(s1);
+    expect(dish.madeShopId).toBe(shopId);
+    expect(other.menu).toHaveLength(0);
+    expect(origin.menu).toHaveLength(0);
+    expect(s1.workshop.dishes.some((d) => d.id === dishId)).toBe(true);
+    const again = structuredClone(s1);
+    syncWorkshop(again);
+    expect(again.shops.find((x) => x.id === "other-shop")!.menu).toHaveLength(0);
   });
 
   it("unlisting and relisting does not reset novelty", () => {
