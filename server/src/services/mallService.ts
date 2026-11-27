@@ -8,6 +8,16 @@ import {
   corporateRoomValue,
   disclosureCrossing,
   financeBlocker,
+  CLIMATES,
+  LENDERS,
+  LENDER_ORDER,
+  PRODUCTS,
+  PRODUCT_ORDER,
+  creditClimate,
+  underwrite,
+  underwriteInput,
+  type Climate,
+  type FinanceView,
   MARKET_FEE_RATE,
   MARKET_TAX_RATE,
   buyQuote,
@@ -186,6 +196,12 @@ export function describeCommand(s: MallState, cmd: Command, actor: string): stri
       return `${actor} 處理了一件法律糾紛`;
     case "setInsurance":
       return `${actor} 調整了賠償責任保險`;
+    case "takeLoan":
+      return `${actor} 向金融機構申請了「${PRODUCTS[cmd.product]?.name ?? "貸款"}」`;
+    case "repayLoan":
+      return `${actor} 還了一筆貸款`;
+    case "setBizInsurance":
+      return `${actor} 調整了營業中斷險`;
     case "setSupplyPrefs":
       return `${actor} 調整了供應商的自動備援${cmd.backup ? "與首選備用供應商" : ""}設定`;
     case "rivalIntel":
@@ -1393,6 +1409,38 @@ export class MallService {
     return s;
   }
 
+  /** 某家金融機構現在的授信氣候：看它自己的股價與大盤（三檔金融股平均）相對近一個月均價的偏離。每分鐘最多重算一次 */
+  private climateCache = new Map<string, { at: number; value: { level: Climate; note: string } }>();
+  private climateOf(lender: keyof typeof LENDERS): { level: Climate; note: string } {
+    const nowMs = this.now();
+    const hit = this.climateCache.get(lender);
+    if (hit && nowMs - hit.at < 60_000) return hit.value;
+    let value: { level: Climate; note: string };
+    try {
+      const own = this.market.trend(LENDERS[lender].stock);
+      const all = LENDER_ORDER.map((k) => this.market.trend(LENDERS[k].stock));
+      value = creditClimate(own, all.reduce((a, b) => a + b, 0) / all.length);
+    } catch {
+      value = { level: "normal", note: "市場資料暫時取不到，授信照常" }; // 股市還沒啟動（測試或剛開站）：不擋借款
+    }
+    this.climateCache.set(lender, { at: nowMs, value });
+    return value;
+  }
+
+  /** 融資與保險頁：各機構的授信氣候與每個產品的預審（不扣任何東西） */
+  financeView(mallId: number, userId: number): FinanceView {
+    const s = this.sync(mallId);
+    const blocked = this.serverFor(mallId) ? financeBlocker(this.serverTick() - s.tick) : null;
+    const input = underwriteInput(s);
+    const climates = {} as FinanceView["climates"];
+    for (const id of LENDER_ORDER) {
+      const c = this.climateOf(id);
+      climates[id] = { level: c.level, label: CLIMATES[c.level].label, note: c.note };
+    }
+    const quotes = PRODUCT_ORDER.map((p) => underwrite(input, p, climates[PRODUCTS[p].lender].level, s.finance));
+    return { climates, quotes, canTake: blocked === null, blocked, isAuthority: this.authorityOf(mallId) === userId };
+  }
+
   getState(mallId: number, touch: boolean): PublicMallState {
     let s = this.sync(mallId);
     if (touch) s = this.visit(mallId, s);
@@ -1402,6 +1450,17 @@ export class MallService {
   runCommand(mallId: number, user: { id: number; displayName: string }, cmd: Command): CommandResult & { publicState?: PublicMallState } {
     let current = this.sync(mallId);
     current = this.visit(mallId, current);
+    if (cmd.type === "takeLoan" || cmd.type === "setBizInsurance") {
+      // 借款與投保花公司的錢：只有管事的人；借款還要追上伺服器時間（避免用舊資訊套利）
+      this.assertAuthority(mallId, user.id, cmd.type === "takeLoan" ? "向金融機構借款" : "投保營業中斷險");
+    }
+    if (cmd.type === "takeLoan") {
+      const blocked = this.serverFor(mallId) ? financeBlocker(this.serverTick() - current.tick) : null;
+      if (blocked) return { ok: false, error: blocked };
+      // 授信氣候由伺服器依該機構的股價走勢決定，前端送的 terms 一律覆蓋
+      const product = PRODUCTS[cmd.product];
+      cmd = { ...cmd, terms: { climate: product ? this.climateOf(product.lender).level : "normal" } };
+    }
     const result = applyCommand(current, cmd, { id: String(user.id), name: user.displayName });
     if (!result.ok) return result;
     const after = result.state;

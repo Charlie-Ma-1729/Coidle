@@ -68,6 +68,14 @@ export const FEATURES: FeatureDef[] = [
     unlockHint: "出現第一張帳單後出現",
     visible: (s) => s.tax.bills.length > 0 || s.tax.history.length > 0,
   },
+  {
+    id: "finance.loan",
+    hub: "finance",
+    tab: "loan",
+    label: "融資與保險",
+    unlockHint: "第一份日報出爐後出現（金融機構要看營運資料才能審查）",
+    visible: (s) => s.reports.length > 0 || (s.finance?.loans.length ?? 0) > 0 || !!s.finance?.restructure,
+  },
   // 世界
   {
     id: "world",

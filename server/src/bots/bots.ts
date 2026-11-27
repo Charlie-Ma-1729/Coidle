@@ -199,7 +199,7 @@ export function sample(s: MallState): DaySample {
 }
 
 /** 跑一個機器人 N 個遊戲日。absent 的玩家不在場，遇事暫停會被計數（假設事後有人回來全部採預設處理）。 */
-export function runBot(kind: BotKind, seed: number, days: number, opts: { sampleEvery?: number; mutate?: (s: MallState) => void; features?: Partial<Features> } = {}): BotRun {
+export function runBot(kind: BotKind, seed: number, days: number, opts: { sampleEvery?: number; mutate?: (s: MallState) => void; features?: Partial<Features>; /** 每天開始時呼叫（金融實驗：在指定那天搞砸、或套用借還款策略）；回傳新狀態 */ dailyHook?: (s: MallState, day: number) => MallState } = {}): BotRun {
   const rnd = (() => {
     const r = createRng(seed ^ 0x9e3779b9);
     return () => r.next();
@@ -213,6 +213,7 @@ export function runBot(kind: BotKind, seed: number, days: number, opts: { sample
   const every = opts.sampleEvery ?? 7;
 
   for (let d = 0; d < days; d++) {
+    if (opts.dailyHook) s = opts.dailyHook(s, d);
     const present = kind === "diligent" || kind === "tender" || (kind === "periodic" && d % 3 === 0) || kind === "chaotic";
     if (kind === "diligent" || (kind === "periodic" && d % 3 === 0)) s = diligentDay(s, rnd, { ...ALL, ...opts.features });
     else if (kind === "tender") s = diligentDay(s, rnd, { ...ALL, expand: false, ...opts.features });

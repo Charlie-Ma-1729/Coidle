@@ -53,7 +53,13 @@ export function buildAttention(s: PublicMallState, userId?: string | number | nu
 
   // ───── 緊急 ─────
   if (s.funds < 0) {
-    add({ id: "funds-negative", severity: "urgent", icon: "coin", title: "帳上資金為負", detail: "自動補貨已暫停。先想辦法回血。", cta: "看財務", target: { kind: "hub", hub: "finance", tab: "cash" } });
+    add({ id: "funds-negative", severity: "urgent", icon: "coin", title: "帳上資金為負", detail: "自動補貨只剩供應商賒帳的額度。先想辦法回血，或到「融資與保險」看能不能借款。", cta: "看財務", target: { kind: "hub", hub: "finance", tab: "cash" } });
+  }
+  const lateLoans = (s.finance?.loans ?? []).filter((l) => l.missedDays > 0);
+  if (s.finance?.restructure) {
+    add({ id: "restructure", severity: "urgent", icon: "coin", title: "重整中", detail: "擴建與大額支出凍結，被轉成出租的店要等貸款還清才能改回。", cta: "看融資", target: { kind: "hub", hub: "finance", tab: "loan" } });
+  } else if (lateLoans.length > 0) {
+    add({ id: "loan-late", severity: "urgent", icon: "coin", title: `貸款逾期 ${lateLoans[0]!.missedDays} 期`, detail: "再逾期幾期就會進入重整，店會被強制轉成出租。", cta: "看融資", target: { kind: "hub", hub: "finance", tab: "loan" } });
   }
   const overdue = s.tax.bills.filter((b) => b.dueTick < s.tick);
   if (overdue.length > 0) {

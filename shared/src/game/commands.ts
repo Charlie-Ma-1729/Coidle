@@ -1,3 +1,4 @@
+import type { Climate, LoanProduct } from "./finance";
 import type { PlayInput, RestockRule, SlotKind, TechPlan } from "./types";
 
 /** 玩家指令：前端送出、伺服器驗證並套用 */
@@ -78,4 +79,10 @@ export type Command =
   | { type: "contribute"; taskId: string }
   /** 猜猜這座商場像是哪裡（只留含蓄線索，答案以雜湊比對） */
   | { type: "guessPlace"; text: string }
-  | { type: "setLease"; shopId: string; enabled: boolean; rent?: number; commission?: number };
+  | { type: "setLease"; shopId: string; enabled: boolean; rent?: number; commission?: number }
+  /** 向金融機構借款。terms 由伺服器填入（授信氣候），前端送的會被覆蓋 */
+  | { type: "takeLoan"; product: LoanProduct; amount: number; terms?: { climate: Climate } }
+  /** 還款：指定哪一筆（loanId）與金額；沒給金額＝還清那一筆 */
+  | { type: "repayLoan"; loanId: string; amount?: number }
+  /** 營業中斷險：0＝退保 */
+  | { type: "setBizInsurance"; level: number };

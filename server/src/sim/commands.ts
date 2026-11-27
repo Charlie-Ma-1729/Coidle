@@ -15,6 +15,8 @@ import {
   REFRESH_COST,
   REFRESH_GAIN,
   SUPPLY_LOT,
+  RUSH_PREMIUM,
+  currentUnitCost,
   UPGRADE_BASE_COST,
   UPGRADE_TICKS,
   categoryHasStock,
@@ -41,6 +43,7 @@ import { resolveVoice } from "./voices";
 import { regularAction } from "./regulars";
 import { rivalCounter, rivalIntel, rivalPact } from "./rivals";
 import { cancelContract, chooseSupplier, signContract } from "./suppliers";
+import { isForcedLease, repayLoan, restructureBlock, setBizInsurance, takeLoan } from "./finance";
 import { rngForTick } from "./rng";
 import { bump, checkStarters, contribute, guessPlace, trackActor, type Actor } from "./meta";
 import { counterTenant, declineTenant, resolveRenewal, signTenant, terminateLease, vacate } from "./leasing";
@@ -80,10 +83,17 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
   const s = structuredClone(state);
   const err = (error: string): CommandResult => ({ ok: false, error });
   const findShop = (id: string) => s.shops.find((x) => x.id === id);
-
   /** 店名是否已被其他店（含施工中的新店）使用 */
   const nameTaken = (n: string, exceptShopId?: string) =>
     s.shops.some((x) => x.id !== exceptShopId && x.name === n) || s.builds.some((b) => b.name === n);
+
+  // 重整期間（逾期或接受緊急授信）：擴建、升級、興建設施、科技立項暫時凍結
+  const frozenTypes: string[] = ["buildShop", "expandZone", "buildFacility", "upgradeShop", "startTech"];
+  if (frozenTypes.includes(cmd.type)) {
+    const frozen = restructureBlock(s);
+    if (frozen) return err(frozen);
+  }
+
   switch (cmd.type) {
     case "touch":
       break;
@@ -161,6 +171,9 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
         return err(`進貨量須為 ${SUPPLY_LOT} 的倍數（最多 2000）`);
       }
       if (cmd.rush !== undefined && typeof cmd.rush !== "boolean") return err("設定無效");
+      // 手動進貨要付得起（自動補貨有供應商賒帳額度，手動沒有）：資金不夠就不能再把帳拉得更深
+      const estimate = currentUnitCost(s, shop.category) * cmd.qty * (cmd.rush ? RUSH_PREMIUM : 1);
+      if (s.funds < estimate) return err(`資金不足：這批約需 ¥${Math.round(estimate).toLocaleString("en-US")}`);
       const before = shop.incoming.reduce((a, b) => a + b.qty, 0);
       if (!placeOrder(s, shop, cmd.qty, { rush: !!cmd.rush })) return err("下不了單：倉庫已滿、供應商不能出貨，或進不到貨");
       const got = shop.incoming.reduce((a, b) => a + b.qty, 0) - before;
@@ -188,8 +201,6 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
       if (slot.shopId || s.builds.some((b) => b.slot === slot.id)) return err("這個店面已被使用或正在施工");
       const lic = licenseOf(cat.id); // 許認可：規費與審查時間
       const total = cat.buildCost + (lic?.fee ?? 0);
-      if (s.funds < total) return err("資金不足");
-      s.funds -= total;
       let name: string | undefined;
       if (cmd.name !== undefined && cmd.name !== "") {
         const n = cleanShopName(cmd.name);
@@ -197,6 +208,8 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
         if (nameTaken(n)) return err("已經有同名的店了");
         name = n;
       }
+      if (s.funds < total) return err("資金不足");
+      s.funds -= total;
       s.builds.push({
         id: nextId(s, "bld"),
         kind: "open",
@@ -204,9 +217,9 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
         category: cat.id,
         completeTick: s.tick + cat.buildTicks + (lic?.extraTicks ?? 0),
         cost: total,
+        ...(name ? { name } : {}),
       });
       addLog(s, "build", `開始興建「${cat.name}」。${lic ? `（同步辦理：${lic.name}）` : ""}`);
-        ...(name ? { name } : {}),
       break;
     }
 
@@ -554,14 +567,6 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
       break;
     }
 
-    case "setLease": {
-      if (!leaseEnabled(s)) return err("出租功能尚未開放（商場 Lv.3）");
-      const shop = findShop(cmd.shopId);
-      if (!shop) return err("找不到這間店");
-      if (!cmd.enabled && shop.tenant && !shop.tenant.own) return err("這是簽約的租戶，要解約請到「開發 → 招商」（有違約金）");
-      shop.mode = cmd.enabled ? "lease" : "direct";
-      if (!cmd.enabled) shop.tenant = null;
-      else if (!shop.tenant) shop.tenant = { brand: shop.name, quality: 0.65, fame: 30, rent: shop.rent, commission: shop.commission, startTick: s.tick, endTick: s.tick + 60 * TICKS_PER_DAY, satisfaction: 60, lowDays: 0, own: true };
     case "renameShop": {
       const shop = findShop(cmd.shopId);
       if (!shop) return err("找不到這間店");
@@ -585,8 +590,36 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
       break;
     }
 
+    case "setLease": {
+      // 改回直營一律可以（重整時銀行會把店強制轉成出租，商場還沒到出租功能的等級也要能改回來）
+      if (cmd.enabled && !leaseEnabled(s)) return err("出租功能尚未開放（商場 Lv.3）");
+      const shop = findShop(cmd.shopId);
+      if (!shop) return err("找不到這間店");
+      if (!cmd.enabled && shop.tenant && !shop.tenant.own) return err("這是簽約的租戶，要解約請到「開發 → 招商」（有違約金）");
+      if (!cmd.enabled && isForcedLease(s, shop.id)) return err("重整期間，這間店是銀行要求轉成出租的，還清貸款後才能改回直營");
+      shop.mode = cmd.enabled ? "lease" : "direct";
+      if (!cmd.enabled) shop.tenant = null;
+      else if (!shop.tenant) shop.tenant = { brand: shop.name, quality: 0.65, fame: 30, rent: shop.rent, commission: shop.commission, startTick: s.tick, endTick: s.tick + 60 * TICKS_PER_DAY, satisfaction: 60, lowDays: 0, own: true };
       if (cmd.rent !== undefined) shop.rent = Math.round(clamp(cmd.rent, 0, 1_000_000));
       if (cmd.commission !== undefined) shop.commission = clamp(cmd.commission, 0, 0.4);
+      break;
+    }
+
+    case "takeLoan": {
+      const r = takeLoan(s, cmd.product, cmd.amount, cmd.terms?.climate);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "repayLoan": {
+      const r = repayLoan(s, cmd.loanId, cmd.amount);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "setBizInsurance": {
+      const r = setBizInsurance(s, cmd.level);
+      if (!r.ok) return err(r.error);
       break;
     }
 

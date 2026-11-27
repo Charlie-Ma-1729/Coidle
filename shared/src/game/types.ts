@@ -2,6 +2,8 @@
 // 狀態全部是純 JSON，方便存進資料庫與跨網路傳輸。
 // 區域、業態、事件、解鎖條件全部是「資料」，新增內容不需改引擎。
 
+import type { FinanceState } from "./finance";
+
 export type PersonaId = "tourist" | "local" | "commuter" | "family" | "student" | "couple";
 export type IndexId = "localRep" | "touristHeat";
 /** 業態 ID，定義在 data（例如 ramen、cinema） */
@@ -263,6 +265,10 @@ export interface DayStats {
   memberIssued?: number;
   /** 其中今天花在法律糾紛的錢（和解金、判決金、律師費、過料，扣掉保險給付；也算在 repairs 裡。舊存檔沒有） */
   legalCost?: number;
+  /** 其中今天付的貸款利息（也算在 repairs 裡；舊存檔沒有） */
+  interestCost?: number;
+  /** 今天領到的營業中斷險理賠（已從 repairs 扣掉；舊存檔沒有） */
+  insuranceClaim?: number;
   groups: number;
   units: number;
   walkouts: number;
@@ -933,6 +939,8 @@ export interface MallState {
   voices?: RegularVoice[];
   /** 會員制（點數卡；舊存檔沒有） */
   members?: MemberState;
+  /** 金融：貸款、營業中斷險、重整（舊存檔沒有）。見 finance.ts */
+  finance?: FinanceState;
   /** 巡店：隱藏問題與行動點（舊存檔沒有） */
   patrol?: PatrolState;
   walk: { nextTick: number; voices: WalkVoice[] };

@@ -35,6 +35,7 @@
 | `prepareInspection` | 營運 → 設備與稽查；待辦中心也會出現 | |
 | `schedulePromo` / `cancelPromo` | 營運 → 行銷 | |
 | `chooseSupplier` / `signContract` / `cancelContract` / `setSupplyPrefs` | 營運 → 補貨與供應 | 單店補貨仍在店面面板 |
+| `takeLoan` / `repayLoan` / `setBizInsurance`（`GET /api/malls/:id/finance` 預審） | 財務 → 融資與保險 | 第一份日報後出現；逾期／重整會進提醒中心 |
 | `resolveEvent` | 待辦中心 →「需要你決定」 | 點進去用既有事件選項卡 |
 | `resolveAllDefault` | 待辦中心 →「全部照預設」按鈕 | 現有在頂部 `ClockBanner`（暫停橫幅），橫幅保留，待辦中心加同一顆 |
 | `resolveInbox` | 客人 → 客訴與評價；店面氣泡也能點進來 | |

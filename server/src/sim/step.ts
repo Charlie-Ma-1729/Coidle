@@ -66,6 +66,7 @@ import { rivalsDaily, rivalsTick } from "./rivals";
 import { inventoryDaily } from "./inventory";
 import { legalDaily, resolveLegalDeadlines } from "./legal";
 import { earnPoints, membersDaily } from "./members";
+import { financeDaily, noteClosure } from "./finance";
 import { patrolDaily } from "./patrol";
 import { deliveryTerms, pickAlternative, quoteOrder, quoteWith, recordOrder, suppliersTick, warnSupplyTrouble, type Quote } from "./suppliers";
 import { buildReport } from "./report";
@@ -283,8 +284,14 @@ export function placeOrder(s: MallState, shop: Shop, qty: number, opts: OrderOpt
   return true;
 }
 
+/** 資金為負（或剛好 0）時，供應商願意賒帳的額度：這麼多天的固定成本。讓店不至於賣光貨→營收歸零→越陷越深 */
+const TRADE_CREDIT_DAYS = 2;
+
 function autoRestock(s: MallState): void {
-  if (s.funds <= 0) return;
+  // 資金為負時改用「賒帳額度」：額度用完（欠款超過 2 天固定成本）才停。守住最低補貨，避免死亡螺旋
+  const fixedDay = dailyFixedCost(s);
+  const availNow = () => (s.funds > 0 ? s.funds : Math.max(0, TRADE_CREDIT_DAYS * fixedDay + s.funds));
+  if (availNow() <= 0) return;
   const globalMult = supplyMult(s, s.tick);
   for (const shop of s.shops) {
     const cat = CATEGORY_BY_ID[shop.category];
@@ -301,7 +308,7 @@ function autoRestock(s: MallState): void {
     const uc = quote.unit;
     let qty = Math.ceil((plan.target - have) / SUPPLY_LOT) * SUPPLY_LOT;
     const byBudget = Math.floor((shop.restock.dailyBudget - shop.spentToday) / uc / SUPPLY_LOT) * SUPPLY_LOT;
-    const byFunds = Math.floor(s.funds / uc / SUPPLY_LOT) * SUPPLY_LOT;
+    const byFunds = Math.floor(availNow() / uc / SUPPLY_LOT) * SUPPLY_LOT;
     const byRoom = Math.floor((storageCap(shop) - have) / SUPPLY_LOT) * SUPPLY_LOT;
     if (byBudget < SUPPLY_LOT && (s.cooldowns[`budget:${shop.id}`] ?? 0) <= s.tick) {
       s.cooldowns[`budget:${shop.id}`] = s.tick + TICKS_PER_DAY;
@@ -545,6 +552,7 @@ function upkeep(s: MallState, units: number, rng: Rng, open: boolean): void {
     const shop = s.shops[rng.int(0, s.shops.length - 1)];
     if (shop) {
       shop.closedUntilTick = Math.max(shop.closedUntilTick, s.tick + 18);
+      noteClosure(s, shop, 18);
       s.funds -= 30_000;
       s.today.repairs += 30_000;
       addLog(s, "warn", `設備老舊出狀況，「${shop.name}」暫停營業搶修（維修費 30,000）。`);
@@ -578,6 +586,7 @@ function rollover(s: MallState, time: TimeInfo): void {
   techDaily(s); // 科技帶來的口碑、AI 副手自動更新菜單
   syncWorkshop(s);
   membersDaily(s); // 會員：新入會、兌換點數（成本）、點數失效、升級
+  financeDaily(s); // 金融：營業中斷險保費與理賠、貸款還款與逾期、重整（利息與理賠要算進今天的日報）
   regularsDaily(s); // 熟客：久沒上門的漸漸疏遠、老主顧帶來口碑、意見與人生大事
   generateDailyReviews(s); // 今天客人的感受 → 幾則線上評價（先於日報，才算得進去）
   s.reports.push(buildReport(s));

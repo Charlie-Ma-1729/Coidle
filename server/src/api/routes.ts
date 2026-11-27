@@ -318,7 +318,20 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const result = service.runCommand(mallId, { id: user.id, displayName: user.display_name }, cmd as Command);
     if (!result.ok) throw new ServiceError(422, result.error);
     metrics.command();
+    // 金融操作（借款、還款、投保）留稽核紀錄
+    const ct = (cmd as Command).type;
+    if (ct === "takeLoan" || ct === "repayLoan" || ct === "setBizInsurance") {
+      const c = cmd as Record<string, unknown>;
+      audit.record({ id: user.id, name: user.username }, `finance.${ct}`, `mall#${mallId}`, { product: c.product, loanId: c.loanId, amount: c.amount, level: c.level }, req.ip);
+    }
     return result.publicState;
+  });
+
+  /** 融資與保險頁：各金融機構的授信氣候與每個產品的預審（不扣任何東西） */
+  app.get("/api/malls/:id/finance", async (req) => {
+    const mallId = mallIdOf(req.params);
+    const { user } = requireMember(req, mallId);
+    return service.financeView(mallId, user.id);
   });
 
   app.post("/api/malls/:id/role", async (req) => {

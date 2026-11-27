@@ -47,6 +47,7 @@ describe("漸進揭露", () => {
     const week = stateAt(2);
     expect(week.reports.length).toBeGreaterThan(0);
     expect(visibleTabs(week, "finance")).toContain("reports");
+    expect(visibleTabs(week, "finance")).toContain("loan"); // 有日報才能審查貸款
   });
 
   it("已有資料的功能一律顯示，即使等級不夠（避免老玩家找不到）", () => {

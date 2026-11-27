@@ -203,6 +203,24 @@ export class MarketService {
     return this.quote(key).price;
   }
 
+  /** 現價相對近 N 個交易日收盤均價的偏離（0.05＝高於均價 5%）。授信氣候用：價格是（種子, 時間）的純函式，所以這個數字也是 */
+  trend(key: string, days = 20): number {
+    const pos = this.nowPos(this.v2());
+    const lastJ = pos ? pos.i : -1;
+    let sum = 0;
+    let n = 0;
+    for (let j = lastJ; j > lastJ - days; j--) {
+      const c = this.closeOfDay(key, j);
+      if (c !== null) {
+        sum += c;
+        n++;
+      }
+    }
+    if (n === 0) return 0;
+    const avg = sum / n;
+    return avg > 0 ? this.price(key) / avg - 1 : 0;
+  }
+
   private watchOf(key: string): string[] {
     return (stockGroupOf(key)?.signals ?? []).map(([id]) => SIGNALS[id].label);
   }

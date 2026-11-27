@@ -17,6 +17,7 @@ export * from "./game/helpers";
 export * from "./game/guests";
 export * from "./game/patrol";
 export * from "./game/legal";
+export * from "./game/finance";
 export * from "./game/regulars";
 export * from "./game/regularsKit";
 export * from "./game/members";

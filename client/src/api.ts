@@ -13,6 +13,7 @@ import type {
   CapitalRequestView,
   LedgerEntry,
   CorporateView,
+  FinanceView,
   MarketHistory,
   MarketNewsItem,
   MarketOrderView,
@@ -122,6 +123,8 @@ export const api = {
   state: (id: number) => request<PublicMallState>("GET", `/api/malls/${id}/state`),
   activity: (id: number) => request<ActivityEntry[]>("GET", `/api/malls/${id}/activity?limit=40`),
   command: (id: number, command: Command) => request<PublicMallState>("POST", `/api/malls/${id}/commands`, { command }),
+  /** 融資與保險頁：各金融機構的授信氣候與每個產品的預審 */
+  finance: (id: number) => request<FinanceView>("GET", `/api/malls/${id}/finance`),
   clock: (id: number, patch: ClockPatch) => request<PublicMallState>("POST", `/api/malls/${id}/clock`, patch),
   setRole: (id: number, role: RoleId) => request<{ members: MemberInfo[] }>("POST", `/api/malls/${id}/role`, { role }),
   updateProfile: (displayName: string) => request<{ ok: true; displayName: string }>("POST", "/api/me/profile", { displayName }),

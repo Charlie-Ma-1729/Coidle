@@ -10,6 +10,7 @@ import { DeviceCard } from "../../components/DeviceCard";
 import { EventChoiceCard } from "../../components/EventCards";
 import { InspectionCard } from "../../components/InspectionCard";
 import { Achievements } from "../../screens/Achievements";
+import { Finance } from "../../screens/Finance";
 import { FinanceSummary } from "../../screens/FinanceSummary";
 import { Goals } from "../../screens/Goals";
 import { GuestPrefs, ReviewLog, TodoCard } from "../../screens/Guests";
@@ -97,6 +98,7 @@ const HUB_TABS: Record<HubId, { title: string; tabs: TabDef[] }> = {
       { id: "cash", label: "資金與損益", render: () => <FinanceSummary /> },
       { id: "reports", label: "日報", render: () => <Reports /> },
       { id: "tax", label: "稅務與帳單", render: () => <Tax /> },
+      { id: "loan", label: "融資與保險", render: () => <Finance /> },
     ],
   },
   world: {

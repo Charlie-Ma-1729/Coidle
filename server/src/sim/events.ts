@@ -1,6 +1,7 @@
 import { EVENTS, EVENT_BY_ID, FAMILY_ORDER, PERSONA_BY_ID, familyShopCount, weatherAllows, weatherNeedOf, type EffectSpec, type EventDef, type MallState, type PersonaId } from "@coidle/shared";
 import type { Rng } from "./rng";
 import { applyLegalRisk } from "./legal";
+import { noteClosure } from "./finance";
 import { noteSeen } from "./meta";
 import { addLog, isZoneUnlocked, nextId } from "./state";
 import {
@@ -65,7 +66,10 @@ export function applyEffects(s: MallState, effects: EffectSpec[], rng: Rng): voi
             targets[j] = a;
           }
         }
-        for (const shop of targets.slice(0, count)) shop.closedUntilTick = Math.max(shop.closedUntilTick, t + ticks);
+        for (const shop of targets.slice(0, count)) {
+          shop.closedUntilTick = Math.max(shop.closedUntilTick, t + ticks);
+          noteClosure(s, shop, ticks); // 營業中斷險：意外停業才理賠
+        }
         break;
       }
       case "equipment":
