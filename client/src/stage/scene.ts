@@ -490,7 +490,11 @@ export class StageScene {
       if (!shop || shop.state === "empty") {
         const lv = this.floor?.lockedLevel;
         if (lv != null) mk(`Lv.${lv} 解鎖`, cx, ry + 64, { size: 12, fill: 0x8a90b8 });
-        else mk("空地・點此開店", cx, ry + 64, { size: 12, fill: 0xb8b8e8 });
+        else {
+          // 編號與招商簽約時選的「店面 #N」一致（全商場連號，從 1 起）
+          mk(`#${room.slot + 1}`, cx, ry + 56, { size: 15, fill: 0xffe29a });
+          mk("空地・點此開店", cx, ry + 74, { size: 12, fill: 0xb8b8e8 });
+        }
       }
       else if (shop.state === "building") {
         mk(shop.name, cx, ry + 11, { size: 12 });
