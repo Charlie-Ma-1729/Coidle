@@ -1,3 +1,4 @@
+import { useState } from "preact/hooks";
 import { moneyShort } from "../format";
 import type { GlyphKey } from "../stage/glyphs";
 import { Icon } from "./Icon";
@@ -119,16 +120,42 @@ export function TopBar(props: {
 }
 
 /** 左側樓層切換：有緊急事項的樓層亮紅點 */
-export function FloorSwitcher(props: { floors: { id: string; label: string; name: string; alert: boolean }[]; index: number; onPick: (i: number) => void }) {
+/**
+ * 樓層切換。大型設施（停車場、影城、保齡球館…）的樓層標 `other`：不擠在樓層列裡，
+ * 收進一顆「其他」按鈕，點開從清單選。
+ */
+export function FloorSwitcher(props: { floors: { id: string; label: string; name: string; alert: boolean; other?: boolean }[]; index: number; onPick: (i: number) => void }) {
+  const [open, setOpen] = useState(false);
+  const main = props.floors.map((f, i) => ({ f, i })).filter((x) => !x.f.other);
+  const others = props.floors.map((f, i) => ({ f, i })).filter((x) => x.f.other);
+  const onOther = !!props.floors[props.index]?.other;
   return (
-    <nav class="st-floors" aria-label="樓層">
-      {props.floors.map((f, i) => (
-        <button key={f.id} class={`st-btn ${i === props.index ? "on" : ""}`} title={f.name} aria-label={`${f.label} ${f.name}`} onClick={() => props.onPick(i)}>
-          {f.label}
-          {f.alert && <span class="st-dot" />}
-        </button>
-      ))}
-    </nav>
+    <>
+      <nav class="st-floors" aria-label="樓層">
+        {main.map(({ f, i }) => (
+          <button key={f.id} class={`st-btn ${i === props.index ? "on" : ""}`} title={f.name} aria-label={`${f.label} ${f.name}`} onClick={() => (setOpen(false), props.onPick(i))}>
+            {f.label}
+            {f.alert && <span class="st-dot" />}
+          </button>
+        ))}
+        {others.length > 0 && (
+          <button class={`st-btn ${onOther ? "on" : ""}`} title="大型設施（停車場、影城、保齡球館…）" aria-label="其他：大型設施" aria-expanded={open} onClick={() => setOpen(!open)}>
+            其他
+          </button>
+        )}
+      </nav>
+      {open && others.length > 0 && (
+        <div class="st-floors-more st-panel" role="menu" aria-label="大型設施">
+          <b>大型設施</b>
+          {others.map(({ f, i }) => (
+            <button key={f.id} role="menuitem" class={i === props.index ? "on" : ""} onClick={() => (setOpen(false), props.onPick(i))}>
+              <span class="st-fm-label">{f.label}</span>
+              {f.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 

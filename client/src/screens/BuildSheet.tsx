@@ -11,7 +11,7 @@ export function BuildSheet({ slotId, onClose }: { slotId: number; onClose: () =>
   const slot = s?.slots[slotId];
   if (!s || !slot) return null;
   const zone = ZONE_BY_ID[slot.zone];
-  const options = CATEGORIES.filter((c) => c.zone === slot.zone);
+  const options = CATEGORIES.filter((c) => c.zone === slot.zone && !c.facility);
 
   return (
     <Sheet title={`招商開店・${zone?.name ?? ""}`} onClose={onClose}>

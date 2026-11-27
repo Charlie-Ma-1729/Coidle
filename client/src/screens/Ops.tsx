@@ -33,6 +33,7 @@ import {
 } from "@coidle/shared";
 import { CalendarCard } from "../ui/CalendarCard";
 import { ConceptCard } from "../ui/ConceptCard";
+import { FacilityCard } from "../ui/FacilityCard";
 import { forecastAdvice, forecastText } from "../ui/weatherUi";
 import { DeviceCard } from "../components/DeviceCard";
 import { InspectionCard } from "../components/InspectionCard";
@@ -164,6 +165,7 @@ export function HoursCards() {
       )}
 
       <ConceptCard />
+      <FacilityCard />
 
       <Card title="📅 日本日曆" right={<span class="small dim">連假與節日的人潮</span>}>
         <CalendarCard tick={s.tick} />

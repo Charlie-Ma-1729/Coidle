@@ -4,6 +4,7 @@ import { Btn, Card, Chip, Empty } from "../components/ui";
 import { AccountCard } from "../components/AccountCard";
 import { EquityCard } from "../components/EquityCard";
 import { activity, errMsg, leaveMall, logout, mallId, mallInfo, refreshMe, toast, user } from "../store";
+import { ask, askText, confirmThen } from "../components/ConfirmHost";
 
 const roleName = (id: string) => ROLES.find((r) => r.id === id)?.name ?? id;
 
@@ -51,7 +52,7 @@ export function Team({ part = "all" }: { part?: "all" | "team" | "controls" }) {
     }
   };
   const leaveForever = async () => {
-    if (!confirm(info.members.length <= 1 ? "你是最後一位成員，離開會解散這座商場，確定嗎？" : "確定要離開這座商場嗎？")) return;
+    if (!(await ask(info.members.length <= 1 ? "你是最後一位成員，離開會解散這座商場，確定嗎？" : "確定要離開這座商場嗎？", { danger: true, ok: "離開" }))) return;
     try {
       await api.leaveMallServer(id);
       await refreshMe();
@@ -62,7 +63,7 @@ export function Team({ part = "all" }: { part?: "all" | "team" | "controls" }) {
     }
   };
   const rename = async () => {
-    const name = prompt("新的商場名稱", info.name)?.trim();
+    const name = (await askText("新的商場名稱", info.name))?.trim();
     if (!name || name === info.name) return;
     try {
       const r = await api.renameMall(id, name);
@@ -113,10 +114,10 @@ export function Team({ part = "all" }: { part?: "all" | "team" | "controls" }) {
                   <Chip tone="cyan">{roleName(m.role)}</Chip>
                   {isOwner && m.userId !== user.value?.id && (
                     <>
-                      <Btn small onClick={() => confirm(`把創辦人轉讓給「${m.displayName}」？你會變成一般成員。`) && act(() => api.transferOwner(id, m.userId), "已轉讓創辦人")}>
+                      <Btn small onClick={() => confirmThen(`把創辦人轉讓給「${m.displayName}」？你會變成一般成員。`, () => act(() => api.transferOwner(id, m.userId), "已轉讓創辦人"))}>
                         轉讓
                       </Btn>
-                      <Btn small kind="danger" onClick={() => confirm(`請「${m.displayName}」離開商場？`) && act(() => api.kickMember(id, m.userId), "已請他離開")}>
+                      <Btn small kind="danger" onClick={() => confirmThen(`請「${m.displayName}」離開商場？`, () => act(() => api.kickMember(id, m.userId), "已請他離開"))}>
                         請離開
                       </Btn>
                     </>

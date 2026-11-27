@@ -17,6 +17,7 @@ import { dateText, gameDeadline, money } from "../format";
 import { categoryIcon } from "../icons";
 import { FLOOR_LABELS } from "../stage/adapter";
 import { run, state } from "../store";
+import { confirmThen } from "../components/ConfirmHost";
 
 function freeSlots(s: PublicMallState, zone: string): number[] {
   return s.slots.filter((x) => x.zone === zone && !x.shopId && !s.builds.some((b) => b.slot === x.id)).map((x) => x.id);
@@ -96,7 +97,7 @@ function TenantRow({ s, shop }: { s: PublicMallState; shop: Shop }) {
         {left > 0 ? `租約剩 ${Math.ceil(left / TICKS_PER_DAY)} 天（到 ${dateText(t.endTick)}）` : "租約已到期，等待續約"}
       </p>
       <div class="row">
-        <Btn small kind="danger" onClick={() => confirm(`提前解約要付違約金 ${money(penalty)}，確定嗎？`) && run({ type: "terminateLease", shopId: shop.id }, "已解約")}>
+        <Btn small kind="danger" onClick={() => confirmThen(`提前解約要付違約金 ${money(penalty)}，確定嗎？`, () => run({ type: "terminateLease", shopId: shop.id }, "已解約"))}>
           提前解約（違約金 {money(penalty)}）
         </Btn>
       </div>

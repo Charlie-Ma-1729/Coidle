@@ -42,6 +42,24 @@ async function mount(node: preact.ComponentChild) {
   await tick();
 }
 
+
+/** 自製確認框的測試輔助：掛一個 ConfirmHost，再按指定按鈕 */
+async function dlgHost() {
+  const d = document.createElement("div");
+  document.body.appendChild(d);
+  const { render } = await import("preact");
+  const { ConfirmHost } = await import("./components/ConfirmHost");
+  render(<ConfirmHost />, d);
+  return d;
+}
+async function answer(host: HTMLElement, label: string) {
+  await tick();
+  const btn = Array.from(host.querySelectorAll("button")).find((x) => x.textContent === label) as HTMLButtonElement;
+  btn.click();
+  await tick();
+  await tick();
+}
+
 describe("screens render with real simulated state", () => {
   it("World shows the leaderboard with NPC malls, my mall and the season", async () => {
     store.state.value = publicState(2);
@@ -1394,28 +1412,19 @@ describe("stage UI panels with real state", () => {
     const { RealShopPanel } = await import("./ui/RealShopPanel");
     await mount(<RealShopPanel slot={shop.slot} floor={await floorOf()} onClose={() => {}} openHub={() => {}} openSheet={() => {}} />);
     const upgrade = () => Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("升級到 Lv.")) as HTMLButtonElement;
-    const asked: string[] = [];
-    const realConfirm = globalThis.confirm;
-    try {
-      const before = calls.length;
-      globalThis.confirm = (m?: string) => (asked.push(String(m)), false);
-      upgrade().click();
-      await tick();
-      await tick();
-      expect(asked).toHaveLength(1);
-      expect(asked[0]).toContain(shop.name);
-      expect(asked[0]).toContain("Lv.2");
-      expect(calls.slice(before).some((c) => c.url.endsWith("/commands"))).toBe(false); // 取消：什麼都沒送
+    const host = await dlgHost();
+    const before = calls.length;
+    upgrade().click();
+    await tick();
+    expect(host.textContent).toContain(shop.name);
+    expect(host.textContent).toContain("Lv.2");
+    await answer(host, "取消");
+    expect(calls.slice(before).some((c) => c.url.endsWith("/commands"))).toBe(false); // 取消：什麼都沒送
 
-      globalThis.confirm = () => true;
-      upgrade().click();
-      await tick();
-      await tick();
-      const sent = calls.slice(before).find((c) => c.url.endsWith("/commands"))!;
-      expect(sent.body.command).toMatchObject({ type: "upgradeShop", shopId: shop.id });
-    } finally {
-      globalThis.confirm = realConfirm;
-    }
+    upgrade().click();
+    await answer(host, "確定");
+    const sent = calls.slice(before).find((c) => c.url.endsWith("/commands"))!;
+    expect(sent.body.command).toMatchObject({ type: "upgradeShop", shopId: shop.id });
   });
 
   it("RealShopPanel 換新菜單要先確認：取消不送出、確定才送出 refreshShop", async () => {
@@ -1428,23 +1437,15 @@ describe("stage UI panels with real state", () => {
     const { RealShopPanel } = await import("./ui/RealShopPanel");
     await mount(<RealShopPanel slot={shop.slot} floor={await floorOf()} onClose={() => {}} openHub={() => {}} openSheet={() => {}} />);
     const refresh = () => Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("換新菜單")) as HTMLButtonElement;
-    const realConfirm = globalThis.confirm;
-    try {
-      const before = calls.length;
-      globalThis.confirm = () => false;
-      refresh().click();
-      await tick();
-      await tick();
-      expect(calls.slice(before).some((c) => c.url.endsWith("/commands"))).toBe(false);
-      globalThis.confirm = () => true;
-      refresh().click();
-      await tick();
-      await tick();
-      const sent = calls.slice(before).find((c) => c.url.endsWith("/commands"))!;
-      expect(sent.body.command).toMatchObject({ type: "refreshShop", shopId: shop.id });
-    } finally {
-      globalThis.confirm = realConfirm;
-    }
+    const host = await dlgHost();
+    const before = calls.length;
+    refresh().click();
+    await answer(host, "取消");
+    expect(calls.slice(before).some((c) => c.url.endsWith("/commands"))).toBe(false);
+    refresh().click();
+    await answer(host, "確定");
+    const sent = calls.slice(before).find((c) => c.url.endsWith("/commands"))!;
+    expect(sent.body.command).toMatchObject({ type: "refreshShop", shopId: shop.id });
   });
 
   it("RealShopPanel has no price cap: a price far above the reference can still be raised", async () => {

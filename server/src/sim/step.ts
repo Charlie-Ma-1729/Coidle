@@ -57,6 +57,8 @@ import {
   type PersonaDef,
   type Shop,
 } from "@coidle/shared";
+import { parkingTrafficMult } from "@coidle/shared";
+import { facilityDaily, runCinema, runParking, runVenues, stepFacilities } from "./facilities";
 import { expireModifiers, maybeSpawnEvent, resolveDeadlines } from "./events";
 import { generateDailyReviews, noteGrievance, resolveInboxDeadlines } from "./guests";
 import { inspectionAtRisk, maybeSpawnInspection, runDueInspections } from "./inspections";
@@ -122,6 +124,7 @@ export function stepTick(s: MallState, ctx: StepContext = { nobodyPresent: false
   if (s.today.day !== time.day) rollover(s, time);
 
   completeBuilds(s);
+  stepFacilities(s);
   receiveDeliveries(s);
   expireModifiers(s);
   endPromos(s);
@@ -144,10 +147,12 @@ export function stepTick(s: MallState, ctx: StepContext = { nobodyPresent: false
   for (const shop of s.shops) shop.served = 0;
   const open = isOpen(s, time);
   const units = open ? runCustomers(s, time, rng) : 0;
+  runCinema(s, time, open);
+  runVenues(s, time, open);
+  runParking(s, time, open);
   upkeep(s, units, rng, open);
 
   s.tick = t + 1;
-  runCinema(s, time, open);
 
   // 沒人在場時遇到「放著會吃大虧」的事件或稽查預告：時鐘停在這裡等人處理
   let halt = false;
@@ -181,6 +186,7 @@ function completeBuilds(s: MallState): void {
       if (cat && slot) {
         const n = s.shops.filter((x) => x.category === b.category).length + 1;
         const shop = makeShop(s, b.category, n > 1 ? `${cat.name}・${n}號店` : `${cat.name}`, slot.id);
+        if (b.name && !b.tenant) shop.name = b.name;
         slot.shopId = shop.id;
         if (b.tenant) applyTenantToShop(shop, b.tenant);
         s.shops.push(shop);
@@ -337,7 +343,7 @@ function runCustomers(s: MallState, time: TimeInfo, rng: Rng): number {
     const share = (time.offDay ? p.weekendHourShare : p.hourShare)[time.hour] ?? 0;
     const daily = p.dailyBase * (time.offDay ? p.weekendMult : 1);
     const lambda =
-      ((daily * share) / TICKS_PER_HOUR) * indexFactor(s, p) * divMult * trafficMult(s, p.id, s.tick) * promoTraffic(s, p.id) * rivalMult(s, p.id) * techTrafficMult(s.tech.done, p.id);
+      ((daily * share) / TICKS_PER_HOUR) * indexFactor(s, p) * divMult * trafficMult(s, p.id, s.tick) * promoTraffic(s, p.id) * rivalMult(s, p.id) * techTrafficMult(s.tech.done, p.id) * parkingTrafficMult(s, p.id);
     const n = rng.poisson(lambda);
     for (let i = 0; i < n; i++) units += serveGroup(s, rng, p, open);
   }
@@ -594,6 +600,7 @@ function rollover(s: MallState, time: TimeInfo): void {
 
   metaDaily(s, time); // 目標驗收、團隊事件、成就與線索（也在各店當日統計重置之前）
   leasingDaily(s); // 招商：新品牌來洽談、租戶滿意度、續約（要在各店當日統計重置之前）
+  facilityDaily(s); // 設施：設備損耗、營運商租金與滿意度、新營運商上門
   checkLevelUp(s);
   patrolDaily(s); // 巡店：沒處理的問題造成影響、惡化、冒出新問題
   legalDaily(s); // 保險費、管理不善的商場可能收到請求書（要在各店當日統計重置之前）

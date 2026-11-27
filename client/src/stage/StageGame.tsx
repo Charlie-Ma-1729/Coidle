@@ -14,6 +14,9 @@ import { Icon } from "../ui/Icon";
 import { GameHub, MenuWindow, PendingWindow, ReportPopup, type MenuPage } from "../ui/hubs/GameHubs";
 import { HUBS } from "../ui/Dock";
 import { RealShopPanel } from "../ui/RealShopPanel";
+import { FacilityCard } from "../ui/FacilityCard";
+import { FacilityMapView } from "./FacilityMapView";
+import { facilitySpec } from "./facilityspec";
 import { BuildSheet } from "../screens/BuildSheet";
 import { ShopSheet } from "../screens/ShopSheet";
 import { PersonalHost } from "../screens/Personal";
@@ -23,6 +26,7 @@ import { locateShop, toStageModel } from "./adapter";
 import type { AttentionItem, HubId } from "./model";
 import { useStage } from "./useStage";
 import "./stage.css";
+import { confirmThen } from "../components/ConfirmHost";
 
 const SPEEDS: SpeedOption[] = [
   { id: 0, glyph: "pause", title: "暫停" },
@@ -85,6 +89,11 @@ function StageGameInner() {
   }, [noStake]);
 
   const floor = model.floors[Math.min(floorIdx, model.floors.length - 1)]!;
+  // 設施樓層（停車場、影城）沒有店面格：場景留在最後看的商業樓層，上面蓋設施面板
+  const facSpec = useMemo(() => facilitySpec(s, floor), [s.facilities, s.level, floor.id, floor.facility?.from, floor.facility?.to]);
+  const lastShopFloor = useRef(floor);
+  if (!floor.facility) lastShopFloor.current = floor;
+  const sceneFloor = floor.facility ? (model.floors.find((f) => f.id === lastShopFloor.current.id) ?? model.floors[0]!) : floor;
   const lot = selected !== null ? floor.lots.find((l) => l.slot === selected) : undefined;
   const locked = floor.lockedLevel != null;
   // 空地（可開店）直接開招商畫面，不佔側邊面板
@@ -111,7 +120,7 @@ function StageGameInner() {
   };
 
   const { sceneRef, failed: sceneFailed, retry: retryScene } = useStage(host, {
-    floor,
+    floor: sceneFloor,
     selected,
     panelOpen,
     minuteOfDay: liveMinute,
@@ -258,6 +267,7 @@ function StageGameInner() {
           id: f.id,
           label: f.label,
           name: f.lockedLevel != null ? `${f.name}（Lv.${f.lockedLevel} 解鎖）` : f.name,
+          other: !!f.facility,
           alert: f.lots.some((l) => l.shop && (l.shop.state === "closed" || l.shop.flags.includes("broken") || l.shop.flags.includes("stockout"))),
         }))}
         index={Math.min(floorIdx, model.floors.length - 1)}
@@ -275,7 +285,7 @@ function StageGameInner() {
           class="st-btn st-expand"
           disabled={!floor.expand.canBuy}
           title={floor.expand.reason ?? "再蓋一個店面"}
-          onClick={() => confirm(`擴建一個店面？\n費用 ${money(floor.expand!.cost)}，現在就會扣款（這層目前 ${floor.expand!.n}／${floor.expand!.max} 個）。`) && void run({ type: "expandZone", zone: floor.zoneId! }, "擴建完成，多了一個店面")}
+          onClick={() => confirmThen(`擴建一個店面？\n費用 ${money(floor.expand!.cost)}，現在就會扣款（這層目前 ${floor.expand!.n}／${floor.expand!.max} 個）。`, () => void run({ type: "expandZone", zone: floor.zoneId! }, "擴建完成，多了一個店面"))}
         >
           ＋ 擴建店面（{money(floor.expand.cost)}）
           <small>
@@ -283,6 +293,18 @@ function StageGameInner() {
             {floor.expand.reason ? `・${floor.expand.reason}` : ""}
           </small>
         </button>
+      )}
+
+      {floor.facility && (
+        <div class="st-panel st-facfloor" role="region" aria-label={floor.name}>
+          <h3>
+            {floor.label}・{floor.name}
+          </h3>
+          {facSpec && <FacilityMapView spec={facSpec} minute={liveMinute} open={model.openHour} close={model.closeHour} weekend={model.weekend} flow={timeFlow(s)} />}
+          <div class="st-facinfo">
+            <FacilityCard kind={floor.facility.kind} from={floor.facility.from} to={floor.facility.to} />
+          </div>
+        </div>
       )}
 
       <p class="st-note">畫面上的人潮是示意動畫，實際營收與客數以帳本為準。拖曳平移、滾輪／雙指縮放、點店面操作。</p>

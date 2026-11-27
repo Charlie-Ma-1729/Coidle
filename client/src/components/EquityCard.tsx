@@ -4,6 +4,7 @@ import { api } from "../api";
 import { Btn, Card, Chip, Empty } from "./ui";
 import { moneyShort } from "../format";
 import { errMsg, mallId, mallInfo, openPersonal, toast, user } from "../store";
+import { confirmThen } from "./ConfirmHost";
 
 const whole = (v: string) => Math.floor(Number(v));
 
@@ -160,7 +161,7 @@ export function EquityCard() {
                 <Btn
                   small
                   disabled={busy || whole(dividend) < DIVIDEND_MIN}
-                  onClick={() => confirm(`發放股利 ${whole(dividend).toLocaleString()}，按持股分給所有股東（收到時扣 20% 所得稅）？`) && run(async () => void (await api.declareDividend(id, whole(dividend))), "股利已發放")}
+                  onClick={() => confirmThen(`發放股利 ${whole(dividend).toLocaleString()}，按持股分給所有股東（收到時扣 20% 所得稅）？`, () => run(async () => void (await api.declareDividend(id, whole(dividend))), "股利已發放"))}
                 >
                   發股利
                 </Btn>

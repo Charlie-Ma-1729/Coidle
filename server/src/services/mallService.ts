@@ -44,6 +44,7 @@ import {
   TECH_BY_ID,
   ZONES,
   ZONE_BY_ID,
+  FACILITY_BY_KIND,
   ROLE_IDS,
   categoryHasStock,
   publicPatrol,
@@ -152,6 +153,22 @@ export function describeCommand(s: MallState, cmd: Command, actor: string): stri
       return `${actor} 開始興建「${CATEGORY_BY_ID[cmd.category]?.name ?? "新店"}」`;
     case "expandZone":
       return `${actor} 擴建了「${ZONE_BY_ID[cmd.zone]?.name ?? "區域"}」`;
+    case "buildFacility":
+      return `${actor} 開始興建「${FACILITY_BY_KIND[cmd.kind]?.name ?? "設施"}」的下一${FACILITY_BY_KIND[cmd.kind]?.unit ?? "單位"}`;
+    case "setFacilityOps":
+      return `${actor} 調整了「${FACILITY_BY_KIND[cmd.kind]?.name ?? "設施"}」的營運設定`;
+    case "maintainFacility":
+      return `${actor} 維護了「${FACILITY_BY_KIND[cmd.kind]?.name ?? "設施"}」`;
+    case "acceptFacilityOffer":
+      return `${actor} 把「${FACILITY_BY_KIND[cmd.kind]?.name ?? "設施"}」交給營運商經營`;
+    case "declineFacilityOffer":
+      return `${actor} 婉拒了「${FACILITY_BY_KIND[cmd.kind]?.name ?? "設施"}」的營運商`;
+    case "counterFacilityOffer":
+      return `${actor} 向「${FACILITY_BY_KIND[cmd.kind]?.name ?? "設施"}」的營運商還價`;
+    case "resolveFacilityRenewal":
+      return `${actor} 處理了「${FACILITY_BY_KIND[cmd.kind]?.name ?? "設施"}」的續約`;
+    case "endFacilityLease":
+      return `${actor} 收回「${FACILITY_BY_KIND[cmd.kind]?.name ?? "設施"}」自營`;
     case "upgradeShop":
       return `${actor} 讓「${shopName(cmd.shopId)}」開始翻新`;
     case "refreshShop":
@@ -247,13 +264,13 @@ export function describeCommand(s: MallState, cmd: Command, actor: string): stri
       return `${actor} 處理了一份租約續約`;
     case "terminateLease":
       return `${actor} 提前解除了「${shopName(cmd.shopId)}」的租約`;
-    case "startRnd":
-      return `${actor} 讓「${shopName(cmd.shopId)}」開始研發新作品`;
-    case "cancelRnd":
     case "renameShop":
       return `${actor} 把「${shopName(cmd.shopId)}」改名為「${String(cmd.name).slice(0, 12)}」`;
     case "closeShop":
       return `${actor} 讓「${shopName(cmd.shopId)}」歇業了`;
+    case "startRnd":
+      return `${actor} 讓「${shopName(cmd.shopId)}」開始研發新作品`;
+    case "cancelRnd":
       return `${actor} 取消了「${shopName(cmd.shopId)}」的研發`;
     case "tastingAction":
       return `${actor} 處理了一份試吃結果`;

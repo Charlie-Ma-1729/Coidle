@@ -100,7 +100,9 @@
 .st-news-body ul { margin: 0; padding-left: 1.1em; font-size: 0.88rem; line-height: 1.6; color: var(--dim); }
 
 /* ───── 樓層切換 ───── */
-.st-floors { position: absolute; left: 10px; top: calc(var(--st-top-h) + 14px); z-index: 9; display: grid; gap: 6px; }
+.st-floors { position: absolute; left: 10px; top: calc(var(--st-top-h) + 14px); z-index: 9; display: grid; gap: 6px; align-content: start; max-height: calc(100% - var(--st-top-h) - var(--st-dock-h) - 130px); overflow-y: auto; scrollbar-width: none; }
+.st-floors::-webkit-scrollbar { display: none; }
+.st-floors .st-btn { flex: none; }
 .st-floors .st-btn { width: 44px; height: 44px; padding: 0; justify-content: center; font-size: 0.9rem; position: relative; }
 .st-floors .st-dot { position: absolute; top: -4px; right: -4px; width: 12px; height: 12px; border-radius: 50%; background: var(--red); border: 2px solid var(--st-edge); }
 .st-zoom { position: absolute; left: 10px; bottom: calc(var(--st-dock-h) + 20px); z-index: 9; display: grid; gap: 6px; }
@@ -346,3 +348,20 @@
   .st-bar .st-meter { grid-column: 1 / -1; order: 3; }
   .st-win-body .st-in { width: 120px; }
 }
+
+/* ───── 設施樓層（停車場、影城）的面板 ───── */
+.st-facfloor { position: absolute; z-index: 8; left: 64px; right: 12px; top: 64px; bottom: calc(var(--st-dock-h) + 24px); overflow: hidden; padding: 12px; display: grid; gap: 10px; grid-template-rows: auto minmax(150px, 1fr) auto; background: var(--st-panel); }
+.st-facfloor { grid-template-columns: minmax(0, 1fr); }
+.st-facmap { position: relative; min-width: 0; min-height: 0; background: #0a0e1d; border-radius: 4px; overflow: hidden; }
+.st-facmap canvas { position: absolute; inset: 0; image-rendering: pixelated; }
+.st-facinfo { max-height: 28vh; overflow: auto; }
+.st-facfloor h3 { font-size: 1rem; }
+@media (max-width: 720px) { .st-facfloor { left: 8px; right: 8px; } }
+
+/* 「其他」大型設施清單：從樓層列旁彈出 */
+.st-floors-more { position: absolute; left: 64px; top: calc(var(--st-top-h) + 14px); z-index: 12; display: grid; gap: 4px; padding: 8px; min-width: 190px; max-height: calc(100% - var(--st-top-h) - var(--st-dock-h) - 60px); overflow-y: auto; }
+.st-floors-more b { font-size: 0.8rem; color: var(--dim); padding: 0 4px 2px; }
+.st-floors-more button { display: flex; align-items: center; gap: 8px; text-align: left; padding: 7px 8px; border-radius: 4px; background: transparent; border: 1px solid transparent; color: inherit; font: inherit; font-size: 0.86rem; cursor: pointer; }
+.st-floors-more button:hover { background: rgba(255, 255, 255, 0.07); }
+.st-floors-more button.on { border-color: var(--cyan, #4fe3ff); background: rgba(79, 227, 255, 0.1); }
+.st-fm-label { min-width: 34px; font-weight: 700; color: var(--cyan, #4fe3ff); }

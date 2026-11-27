@@ -1,5 +1,6 @@
 import { useState } from "preact/hooks";
 import { api } from "../api";
+import { confirmThen } from "./ConfirmHost";
 import { Btn, Card, Field } from "./ui";
 import { errMsg, refreshMe, toast, user } from "../store";
 
@@ -75,12 +76,13 @@ export function AccountCard({ onDeleted }: { onDeleted?: () => void }) {
                   kind="danger"
                   disabled={del.length === 0}
                   onClick={() =>
-                    confirm("確定要永久刪除這個帳號嗎？") &&
-                    guard(async () => {
-                      await api.deleteAccount(del);
-                      toast("帳號已刪除", "ok");
-                      onDeleted?.();
-                    })
+                    confirmThen("確定要永久刪除這個帳號嗎？", () =>
+                      guard(async () => {
+                        await api.deleteAccount(del);
+                        toast("帳號已刪除", "ok");
+                        onDeleted?.();
+                      }),
+                    { danger: true, ok: "刪除" })
                   }
                 >
                   永久刪除帳號

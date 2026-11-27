@@ -22,6 +22,18 @@ export type Command =
   | { type: "upgradeShop"; shopId: string }
   /** 擴建：在已開放的區域多蓋一個店面（越蓋越貴） */
   | { type: "expandZone"; zone: string }
+  | { type: "buildFacility"; kind: string }
+  /** 設施的營運設定（價格倍率、政策、加值服務、每廳排片）；只改有給的欄位 */
+  | { type: "setFacilityOps"; kind: string; priceMult?: number; policy?: string; extra?: boolean; films?: string[] }
+  /** 維護設備（設備狀態回到 100） */
+  | { type: "maintainFacility"; kind: string }
+  /** 招商：接受 / 婉拒營運商的邀約、提前解約收回自營 */
+  | { type: "acceptFacilityOffer"; kind: string; offerId: string }
+  | { type: "declineFacilityOffer"; kind: string; offerId: string }
+  /** 還價（把租金加 10–30%，只能一次）與租約到期的續約決定 */
+  | { type: "counterFacilityOffer"; kind: string; offerId: string; mult: number }
+  | { type: "resolveFacilityRenewal"; kind: string; action: "renew" | "raise" | "release" }
+  | { type: "endFacilityLease"; kind: string }
   | { type: "refreshShop"; shopId: string }
   | { type: "resolveEvent"; uid: string; optionId: string }
   | { type: "resolveAllDefault" }

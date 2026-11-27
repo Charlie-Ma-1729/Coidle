@@ -253,7 +253,7 @@ export function ShopSheet({ shopId, onClose }: { shopId: string; onClose: () => 
           <Card title="✨ 新鮮感" right={<span class="small dim">每遊戲日 −4</span>}>
             <div class="stack">
               <Meter label="菜單／店面新鮮感" value={shop.freshness} hint={`${Math.round(shop.freshness)}`} />
-              <Btn disabled={shop.freshness >= 90} onClick={() => confirm(`幫「${shop.name}」換新菜單／辦活動？\n費用 ${money(refreshCost)}，現在就會扣款，新鮮感會回升。`) && run({ type: "refreshShop", shopId: shop.id }, "推出新菜單！")}>
+              <Btn disabled={shop.freshness >= 90} onClick={() => confirmThen(`幫「${shop.name}」換新菜單／辦活動？\n費用 ${money(refreshCost)}，現在就會扣款，新鮮感會回升。`, () => run({ type: "refreshShop", shopId: shop.id }, "推出新菜單！"))}>
                 換新菜單／辦活動（{money(refreshCost)}）
               </Btn>
             </div>
@@ -266,7 +266,7 @@ export function ShopSheet({ shopId, onClose }: { shopId: string; onClose: () => 
           <p class="small dim">
             升級提升品質、容量與滿意度（Lv.{shop.level} → Lv.{Math.min(MAX_SHOP_LEVEL, shop.level + 1)}），施工{gameDuration(UPGRADE_TICKS)}；店內人事成本同步增加。
           </p>
-          <Btn kind="primary" disabled={shop.level >= MAX_SHOP_LEVEL || upgrading} onClick={() => confirm(`把「${shop.name}」翻新升級到 Lv.${shop.level + 1}？\n費用 ${money(upgradeCost)}，現在就會扣款；施工${gameDuration(UPGRADE_TICKS)}，店內人事成本也會增加。`) && run({ type: "upgradeShop", shopId: shop.id }, "開始翻新")}>
+          <Btn kind="primary" disabled={shop.level >= MAX_SHOP_LEVEL || upgrading} onClick={() => confirmThen(`把「${shop.name}」翻新升級到 Lv.${shop.level + 1}？\n費用 ${money(upgradeCost)}，現在就會扣款；施工${gameDuration(UPGRADE_TICKS)}，店內人事成本也會增加。`, () => run({ type: "upgradeShop", shopId: shop.id }, "開始翻新"))}>
             {shop.level >= MAX_SHOP_LEVEL ? "已達最高等級" : upgrading ? "翻新中…" : `升級（${money(upgradeCost)}）`}
           </Btn>
         </div>

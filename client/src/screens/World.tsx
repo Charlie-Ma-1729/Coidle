@@ -5,6 +5,7 @@ import { Btn, Card, Chip, Empty } from "../components/ui";
 import { gameDeadlineAtMs, moneyShort } from "../format";
 import { mallId, state, toast, worldFocus } from "../store";
 import { serverTickNow } from "../serverTime";
+import { confirmThen } from "../components/ConfirmHost";
 
 const DAY = 86_400_000;
 const stars = (n: number) => "★".repeat(n) + "☆".repeat(5 - n);
@@ -254,7 +255,7 @@ export function World() {
                         <Btn small kind="primary" disabled={busy || cd > 0} onClick={() => void act((id) => api.jointPromo(id, a.id), "聯名活動開跑")}>
                           {cd > 0 ? `聯名活動（${gameDeadlineAtMs(a.jointReadyAt, nowMs, nowTick)} 後可再辦）` : `辦聯名活動 ${moneyShort(jointPromoCost(s.level))}`}
                         </Btn>
-                        <Btn small disabled={busy} onClick={() => confirm(`結束和「${a.partnerName}」的聯名協議？`) && void act((id) => api.endAlliance(id, a.id), "已結束聯名")}>
+                        <Btn small disabled={busy} onClick={() => confirmThen(`結束和「${a.partnerName}」的聯名協議？`, () => void act((id) => api.endAlliance(id, a.id), "已結束聯名"))}>
                           結束協議
                         </Btn>
                       </>

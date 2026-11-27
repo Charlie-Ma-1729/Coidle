@@ -64,6 +64,8 @@ export interface StageFloor {
   links?: FloorLinkKind[];
   /** 這個樓層對應的區域 id（真實資料才有） */
   zoneId?: string;
+  /** 大型設施樓層（停車場、影城）：沒有店面格，畫面用設施面板；units 為 [from, to) */
+  facility?: { kind: string; from: number; to: number; part?: "lobby" };
   description?: string;
   /** 尚未解鎖時，需要的商場等級；已解鎖為 null */
   lockedLevel?: number | null;

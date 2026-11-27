@@ -143,7 +143,7 @@ export function RealShopPanel(props: {
               <b>菜單太老氣</b>，客人覺得沒新鮮感（{Math.round(shop.freshness)}）。
             </span>
             <div class="st-row">
-              <button class="st-btn" disabled={busy.value || s.funds < refreshCost} onClick={() => confirm(`幫「${shop.name}」換新菜單？\n費用 ${money(refreshCost)}，現在就會扣款，新鮮感會回升。`) && run({ type: "refreshShop", shopId: shop.id }, "推出新菜單！")}>
+              <button class="st-btn" disabled={busy.value || s.funds < refreshCost} onClick={() => confirmThen(`幫「${shop.name}」換新菜單？\n費用 ${money(refreshCost)}，現在就會扣款，新鮮感會回升。`, () => run({ type: "refreshShop", shopId: shop.id }, "推出新菜單！"))}>
                 換新菜單（{money(refreshCost)}）
               </button>
               <button
@@ -210,7 +210,7 @@ export function RealShopPanel(props: {
         )}
 
         <div class="st-cta">
-          <button class="st-btn" disabled={busy.value || shop.level >= MAX_SHOP_LEVEL || upgrading || s.funds < upgradeCost} onClick={() => confirm(`把「${shop.name}」翻新升級到 Lv.${shop.level + 1}？\n費用 ${money(upgradeCost)}，現在就會扣款；施工${gameDuration(UPGRADE_TICKS)}，店內人事成本也會增加。`) && run({ type: "upgradeShop", shopId: shop.id }, "開始翻新")}>
+          <button class="st-btn" disabled={busy.value || shop.level >= MAX_SHOP_LEVEL || upgrading || s.funds < upgradeCost} onClick={() => confirmThen(`把「${shop.name}」翻新升級到 Lv.${shop.level + 1}？\n費用 ${money(upgradeCost)}，現在就會扣款；施工${gameDuration(UPGRADE_TICKS)}，店內人事成本也會增加。`, () => run({ type: "upgradeShop", shopId: shop.id }, "開始翻新"))}>
             {shop.level >= MAX_SHOP_LEVEL ? "已達最高等級" : upgrading ? "翻新中…" : `升級到 Lv.${shop.level + 1}（${money(upgradeCost)}）`}
           </button>
           <div class="st-row">

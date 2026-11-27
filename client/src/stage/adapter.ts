@@ -3,7 +3,7 @@
  * 場景只認 StageModel；真實資料與示範資料（fixtures）走同一條路。
  * 純函式、不依賴 DOM／Pixi。
  */
-import { CATEGORY_BY_ID, ZONES, calendarDay, dayLedger, calendarLabel, dayWeather, expandInfo, isZoneUnlocked, mallStars, techFx, timeInfo, weatherNow, type CategoryDef, type PublicMallState, type Shop } from "@coidle/shared";
+import { CATEGORY_BY_ID, FACILITY_BY_KIND, ZONES, calendarDay, facilityFloors, dayLedger, calendarLabel, dayWeather, expandInfo, isZoneUnlocked, mallStars, techFx, timeInfo, weatherNow, type CategoryDef, type PublicMallState, type Shop } from "@coidle/shared";
 import { dateText } from "../format";
 import { buildAttention, shopFlagsFrom, type PendingInvite } from "../ui/attention";
 import type { FloorLinkKind } from "./floorplan";
@@ -128,6 +128,11 @@ export function toStageModel(s: PublicMallState, userId?: string | number | null
       expand: info && info.n < info.max ? { n: info.n, max: info.max, cost: info.cost, canBuy: info.canBuy, reason: info.reason } : null,
     };
   });
+
+  // 大型設施樓層接在商業樓層後面（不佔店面格）
+  for (const ff of facilityFloors(s)) {
+    floors.push({ id: ff.id, label: ff.label, name: ff.name, description: FACILITY_BY_KIND[ff.kind]?.desc, lots: [], lockedLevel: null, facility: { kind: ff.kind, from: ff.from, to: ff.to, ...(ff.part ? { part: ff.part } : {}) } });
+  }
 
   const t = timeInfo(s.tick);
   const d = s.today;

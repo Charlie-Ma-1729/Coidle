@@ -52,6 +52,8 @@ export interface CategoryDef {
   buildTicks: number;
   /** 商場要到這個等級才能開（省略＝區域開放就能開） */
   minLevel?: number;
+  /** 大型設施（停車場…）：不是店面，不能開店也不會有租戶；改由 MallState.facilities 管理 */
+  facility?: boolean;
 }
 
 export interface ZoneDef {
@@ -151,10 +153,10 @@ export interface BuildTask {
   shopId?: string;
   completeTick: number;
   cost: number;
-  /** 招商簽約後租戶自己裝修：完工時開成這個租戶的店 */
-  tenant?: Tenant;
   /** 自營新店的店名（沒有＝依業態自動命名） */
   name?: string;
+  /** 招商簽約後租戶自己裝修：完工時開成這個租戶的店 */
+  tenant?: Tenant;
 }
 
 /** 白名單效果：事件只能使用這些，並且數值會被夾限。 */
@@ -890,6 +892,82 @@ export interface WorldState {
   alliances: { id: number; partner: string; endTick: number }[];
 }
 
+/** 大型設施：units＝已蓋好的單位（層、廳…）；building＝正在蓋的下一個單位 */
+/** 想接手營運某座設施的營運商（招商候選）。比照店面的 TenantCandidate，但不佔店面格 */
+export interface FacilityOffer {
+  id: string;
+  brand: string;
+  blurb?: string;
+  quality: number;
+  fame: number;
+  rent: number;
+  commission: number;
+  termDays: number;
+  expireTick: number;
+  /** 0–1：越想經營，越不容易被還價嚇跑 */
+  eagerness?: number;
+  /** 已經還過價（只能還一次） */
+  countered?: boolean;
+}
+
+/** 會議中心／活動場地的一個預約檔期 */
+export interface FacilityBooking {
+  /** 遊戲日序、單位（第幾間廳／活動區，0 起算）、檔期序（當天第幾場） */
+  day: number;
+  unit: number;
+  slot: number;
+  /** rent＝外租、own＝自辦、artist＝藝人演出（未來事務所上線後用，現在不會產生） */
+  kind: "rent" | "own" | "artist";
+  client: string;
+  /** 這場的收入 */
+  fee: number;
+  /** 已經結算過收入 */
+  paid?: boolean;
+}
+
+/** 租約到期時營運商來談續約 */
+export interface FacilityRenewal {
+  rent: number;
+  termDays: number;
+  deadlineTick: number;
+}
+
+/**
+ * 設施的營運設定（玩家的決策層）。全部可選：缺欄位＝舊行為（原價、沒有額外服務、狀態良好、自營）。
+ * 有 operator 就是招商中：自營的決策（價格、政策、維護）都鎖住，收租金與抽成。
+ */
+export interface FacilityOps {
+  operator?: Tenant;
+  offers?: FacilityOffer[];
+  /** 設備狀態 0–100（缺＝100）：越用越差，太差會影響營收；花錢維護才回得來 */
+  condition?: number;
+  lastMaintTick?: number;
+  /** 價格倍率（缺＝1）：票價／房價／場租／停車費都乘這個。標價超過 1.2 倍客人嫌貴 */
+  priceMult?: number;
+  /** 停車場：free｜validate｜paid；會議／活動場地：fcfs｜reserve */
+  policy?: string;
+  /** 加值服務開關（影城賣品、保齡聯賽夜、旅館早餐、會議茶歇設備、活動宣傳協力）；缺＝關 */
+  extra?: boolean;
+  /** 影城：每廳排的片（片 id；缺或過檔期＝院線平均片） */
+  films?: string[];
+  /** 會議中心／活動場地：未來幾天的預約（伺服器每天補齊；沒有預約就沒有收入） */
+  bookings?: FacilityBooking[];
+  /** 預約已經補到哪一天（遊戲日序） */
+  bookedDay?: number;
+  /** 營運商租約到期的續約洽談 */
+  renewal?: FacilityRenewal;
+}
+
+export interface Facility {
+  kind: string;
+  units: number;
+  building?: { completeTick: number; cost: number };
+  /** 今日營運（影城：觀影人次與票房）；跨日自動歸零 */
+  today?: { day: number; viewers: number; revenue: number };
+  /** 營運設定、招商、維護（舊存檔沒有） */
+  ops?: FacilityOps;
+}
+
 export interface MallState {
   version: 13;
   clock: MallClock;
@@ -943,6 +1021,8 @@ export interface MallState {
   finance?: FinanceState;
   /** 巡店：隱藏問題與行動點（舊存檔沒有） */
   patrol?: PatrolState;
+  /** 大型設施（地下停車場…；舊存檔沒有）。見 facilities.ts */
+  facilities?: Facility[];
   walk: { nextTick: number; voices: WalkVoice[] };
   today: DayStats;
   reports: DailyReport[];
@@ -988,6 +1068,8 @@ export interface Dish {
   desc: string;
   madeTick: number;
   madeAt: string;
+  /** 研發這道作品的店；有值就只能在那間店上架（舊存檔沒有這欄，只看業態） */
+  madeShopId?: string;
   picks: Partial<Record<SlotKind, string>>;
   /** 新鮮度 0–100：上架時慢慢退流行，收起來會慢慢回復（換季再上，客人又覺得新鮮） */
   novelty: number;
@@ -1001,8 +1083,6 @@ export interface MenuEntry {
   icon: string;
   signature: boolean;
   recipeId: string | null;
-  /** 研發這道作品的店；有值就只能在那間店上架（舊存檔沒有這欄，只看業態） */
-  madeShopId?: string;
   quality: number;
   appeal: Partial<Record<PersonaId, number>>;
   /** 新鮮度 0–100：上架之後慢慢退流行 */

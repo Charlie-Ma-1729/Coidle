@@ -32,6 +32,7 @@ import {
   type RestockRule,
   type Shop,
 } from "@coidle/shared";
+import { counterFacilityOffer, resolveFacilityRenewal, acceptFacilityOffer, declineFacilityOffer, endFacilityLease, maintainFacility, setFacilityOps, startFacilityBuild } from "./facilities";
 import { resolveChoice } from "./events";
 import { resolveInbox, walkAct, walkFloor } from "./guests";
 import { autoPrepareInspections, prepareInspection } from "./inspections";
@@ -195,6 +196,7 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
       const slot = s.slots[cmd.slot];
       const cat = CATEGORY_BY_ID[cmd.category];
       if (!slot || !cat) return err("店面或業態無效");
+      if (cat.facility) return err("這是大型設施，請改用「設施」興建，不佔店面格");
       if (cat.zone !== slot.zone) return err("這個業態不能開在這個區域");
       if (!isZoneUnlocked(s, slot.zone)) return err("這個區域尚未解鎖");
       if (!isCategoryAvailable(s, cat.id)) return err(`這個業態要商場 Lv.${cat.minLevel ?? 1} 才能開`);
@@ -232,6 +234,54 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
       s.funds -= info.cost;
       s.slots.push({ id: s.slots.length, zone: z.id, shopId: null });
       addLog(s, "build", `「${z.name}」擴建完成，多了一個店面（第 ${info.n + 1}／${info.max} 次擴建）。`);
+      break;
+    }
+
+    case "buildFacility": {
+      const e = startFacilityBuild(s, cmd.kind);
+      if (e) return err(e);
+      break;
+    }
+
+    case "setFacilityOps": {
+      const e = setFacilityOps(s, cmd);
+      if (e) return err(e);
+      break;
+    }
+
+    case "maintainFacility": {
+      const e = maintainFacility(s, cmd.kind);
+      if (e) return err(e);
+      break;
+    }
+
+    case "acceptFacilityOffer": {
+      const e = acceptFacilityOffer(s, cmd.kind, cmd.offerId);
+      if (e) return err(e);
+      break;
+    }
+
+    case "declineFacilityOffer": {
+      const e = declineFacilityOffer(s, cmd.kind, cmd.offerId);
+      if (e) return err(e);
+      break;
+    }
+
+    case "counterFacilityOffer": {
+      const e = counterFacilityOffer(s, cmd.kind, cmd.offerId, cmd.mult);
+      if (e) return err(e);
+      break;
+    }
+
+    case "resolveFacilityRenewal": {
+      const e = resolveFacilityRenewal(s, cmd.kind, cmd.action);
+      if (e) return err(e);
+      break;
+    }
+
+    case "endFacilityLease": {
+      const e = endFacilityLease(s, cmd.kind);
+      if (e) return err(e);
       break;
     }
 

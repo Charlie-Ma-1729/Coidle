@@ -13,7 +13,7 @@ export function isZoneUnlocked(s: Pick<MallState, "flags" | "level">, zoneId: st
 /** 這個業態現在能不能開：區域要開放，業態自己也可能要更高的商場等級（區域旗標強制開放時不看等級） */
 export function isCategoryAvailable(s: Pick<MallState, "flags" | "level">, category: string): boolean {
   const c = CATEGORY_BY_ID[category];
-  if (!c || !isZoneUnlocked(s, c.zone)) return false;
+  if (!c || c.facility || !isZoneUnlocked(s, c.zone)) return false; // 大型設施不是店面，不能開店也沒有租戶
   if (s.flags[`zone:${c.zone}`] === true) return true;
   return s.level >= (c.minLevel ?? 0);
 }

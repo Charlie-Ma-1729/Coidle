@@ -1,4 +1,5 @@
 import { CONCEPTS, CONCEPT_COOLDOWN_TICKS, TICKS_PER_DAY, conceptChangeCost, conceptDefOf, conceptEffectLines } from "@coidle/shared";
+import { confirmThen } from "../components/ConfirmHost";
 import { Btn, Card, Chip } from "../components/ui";
 import { moneyShort } from "../format";
 import { run, state } from "../store";
@@ -27,7 +28,14 @@ export function ConceptCard() {
                   <b>
                     {c.icon} {c.name}
                   </b>
-                  <Btn small kind={active ? "ghost" : "primary"} disabled={active || left > 0 || s.funds < cost} onClick={() => run({ type: "setConcept", id: c.id }, `定位已改為「${c.name}」`)}>
+                  <Btn small kind={active ? "ghost" : "primary"} disabled={active || left > 0 || s.funds < cost} onClick={() =>
+                      confirmThen(
+                        first
+                          ? `把商場定位為「${c.name}」？\n第一次選擇免費。之後再換要付 ${moneyShort(conceptChangeCost(s.level))}，並隔 28 遊戲日。`
+                          : `把定位從「${now.name}」改成「${c.name}」？\n費用 ${moneyShort(cost)}，現在就會扣款；之後 28 遊戲日內不能再換。`,
+                        () => run({ type: "setConcept", id: c.id }, `定位已改為「${c.name}」`),
+                      )
+                    }>
                     {active ? "目前定位" : left > 0 ? `${Math.ceil(left / TICKS_PER_DAY)} 日後可換` : first ? "選這個（免費）" : `改成這個 ${moneyShort(cost)}`}
                   </Btn>
                 </div>

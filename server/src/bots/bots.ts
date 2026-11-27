@@ -1,4 +1,4 @@
-import { CATEGORIES, CATEGORY_BY_ID, PROMOS, ZONES, expandInfo, ingredientFitsCategory, isCategoryAvailable, TEAM_EVENT_BY_ID, TECHS, TICKS_PER_DAY, spotsOf, isZoneUnlocked, techBlocker, techSlots, type MallState, type SlotKind } from "@coidle/shared";
+import { CATEGORIES, CATEGORY_BY_ID, PROMOS, conditionOf, isLeased, nextFacilityUnit, priceMultOf, parkingPolicy, timeInfo, weekFilms, ZONES, expandInfo, ingredientFitsCategory, isCategoryAvailable, TEAM_EVENT_BY_ID, TECHS, TICKS_PER_DAY, spotsOf, isZoneUnlocked, techBlocker, techSlots, type MallState, type SlotKind } from "@coidle/shared";
 import { advanceTo, applyCommand, createInitialState, createRng, type Command } from "../sim";
 import { resolveInbox } from "../sim/guests";
 
@@ -46,7 +46,7 @@ function tryApply(s: MallState, cmd: Command): MallState {
 }
 
 /** 勤勞玩家的一天：處理待辦、擴張、研發、促銷 */
-export interface Features { expand: boolean; promo: boolean; research: boolean; regulars: boolean; refresh: boolean; upkeep: boolean; tech: boolean; lease: boolean }
+export interface Features { expand: boolean; promo: boolean; research: boolean; regulars: boolean; refresh: boolean; upkeep: boolean; tech: boolean; lease: boolean; /** 蓋大型設施：省略／true＝全部種類都蓋；false＝不蓋；陣列＝只蓋這幾種（平衡掃描用） */ facility?: boolean | string[]; /** 大型設施的營運策略（平衡掃描用）：停車政策、價格倍率、加值服務、排最熱的片、是否招商；省略＝預設（免費、原價、不開加值、平均片、自營），但設備老舊時會維護 */ ops?: { parking?: "free" | "validate" | "paid"; price?: number; extra?: boolean; bestFilm?: boolean; leaseAll?: boolean } }
 const ALL: Features = { expand: true, promo: true, research: true, regulars: true, refresh: true, upkeep: true, tech: true, lease: true };
 
 function diligentDay(s0: MallState, rnd: () => number, f: Features = ALL): MallState {
@@ -99,6 +99,36 @@ function diligentDay(s0: MallState, rnd: () => number, f: Features = ALL): MallS
           s = tryApply(s, { type: "expandZone", zone: z.id });
           break;
         }
+      }
+    }
+  }
+  // 大型設施：影城先、停車場後，錢夠寬裕就蓋下一個單位（一次只蓋一個）
+  if (expand && f.facility !== false) {
+    for (const kind of ["cinema", "event_space", "conference", "bowling", "parking", "hotel", "capsule_hotel"].filter((k) => !Array.isArray(f.facility) || f.facility.includes(k))) {
+      const next = nextFacilityUnit(s, kind);
+      if (next.canBuy && next.def && s.funds > next.def.cost * 4) {
+        s = tryApply(s, { type: "buildFacility", kind });
+        break;
+      }
+    }
+  }
+  // 大型設施營運：維護、定價、政策、招商
+  if (f.facility !== false) {
+    const o = f.ops;
+    for (const fac of s.facilities ?? []) {
+      if (fac.units <= 0) continue;
+      if (o?.leaseAll && !isLeased(fac) && fac.ops?.offers?.length) {
+        s = tryApply(s, { type: "acceptFacilityOffer", kind: fac.kind, offerId: fac.ops.offers[0]!.id });
+        continue;
+      }
+      if (isLeased(fac)) continue;
+      if (conditionOf(fac) < 65) s = tryApply(s, { type: "maintainFacility", kind: fac.kind });
+      if (fac.kind === "parking" && o?.parking && parkingPolicy(fac) !== o.parking) s = tryApply(s, { type: "setFacilityOps", kind: "parking", policy: o.parking });
+      if (o?.price !== undefined && priceMultOf(fac) !== o.price) s = tryApply(s, { type: "setFacilityOps", kind: fac.kind, priceMult: o.price });
+      if (o?.extra !== undefined && fac.kind !== "parking" && !!fac.ops?.extra !== o.extra) s = tryApply(s, { type: "setFacilityOps", kind: fac.kind, extra: o.extra });
+      if (o?.bestFilm && fac.kind === "cinema") {
+        const best = weekFilms(timeInfo(s.tick).day).slice().sort((a, b) => b.heat - a.heat)[0]!;
+        if (fac.ops?.films?.[0] !== best.id) s = tryApply(s, { type: "setFacilityOps", kind: "cinema", films: Array.from({ length: fac.units }, () => best.id) });
       }
     }
   }

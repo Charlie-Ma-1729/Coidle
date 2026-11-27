@@ -3,6 +3,7 @@ import { useEffect, useState } from "preact/hooks";
 import { api } from "../../api";
 import { moneyShort } from "../../format";
 import { useAction } from "./useAction";
+import { confirmThen, notice } from "../ConfirmHost";
 
 const whole = (v: string) => Math.floor(Number(v));
 
@@ -35,7 +36,7 @@ export function ShareActions(props: { mallId: number; mallName: string; meId: nu
   const target = Number(to);
   const targetPerson = others.find((p) => p.userId === target);
   const price = shares >= 1 ? buybackPrice(shares, view.mallCash, view.total) : 0;
-  const needTarget = () => (targetPerson ? true : (alert("先選一位對象"), false));
+  const needTarget = () => (targetPerson ? true : (void notice("先選一位對象"), false));
 
   return (
     <div class="st-sec">
@@ -53,8 +54,9 @@ export function ShareActions(props: { mallId: number; mallName: string; meId: nu
           class="st-btn"
           disabled={busy || shares < 1 || shares > mine}
           onClick={() =>
-            confirm(`撤資：請商場回購 ${shares.toLocaleString()} 股，商場付你 ${price.toLocaleString()}（帳面價值 9 折，進你的錢包）？一次最多動用商場現金的 ${Math.round(BUYBACK_MAX_CASH_PCT * 100)}%。`) &&
-            run(() => api.buybackShares(mallId, shares), "已撤資，錢進你的錢包")
+            confirmThen(`撤資：請商場回購 ${shares.toLocaleString()} 股，商場付你 ${price.toLocaleString()}（帳面價值 9 折，進你的錢包）？一次最多動用商場現金的 ${Math.round(BUYBACK_MAX_CASH_PCT * 100)}%。`, () =>
+              run(() => api.buybackShares(mallId, shares), "已撤資，錢進你的錢包"),
+            )
           }
         >
           撤資{price > 0 ? `（約 ${moneyShort(price)}）` : ""}
@@ -77,7 +79,7 @@ export function ShareActions(props: { mallId: number; mallName: string; meId: nu
           <button
             class="st-btn"
             disabled={busy || shares < 1 || shares > mine || (!!targetPerson && !targetPerson.isMember)}
-            onClick={() => needTarget() && confirm(`把 ${shares.toLocaleString()} 股無償轉給「${targetPerson!.displayName}」？`) && run(() => api.transferShares(mallId, target, shares), "已轉出股份")}
+            onClick={() => needTarget() && confirmThen(`把 ${shares.toLocaleString()} 股無償轉給「${targetPerson!.displayName}」？`, () => run(() => api.transferShares(mallId, target, shares), "已轉出股份"))}
           >
             無償轉給
           </button>

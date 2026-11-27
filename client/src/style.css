@@ -279,3 +279,8 @@ input[type="range"] { width: 100%; accent-color: var(--pink); }
 .shop-pl-why .bad { color: var(--red); }
 .shop-pl-why .warn { color: var(--amber, #ffc857); }
 .shop-pl-why .info { color: var(--dim); }
+.row.end { justify-content: flex-end; }
+.dlg-backdrop { position: fixed; inset: 0; z-index: 120; background: rgba(4, 6, 14, 0.7); backdrop-filter: blur(3px); display: grid; place-items: center; padding: 16px; }
+.dlg { width: min(92vw, 400px); background: var(--panel-solid); border: 1px solid var(--line); border-radius: 18px; padding: 18px; display: grid; gap: 12px; box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55); animation: pop 0.18s; }
+.dlg h3 { font-size: 1.05rem; white-space: pre-wrap; }
+.dlg p { white-space: pre-wrap; }

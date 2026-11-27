@@ -1,4 +1,5 @@
 import { useEffect } from "preact/hooks";
+import { ConfirmHost } from "./components/ConfirmHost";
 import { Toasts } from "./components/ui";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { Console } from "./admin/Console";
@@ -6,6 +7,7 @@ import { Auth } from "./screens/Auth";
 import { Lobby } from "./screens/Lobby";
 import { StageGame } from "./stage/StageGame";
 import { StageDemo } from "./stage/StageScreen";
+import { FacilityDemo } from "./stage/FacilityDemo";
 import { authReady, bootstrap, mallId, user } from "./store";
 
 /**
@@ -16,6 +18,7 @@ import { authReady, bootstrap, mallId, user } from "./store";
  */
 export function App() {
   if (typeof location !== "undefined" && location.hash === "#stage-demo") return <StageDemo />;
+  if (typeof location !== "undefined" && location.hash.startsWith("#facility-demo")) return <FacilityDemo />;
   return <MainApp />;
 }
 
@@ -35,6 +38,7 @@ function MainApp() {
     <>
       {body}
       <Toasts />
+      <ConfirmHost />
       <UpdateBanner />
     </>
   );
