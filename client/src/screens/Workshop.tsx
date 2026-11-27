@@ -54,11 +54,11 @@ function directShops(s: PublicMallState): Shop[] {
 }
 
 /** 店面在哪一層（區域）：先看實際蓋在哪個店面格，找不到就用業態預設的區域 */
-function zoneOfShop(s: PublicMallState, shop: Shop): string {
+export function zoneOfShop(s: PublicMallState, shop: Shop): string {
   return s.slots.find((x) => x.id === shop.slot)?.zone ?? CATEGORY_BY_ID[shop.category]?.zone ?? "";
 }
 
-function floorTitle(zoneId: string): string {
+export function floorTitle(zoneId: string): string {
   const z = ZONES.find((x) => x.id === zoneId);
   return `${FLOOR_LABELS[zoneId] ?? zoneId} ${(z?.name ?? "").replace(/^(?:B1|\d+F)\s/, "")}`.trim();
 }

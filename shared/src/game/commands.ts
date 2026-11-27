@@ -8,6 +8,8 @@ export type Command =
   /** 概念定位：第一次免費，之後要付費並有冷卻 */
   | { type: "setConcept"; id: string }
   | { type: "setRestock"; shopId: string; rule: Partial<RestockRule> }
+  /** 統一補貨頁：把同一組規則套到多間店（例如整層樓） */
+  | { type: "setRestockMany"; shopIds: string[]; rule: Partial<RestockRule> }
   | { type: "orderStock"; shopId: string; qty: number; /** 急件：貴三成、交期縮短 */ rush?: boolean }
   | { type: "setCleaning"; level: 0 | 1 | 2 }
   | { type: "setMaintenance"; level: 0 | 1 | 2 }

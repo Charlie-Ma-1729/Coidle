@@ -26,6 +26,7 @@ import {
   type ConceptId,
   type MallState,
   type RestockRule,
+  type Shop,
 } from "@coidle/shared";
 import { resolveChoice } from "./events";
 import { resolveInbox, walkAct, walkFloor } from "./guests";
@@ -53,6 +54,20 @@ export type CommandResult = { ok: true; state: MallState } | { ok: false; error:
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 const isInt = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v);
+
+/** 把部分補貨規則合進現有規則；不合法回傳錯誤訊息字串 */
+function mergeRestock(cur: RestockRule, r: Partial<RestockRule>): RestockRule | string {
+  const next: RestockRule = { ...cur };
+  if (typeof r.enabled === "boolean") next.enabled = r.enabled;
+  if (typeof r.min === "number") next.min = Math.max(0, Math.round(r.min));
+  if (typeof r.target === "number") next.target = Math.max(0, Math.round(r.target));
+  if (typeof r.dailyBudget === "number") next.dailyBudget = Math.max(0, Math.round(r.dailyBudget));
+  if (typeof r.smart === "boolean") next.smart = r.smart;
+  if (typeof r.coverDays === "number") next.coverDays = Math.min(6, Math.max(1, Math.round(r.coverDays * 2) / 2));
+  if (typeof r.preShock === "boolean") next.preShock = r.preShock;
+  if (next.target < next.min) return "補貨目標不可低於下限";
+  return next;
+}
 
 /**
  * 套用玩家指令。呼叫前請先把狀態推進到「現在」（advanceTo），
@@ -107,17 +122,27 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
     case "setRestock": {
       const shop = findShop(cmd.shopId);
       if (!shop) return err("找不到這間店");
-      const r = cmd.rule;
-      const next: RestockRule = { ...shop.restock };
-      if (typeof r.enabled === "boolean") next.enabled = r.enabled;
-      if (typeof r.min === "number") next.min = Math.max(0, Math.round(r.min));
-      if (typeof r.target === "number") next.target = Math.max(0, Math.round(r.target));
-      if (typeof r.dailyBudget === "number") next.dailyBudget = Math.max(0, Math.round(r.dailyBudget));
-      if (typeof r.smart === "boolean") next.smart = r.smart;
-      if (typeof r.coverDays === "number") next.coverDays = Math.min(6, Math.max(1, Math.round(r.coverDays * 2) / 2));
-      if (typeof r.preShock === "boolean") next.preShock = r.preShock;
-      if (next.target < next.min) return err("補貨目標不可低於下限");
+      const next = mergeRestock(shop.restock, cmd.rule);
+      if (typeof next === "string") return err(next);
       shop.restock = next;
+      break;
+    }
+
+    // 統一補貨頁：一次把同一組規則套到多間店（分樓層設定）。有進貨需求且非出租的店才會套用
+    case "setRestockMany": {
+      if (!Array.isArray(cmd.shopIds) || cmd.shopIds.length === 0 || cmd.shopIds.length > 200) return err("沒有選到店");
+      const targets = cmd.shopIds.map(findShop);
+      if (targets.some((x) => !x)) return err("找不到這間店");
+      const done: Shop[] = [];
+      for (const shop of targets as Shop[]) {
+        const cat = CATEGORY_BY_ID[shop.category];
+        if (!cat || !categoryHasStock(cat) || shop.mode === "lease") continue;
+        const next = mergeRestock(shop.restock, cmd.rule);
+        if (typeof next === "string") return err(`「${shop.name}」：${next}`);
+        done.push(shop);
+        shop.restock = next;
+      }
+      if (done.length === 0) return err("這些店都不需要自己補貨");
       break;
     }
 

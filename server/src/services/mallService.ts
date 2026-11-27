@@ -130,6 +130,8 @@ export function describeCommand(s: MallState, cmd: Command, actor: string): stri
       return `${actor} 把商場的定位改為「${CONCEPT_BY_ID[cmd.id as ConceptId]?.name ?? "新定位"}」`;
     case "setRestock":
       return `${actor} 修改了「${shopName(cmd.shopId)}」的自動補貨規則`;
+    case "setRestockMany":
+      return `${actor} 批次修改了 ${cmd.shopIds.length} 間店的自動補貨規則`;
     case "orderStock":
       return `${actor} 為「${shopName(cmd.shopId)}」${cmd.rush ? "急件" : "手動"}進貨 ${cmd.qty} 份`;
     case "setCleaning":

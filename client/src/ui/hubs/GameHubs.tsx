@@ -21,6 +21,7 @@ import { Marketing } from "../../screens/Marketing";
 import { FacilityCards, HoursCards, TimeSettings } from "../../screens/Ops";
 import { Regulars } from "../../screens/Regulars";
 import { Reports } from "../../screens/Reports";
+import { Restock } from "../../screens/Restock";
 import { Rivals } from "../../screens/Rivals";
 import { Suppliers } from "../../screens/Suppliers";
 import { Tax } from "../../screens/Tax";
@@ -49,7 +50,16 @@ const HUB_TABS: Record<HubId, { title: string; tabs: TabDef[] }> = {
     title: "營運",
     tabs: [
       { id: "hours", label: "營業時間", render: () => <HoursCards /> },
-      { id: "supply", label: "補貨與供應", render: () => <Suppliers /> },
+      {
+        id: "supply",
+        label: "補貨與供應",
+        render: () => (
+          <>
+            <Restock />
+            <Suppliers />
+          </>
+        ),
+      },
       { id: "promo", label: "行銷", render: () => <Marketing /> },
       { id: "facility", label: "設備與稽查", render: () => <FacilityCards /> },
     ],

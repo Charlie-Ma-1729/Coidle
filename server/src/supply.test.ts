@@ -793,3 +793,16 @@ describe("restock and inventory", () => {
     expect(pickAlternative(u, "grain", "grain_yoneda")?.def.id).not.toBe("grain_roho");
   });
 });
+
+describe("統一補貨：setRestockMany", () => {
+  it("一次把規則套到多間店，出租與無庫存的店會略過，目標低於下限整批拒絕", () => {
+    const s0 = createInitialState(1, START);
+    const ids = s0.shops.map((x) => x.id);
+    const s = apply(s0, { type: "setRestockMany", shopIds: ids, rule: { smart: true, coverDays: 3 } });
+    for (const sh of s.shops.filter((x) => x.mode === "direct" && x.restock.smart)) expect(sh.restock.coverDays).toBe(3);
+    expect(s.shops.some((x) => x.restock.smart)).toBe(true);
+    expect(fails(s0, { type: "setRestockMany", shopIds: ids, rule: { min: 500, target: 100 } })).toBe(true);
+    expect(fails(s0, { type: "setRestockMany", shopIds: [], rule: { enabled: false } })).toBe(true);
+    expect(fails(s0, { type: "setRestockMany", shopIds: ["nope"], rule: { enabled: false } })).toBe(true);
+  });
+});
