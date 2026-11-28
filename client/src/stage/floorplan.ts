@@ -234,24 +234,26 @@ export function layoutFloor(slots: number[], opts: FloorPlanOptions = {}): Floor
 
   const rooms: RoomRect[] = [];
   const serviceBlocks: ServiceBlock[] = [];
-  let cursor = 0;
+  // 第 i 個店面（依加蓋順序）固定落在「第 i % 排數 排、該排第 floor(i / 排數) 格」：
+  // 每排內的順序是 左1（最靠中庭）、右1、左2、右2…。這樣擴建只會在尾端多出一格，
+  // 已經蓋好的店面不會被換位置（排的數量與每排格數剛好和 rowCounts 一致）。
   specs.forEach((spec, ri) => {
     const sp = split[ri]!;
     const cor = corridors[spec.corridor]!;
-    const place = (x: number) => {
-      const slot = slots[cursor++]!;
+    const rowSlots = slots.slice(0, n).filter((_, i) => i % specs.length === ri);
+    const place = (x: number, slot: number) => {
       rooms.push({ slot, row: spec.row, corridor: spec.corridor, x, y: spec.y, w: ROOM_W, h: ROOM_H, door: { x: x + ROOM_W / 2, y: cor.laneY } });
     };
     // 左群：靠中庭那側對齊（右對齊），外側多出的欄位做服務區塊
     for (let i = 0; i < cL; i++) {
       const x = SIDE + i * ROOM_W;
-      if (i >= cL - sp.left) place(x);
+      if (i >= cL - sp.left) place(x, rowSlots[(cL - 1 - i) * 2]!);
       else serviceBlocks.push({ x, y: spec.y, w: ROOM_W, h: ROOM_H, row: spec.row });
     }
     // 右群：靠中庭那側起排
     for (let i = 0; i < cR; i++) {
       const x = x1 + i * ROOM_W;
-      if (i < sp.right) place(x);
+      if (i < sp.right) place(x, rowSlots[i * 2 + 1]!);
       else serviceBlocks.push({ x, y: spec.y, w: ROOM_W, h: ROOM_H, row: spec.row });
     }
   });

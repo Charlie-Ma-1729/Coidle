@@ -22,6 +22,20 @@ describe("rowCounts", () => {
 describe("layoutFloor", () => {
   const sizes = Array.from({ length: 14 }, (_, i) => i + 1);
 
+  it("擴建只在尾端多一格：已經蓋好的店面不換排、不換邊、離中庭的距離不變（同一種版型內）", () => {
+    for (let n = 1; n < MAX_LOTS; n++) {
+      const a = layoutFloor(slots(n));
+      const b = layoutFloor(slots(n + 1));
+      if (a.layout !== b.layout) continue; // 8→9 格是壓縮型換島型，整層重畫，無法保持
+      const where = (p: FloorPlan, s: number) => {
+        const r = roomOfSlot(p, s)!;
+        const left = r.x < p.atrium.x0;
+        return { y: r.y, corridor: r.corridor, side: left ? "L" : "R", gap: left ? p.atrium.x0 - (r.x + r.w) : r.x - p.atrium.x1 };
+      };
+      for (const s of slots(n)) expect(where(b, s), `n=${n}→${n + 1} slot ${s}`).toEqual(where(a, s));
+    }
+  });
+
   it.each(sizes)("n=%i：每個店面格都有房間，slot 對得上", (n) => {
     const p = layoutFloor(slots(n));
     expect(p.rooms.map((r) => r.slot).sort((a, b) => a - b)).toEqual(slots(n));
