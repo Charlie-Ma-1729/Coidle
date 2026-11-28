@@ -33,6 +33,7 @@ import {
   footprintOf,
   isLiveSlot,
   openPlanEnabled,
+  instantBuildEnabled,
   planResize,
   shopSpan,
   spanCostFactor,
@@ -63,7 +64,13 @@ import { counterTenant, declineTenant, resolveRenewal, signTenant, terminateLeas
 import { cancelTech, startTech, techExperiment } from "./tech";
 import { cancelRnd, discardDish, listDish, startRnd, syncWorkshop, tastingAction, unlistDish } from "./workshop";
 import { addLog, isFeatureEnabled, isZoneUnlocked, nextId } from "./state";
-import { isOpen, placeOrder } from "./step";
+import { completeBuilds, isOpen, placeOrder } from "./step";
+
+/** 「建造立刻完工」旗標：把所有施工中的案子改成現在完工並當場收尾（開店、翻新） */
+function finishBuildsNow(s: MallState): void {
+  for (const b of s.builds) b.completeTick = Math.min(b.completeTick, s.tick);
+  completeBuilds(s);
+}
 import { timeInfo } from "./time";
 
 export type { Command };
@@ -246,6 +253,7 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
         ...(name ? { name } : {}),
       });
       addLog(s, "build", `開始興建「${cat.name}」。${lic ? `（同步辦理：${lic.name}）` : ""}`);
+      if (instantBuildEnabled(s)) finishBuildsNow(s);
       break;
     }
 
@@ -351,6 +359,7 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
         cost,
       });
       addLog(s, "build", `「${shop.name}」開始翻新。`);
+      if (instantBuildEnabled(s)) finishBuildsNow(s);
       break;
     }
 

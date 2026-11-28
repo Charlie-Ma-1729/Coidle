@@ -5,6 +5,7 @@ import {
   FOOTPRINT_BY_CATEGORY,
   DEMOLISH_FEE_RATE,
   OPEN_PLAN_FLAG,
+  INSTANT_BUILD_FLAG,
   STARTER_QUESTS,
   ZONES,
   expansionsOf,
@@ -216,5 +217,26 @@ describe("big shop unlocks new customer segments", () => {
     expect(shopDemand(cat, 2, "commuter")).toBeGreaterThan(shopDemand(cat, 1, "commuter") * 2);
     expect(shopDemand(cat, 2, "family")).toBeGreaterThan(0);
     expect(shopDemand(cat, 1, "family")).toBe(0);
+  });
+});
+
+describe("instant build flag", () => {
+  it("finishes shop builds and upgrades on the spot only when the flag is on", () => {
+    const off = mk(false);
+    const slot = emptyIn(off)[0]!;
+    const queued = apply(off, { type: "buildShop", slot: slot.id, category: CAT });
+    expect(queued.builds.length).toBe(1);
+    expect(queued.slots[slot.id]!.shopId).toBeNull();
+
+    const on = mk(false);
+    on.flags[INSTANT_BUILD_FLAG] = true;
+    const s2 = apply(on, { type: "buildShop", slot: slot.id, category: CAT });
+    expect(s2.builds.length).toBe(0);
+    const shop = s2.shops.find((x) => x.slot === slot.id)!;
+    expect(shop.category).toBe(CAT);
+    const lv = shop.level;
+    const s3 = apply(s2, { type: "upgradeShop", shopId: shop.id });
+    expect(s3.builds.length).toBe(0);
+    expect(s3.shops.find((x) => x.id === shop.id)!.level).toBe(lv + 1);
   });
 });

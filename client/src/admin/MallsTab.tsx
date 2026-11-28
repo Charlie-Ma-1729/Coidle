@@ -5,7 +5,7 @@ import { Badge, Card, confirmBox, Drawer, Empty, Field, fmtDateFull, fmtMoney, I
 import { errMsg, openMall, spectateMall, toast } from "../store";
 import { fullTimeText, lagDetail } from "../serverTime";
 
-const FLAGS: { id: string; name: string }[] = [{ id: "feature:lease", name: "租賃功能" }, { id: "feature:open_plan", name: "大店（併格）與拆除" }, ...ZONES.map((z) => ({ id: `zone:${z.id}`, name: z.name }))];
+const FLAGS: { id: string; name: string }[] = [{ id: "feature:lease", name: "租賃功能" }, { id: "feature:open_plan", name: "大店（併格）與拆除" }, { id: "feature:instant_build", name: "建造・翻新立刻完工（測試用）" },...ZONES.map((z) => ({ id: `zone:${z.id}`, name: z.name }))];
 type Filter = "all" | "online" | "sandbox";
 
 function MallDrawer(props: { m: AdminMall; ov: Overview; mine: boolean; reload: () => Promise<void>; onClose: () => void }) {

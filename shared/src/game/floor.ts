@@ -115,6 +115,9 @@ export function footprintOf(cat: Pick<CategoryDef, "id">): { options: Span[]; de
 
 /** 伺服器旗標：開了才允許 span > 1、拆除（每座商場一個，sandbox 先試；或環境變數 OPEN_PLAN_ENABLED=1 全服啟用） */
 export const OPEN_PLAN_FLAG = "feature:open_plan";
+/** 管理室旗標：開了的商場，開店與翻新下單後立刻完工（測試用，不影響其他商場） */
+export const INSTANT_BUILD_FLAG = "feature:instant_build";
+export const instantBuildEnabled = (s: Pick<MallState, "flags">): boolean => s.flags[INSTANT_BUILD_FLAG] === true;
 export const openPlanEnabled = (s: Pick<MallState, "flags">): boolean => s.flags[OPEN_PLAN_FLAG] === true;
 
 export const slotSpan = (x: Pick<Slot, "span">): number => x.span ?? 1;

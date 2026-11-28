@@ -176,7 +176,7 @@ export function isOpen(s: MallState, time: TimeInfo): boolean {
 }
 
 // ───────── 建造與進貨 ─────────
-function completeBuilds(s: MallState): void {
+export function completeBuilds(s: MallState): void {
   if (s.builds.length === 0) return;
   const rest = [];
   for (const b of s.builds) {
