@@ -67,6 +67,7 @@ import { generateDailyReviews, noteGrievance, resolveInboxDeadlines } from "./gu
 import { inspectionAtRisk, maybeSpawnInspection, runDueInspections } from "./inspections";
 import { effectivePrice, endPromos, noteSale, promoFatigueDaily, promoSatBonus, promoTraffic, startDuePromos } from "./promos";
 import { regularsDaily, runRegulars } from "./regulars";
+import { venturesDaily } from "./ventures";
 import { rivalsDaily, rivalsTick } from "./rivals";
 import { inventoryDaily } from "./inventory";
 import { legalDaily, resolveLegalDeadlines } from "./legal";
@@ -627,6 +628,7 @@ function rollover(s: MallState, time: TimeInfo): void {
   syncWorkshop(s);
   membersDaily(s); // 會員：新入會、兌換點數（成本）、點數失效、升級
   financeDaily(s); // 金融：營業中斷險保費與理賠、貸款還款與逾期、重整（利息與理賠要算進今天的日報）
+  venturesDaily(s, time); // 事業：營收與成本進今天的日報（要在日報之前）
   regularsDaily(s); // 熟客：久沒上門的漸漸疏遠、老主顧帶來口碑、意見與人生大事
   generateDailyReviews(s); // 今天客人的感受 → 幾則線上評價（先於日報，才算得進去）
   s.reports.push(buildReport(s));

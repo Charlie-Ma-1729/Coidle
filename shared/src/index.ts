@@ -30,6 +30,7 @@ export * from "./game/rivals";
 export * from "./game/workshop";
 export * from "./game/workshopPlay";
 export * from "./game/workshopMid";
+export * from "./game/ventures";
 export * from "./game/techPlay";
 export * from "./game/tax";
 export * from "./game/tech";

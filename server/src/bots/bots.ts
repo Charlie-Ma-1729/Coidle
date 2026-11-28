@@ -1,4 +1,4 @@
-import { CATEGORIES, CATEGORY_BY_ID, PROMOS, conditionOf, isLeased, nextFacilityUnit, priceMultOf, parkingPolicy, timeInfo, weekFilms, ZONES, expandInfo, ingredientFitsCategory, isCategoryAvailable, TEAM_EVENT_BY_ID, TECHS, TICKS_PER_DAY, spotsOf, isZoneUnlocked, techBlocker, techSlots, type MallState, type SlotKind } from "@coidle/shared";
+import { GROUP_FEE, GROUP_MIN_LEVEL, GROUP_MIN_REVENUE, VENTURE_BY_KIND, maxWorkers, CATEGORIES, CATEGORY_BY_ID, PROMOS, conditionOf, isLeased, nextFacilityUnit, priceMultOf, parkingPolicy, timeInfo, weekFilms, ZONES, expandInfo, ingredientFitsCategory, isCategoryAvailable, TEAM_EVENT_BY_ID, TECHS, TICKS_PER_DAY, spotsOf, isZoneUnlocked, techBlocker, techSlots, type MallState, type SlotKind } from "@coidle/shared";
 import { advanceTo, applyCommand, createInitialState, createRng, type Command } from "../sim";
 import { resolveInbox } from "../sim/guests";
 
@@ -46,7 +46,7 @@ function tryApply(s: MallState, cmd: Command): MallState {
 }
 
 /** 勤勞玩家的一天：處理待辦、擴張、研發、促銷 */
-export interface Features { expand: boolean; promo: boolean; research: boolean; regulars: boolean; refresh: boolean; upkeep: boolean; tech: boolean; lease: boolean; /** 蓋大型設施：省略／true＝全部種類都蓋；false＝不蓋；陣列＝只蓋這幾種（平衡掃描用） */ facility?: boolean | string[]; /** 大型設施的營運策略（平衡掃描用）：停車政策、價格倍率、加值服務、排最熱的片、是否招商；省略＝預設（免費、原價、不開加值、平均片、自營），但設備老舊時會維護 */ ops?: { parking?: "free" | "validate" | "paid"; price?: number; extra?: boolean; bestFilm?: boolean; leaseAll?: boolean } }
+export interface Features { expand: boolean; promo: boolean; research: boolean; regulars: boolean; refresh: boolean; upkeep: boolean; tech: boolean; lease: boolean; /** 蓋大型設施：省略／true＝全部種類都蓋；false＝不蓋；陣列＝只蓋這幾種（平衡掃描用） */ facility?: boolean | string[]; /** 集團與事業（階段 3，預設不開，不影響既有平衡數字）：設立集團、開辦人力派遣・教育、依商場規模調人力、報價 ×1.2、專攻派遣 */ venture?: boolean; /** 大型設施的營運策略（平衡掃描用）：停車政策、價格倍率、加值服務、排最熱的片、是否招商；省略＝預設（免費、原價、不開加值、平均片、自營），但設備老舊時會維護 */ ops?: { parking?: "free" | "validate" | "paid"; price?: number; extra?: boolean; bestFilm?: boolean; leaseAll?: boolean } }
 const ALL: Features = { expand: true, promo: true, research: true, regulars: true, refresh: true, upkeep: true, tech: true, lease: true };
 
 function diligentDay(s0: MallState, rnd: () => number, f: Features = ALL): MallState {
@@ -130,6 +130,16 @@ function diligentDay(s0: MallState, rnd: () => number, f: Features = ALL): MallS
         const best = weekFilms(timeInfo(s.tick).day).slice().sort((a, b) => b.heat - a.heat)[0]!;
         if (fac.ops?.films?.[0] !== best.id) s = tryApply(s, { type: "setFacilityOps", kind: "cinema", films: Array.from({ length: fac.units }, () => best.id) });
       }
+    }
+  }
+  // 集團與事業（opt-in）
+  if (f.venture) {
+    if (!s.group && s.level >= GROUP_MIN_LEVEL && s.totalRevenue >= GROUP_MIN_REVENUE && s.funds > GROUP_FEE * 6) s = tryApply(s, { type: "foundGroup", name: "機器人集團" });
+    if (s.group && !s.ventures?.staffing && s.funds > VENTURE_BY_KIND.staffing!.cost * 3) s = tryApply(s, { type: "foundVenture", kind: "staffing" });
+    const v = s.ventures?.staffing;
+    if (v) {
+      const want = Math.min(maxWorkers(s.level), Math.max(5, Math.round(s.shops.length * 0.8)));
+      if (v.workers !== want && s.funds > want * 400_000) s = tryApply(s, { type: "staffingOps", workers: want, ...(v.priceMult === 1.2 ? {} : { priceMult: 1.2 }), ...(v.focus === "dispatch" ? {} : { focus: "dispatch" as const }) });
     }
   }
   // 翻新：資金很寬裕時

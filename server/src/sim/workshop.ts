@@ -32,6 +32,7 @@ import {
   type PlayInput,
   ingredientFitsCategory,
   menuSlots,
+  trainingSkillBonus,
   rndCostOf,
   type CategoryGroup,
   type Dish,
@@ -208,7 +209,7 @@ export interface EvalResult {
 }
 
 export function chefLevel(s: MallState, shop: Shop): number {
-  return shop.level + Math.floor((s.workshop.skill[shop.id] ?? 0) / 4);
+  return shop.level + Math.floor((s.workshop.skill[shop.id] ?? 0) / 4) + trainingSkillBonus(s.ventures); // 集團的研修班：店員手藝 +1
 }
 
 export function tagTotals(picks: Picks): Record<string, number> {

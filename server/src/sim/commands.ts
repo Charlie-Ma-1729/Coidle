@@ -36,6 +36,7 @@ import {
   slotBusy,
   slotSpan,
   openPlanEnabled,
+  dayOfTick,
   instantBuildEnabled,
   planResize,
   shopSpan,
@@ -68,6 +69,7 @@ import { cancelTech, startTech, techExperiment } from "./tech";
 import { cancelRnd, resolveRndEvent, discardDish, listDish, startRnd, syncWorkshop, tastingAction, unlistDish } from "./workshop";
 import { addLog, isFeatureEnabled, isZoneUnlocked, nextId } from "./state";
 import { completeBuilds, isOpen, placeOrder } from "./step";
+import { foundGroup, foundVenture, renameGroup, resolveStaffingEvent, staffingOps } from "./ventures";
 
 /** 「建造立刻完工」旗標：把所有施工中的案子改成現在完工並當場收尾（開店、翻新） */
 function finishBuildsNow(s: MallState): void {
@@ -602,6 +604,36 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
     case "cancelRnd": {
       const r = cancelRnd(s, cmd.shopId);
       if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "foundGroup": {
+      const e = foundGroup(s, cmd.name);
+      if (e) return err(e);
+      break;
+    }
+
+    case "renameGroup": {
+      const e = renameGroup(s, cmd.name);
+      if (e) return err(e);
+      break;
+    }
+
+    case "foundVenture": {
+      const e = foundVenture(s, cmd.kind, { day: dayOfTick(s.tick) });
+      if (e) return err(e);
+      break;
+    }
+
+    case "staffingOps": {
+      const e = staffingOps(s, cmd);
+      if (e) return err(e);
+      break;
+    }
+
+    case "resolveStaffingEvent": {
+      const e = resolveStaffingEvent(s, cmd.optionId, { day: dayOfTick(s.tick) });
+      if (e) return err(e);
       break;
     }
 

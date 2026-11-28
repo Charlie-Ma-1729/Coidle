@@ -28,6 +28,7 @@ import { Suppliers } from "../../screens/Suppliers";
 import { Tax } from "../../screens/Tax";
 import { MallControls, TeamMembers } from "../../screens/Team";
 import { Tech } from "../../screens/Tech";
+import { Group } from "../../screens/Group";
 import { Workshop } from "../../screens/Workshop";
 import { World } from "../../screens/World";
 import type { GlyphKey } from "../../stage/glyphs";
@@ -90,6 +91,7 @@ const HUB_TABS: Record<HubId, { title: string; tabs: TabDef[] }> = {
       { id: "workshop", label: "研發工坊", render: () => <Workshop /> },
       { id: "tech", label: "科技", render: () => <Tech /> },
       { id: "leasing", label: "招商", render: () => <Leasing /> },
+      { id: "group", label: "集團", render: () => <Group /> },
     ],
   },
   finance: {

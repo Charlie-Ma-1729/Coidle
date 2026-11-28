@@ -285,6 +285,16 @@ export function describeCommand(s: MallState, cmd: Command, actor: string): stri
       return `${actor} 讓「${shopName(cmd.shopId)}」開始研發新作品`;
     case "cancelRnd":
       return `${actor} 取消了「${shopName(cmd.shopId)}」的研發`;
+    case "foundGroup":
+      return `${actor} 設立了集團「${String(cmd.name).slice(0, 16)}」`;
+    case "renameGroup":
+      return `${actor} 把集團改名為「${String(cmd.name).slice(0, 16)}」`;
+    case "foundVenture":
+      return `${actor} 開辦了新事業`;
+    case "staffingOps":
+      return `${actor} 調整了人力派遣・教育的經營`;
+    case "resolveStaffingEvent":
+      return `${actor} 處理了人力派遣・教育的狀況`;
     case "resolveRndEvent":
       return `${actor} 處理了「${shopName(cmd.shopId)}」研發途中的狀況`;
     case "tastingAction":
@@ -1553,6 +1563,10 @@ export class MallService {
     if (cmd.type === "takeLoan" || cmd.type === "setBizInsurance") {
       // 借款與投保花公司的錢：只有管事的人；借款還要追上伺服器時間（避免用舊資訊套利）
       this.assertAuthority(mallId, user.id, cmd.type === "takeLoan" ? "向金融機構借款" : "投保營業中斷險");
+    }
+    if (cmd.type === "foundGroup" || cmd.type === "renameGroup" || cmd.type === "foundVenture") {
+      // 設立集團、改名、開辦事業是「改變規模與方向」的決定：只有掌權者（持股過半的實際控制人，沒有就是創辦人）
+      this.assertAuthority(mallId, user.id, cmd.type === "foundVenture" ? "開辦事業" : cmd.type === "foundGroup" ? "設立集團" : "替集團改名");
     }
     if (cmd.type === "takeLoan") {
       const blocked = this.serverFor(mallId) ? financeBlocker(this.serverTick() - current.tick) : null;

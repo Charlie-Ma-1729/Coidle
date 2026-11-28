@@ -1785,4 +1785,28 @@ describe("stage UI panels with real state", () => {
     expect(operate.textContent).toContain("營運");
     expect(operate.querySelector(".st-badge")?.textContent).toBe(String(badges.operate));
   });
+  it("Group: shows the founding requirements, then the staffing venture after founding", async () => {
+    store.state.value = publicState(1, (s) => {
+      s.level = 2;
+      s.totalRevenue = 5_000_000;
+    });
+    const { Group } = await import("./screens/Group");
+    await mount(<Group />);
+    expect(container.textContent).toContain("設立集團");
+    expect(container.textContent).toContain("Lv.4");
+    const found = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("設立集團（"))!;
+    expect(found.hasAttribute("disabled")).toBe(true); // 條件沒達到、也沒取名
+
+    store.state.value = publicState(1, (s) => {
+      s.level = 5;
+      s.group = { name: "朝日集團", foundedTick: 0 };
+      s.ventures = { staffing: { since: 0, workers: 12, classes: 2, xp: { dispatch: 10, training: 0 }, hist: [{ day: 1, demand: 20, placed: 12, students: 40, revenue: 900_000, cost: 700_000 }], last: { day: 1, demand: 20, placed: 12, students: 40, revenue: 900_000, cost: 700_000 }, profit: -1_000_000 } };
+    });
+    await mount(<Group />);
+    expect(container.textContent).toContain("朝日集團");
+    expect(container.textContent).toContain("人力派遣・教育");
+    expect(container.textContent).toContain("12 人");
+    expect(container.textContent).toContain("專攻派遣");
+  });
+
 });

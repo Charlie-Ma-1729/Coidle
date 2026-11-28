@@ -3,6 +3,7 @@
 // 區域、業態、事件、解鎖條件全部是「資料」，新增內容不需改引擎。
 
 import type { FinanceState } from "./finance";
+import type { GroupState, VenturesState } from "./ventures";
 
 export type PersonaId = "tourist" | "local" | "commuter" | "family" | "student" | "couple";
 export type IndexId = "localRep" | "touristHeat";
@@ -1050,6 +1051,10 @@ export interface MallState {
   patrol?: PatrolState;
   /** 大型設施（地下停車場…；舊存檔沒有）。見 facilities.ts */
   facilities?: Facility[];
+  /** 集團（商場成為母公司；舊存檔沒有）。見 ventures.ts */
+  group?: GroupState;
+  /** 事業（人力派遣・教育…；舊存檔沒有）。見 ventures.ts */
+  ventures?: VenturesState;
   walk: { nextTick: number; voices: WalkVoice[] };
   today: DayStats;
   reports: DailyReport[];

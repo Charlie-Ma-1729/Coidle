@@ -4,7 +4,7 @@
  * 「全部功能」索引會把沒顯示的也列出來，並說明何時開放。
  * 純函式、不依賴 DOM，可單元測試。
  */
-import { leaseEnabled, LEASE_MIN_LEVEL, type PublicMallState } from "@coidle/shared";
+import { GROUP_MIN_LEVEL, leaseEnabled, LEASE_MIN_LEVEL, type PublicMallState } from "@coidle/shared";
 import type { HubId } from "../stage/model";
 
 export const TECH_MIN_LEVEL = 2;
@@ -55,6 +55,14 @@ export const FEATURES: FeatureDef[] = [
     label: "招商",
     unlockHint: `商場 Lv.${LEASE_MIN_LEVEL} 開放`,
     visible: (s) => leaseEnabled(s) || s.leasing.candidates.length > 0 || s.leasing.renewals.length > 0 || s.shops.some((x) => x.tenant && !x.tenant.own),
+  },
+  {
+    id: "develop.group",
+    hub: "develop",
+    tab: "group",
+    label: "集團",
+    unlockHint: `商場 Lv.${GROUP_MIN_LEVEL} 以上、累計營收達標後可以設立集團`,
+    visible: (s) => !!s.group || s.level >= GROUP_MIN_LEVEL,
   },
   // 財務
   { id: "finance", hub: "finance", tab: null, label: "財務", unlockHint: "", visible: always },
