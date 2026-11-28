@@ -27,6 +27,7 @@ import {
   memberShare,
   memberTier,
   regularTier,
+  techFx,
   type PublicMallState,
   type RegularDef,
   type RegularState,
@@ -237,6 +238,13 @@ export function Members({ s }: { s: PublicMallState }) {
   const tier = memberTier(count);
   const next = MEMBER_TIERS.find((t) => t.min > count);
   const share = Math.round(memberShare(count) * 100);
+  if (!techFx(s.tech.done).memberCard && rate === 0 && count === 0) {
+    return (
+      <Card title="🪪 會員制（點數卡）" right={<Chip tone="dim">🔒 尚未解鎖</Chip>}>
+        <p class="small dim">要先在「科技」研發<b>會員與點數系統</b>（需要商場 Lv.2、先完成智慧導覽 App），才能發行自家點數卡。</p>
+      </Card>
+    );
+  }
   return (
     <Card title="🪪 會員制（點數卡）" right={<Chip tone="cyan">{tier.icon} {tier.name}</Chip>}>
       <div class="stack">

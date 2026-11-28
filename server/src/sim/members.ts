@@ -7,6 +7,7 @@ import {
   memberTier,
   newMemberState,
   signupRate,
+  techFx,
   type MallState,
   type MemberState,
 } from "@coidle/shared";
@@ -32,6 +33,9 @@ export function earnPoints(s: MallState, revenue: number): void {
 
 export function setMembership(s: MallState, rate: number): MemberResult {
   if (!(MEMBER_RATES as readonly number[]).includes(rate)) return { ok: false, error: "回饋率無效" };
+  // 要先研發「會員與點數系統」；已經在發點數或有會員的舊存檔照舊可用
+  const cur = s.members;
+  if (!techFx(s.tech.done).memberCard && !((cur?.rate ?? 0) > 0 || (cur?.count ?? 0) > 0)) return { ok: false, error: "要先研發「會員與點數系統」科技" };
   const m = membersOf(s);
   if (m.rate === rate) return { ok: false, error: "已經是這個回饋率了" };
   const was = m.rate;

@@ -296,6 +296,9 @@ describe("membership (points card)", () => {
 
   it("setting the rate is validated; points are a liability and only cost money when redeemed", () => {
     let s = mall();
+    const locked = applyCommand(s, { type: "setMembership", rate: 3 });
+    expect(locked.ok).toBe(false); // 沒研發「會員與點數系統」不能發點數
+    s.tech.done.push("t_member");
     expect(applyCommand(s, { type: "setMembership", rate: 4 }).ok).toBe(false);
     expect(applyCommand(s, { type: "setMembership", rate: 0 }).ok).toBe(false); // 已經是 0
     s = must(applyCommand(s, { type: "setMembership", rate: 3 }));
@@ -329,6 +332,7 @@ describe("membership (points card)", () => {
 
   it("a mall with the card on earns points in real play, and reports them", () => {
     let s = mall(2);
+    s.tech.done.push("t_member");
     s = must(applyCommand(s, { type: "setMembership", rate: 3 }));
     s.members!.count = 800;
     const out = advanceTo(s, START + 4 * DAY);

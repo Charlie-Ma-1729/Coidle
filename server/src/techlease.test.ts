@@ -80,6 +80,24 @@ describe("tech tree data", () => {
     expect(guide.traffic.all).toBeCloseTo(1.03, 6);
     expect(techFx(["t_ai"]).autoRefresh).toBe(true);
     expect(techFx(["t_data"]).forecast).toBe(true);
+    expect(techFx([]).memberCard).toBe(false);
+    expect(techFx(["t_member"]).memberCard).toBe(true);
+  });
+
+  it("new techs hang off existing ones and stay within the four branches", () => {
+    const need: Record<string, string[]> = {
+      t_crm: ["t_member", "t_data"],
+      t_voice: ["t_ar"],
+      t_iot: ["t_robot"],
+      t_digital_twin: ["t_iot", "t_data"],
+      t_ev: ["t_bms"],
+      t_storage: ["t_solar"],
+      t_epos: ["t_portal"],
+      t_popup: ["t_portal"],
+    };
+    for (const [id, req] of Object.entries(need)) expect(TECH_BY_ID[id]!.requires.sort(), id).toEqual([...req].sort());
+    expect(TECH_BY_ID["t_coupon"]).toBeDefined();
+    expect(TECH_BY_ID["t_roster"]!.requires).toEqual(["t_checkout"]);
   });
 });
 
