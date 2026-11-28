@@ -1793,7 +1793,7 @@ describe("stage UI panels with real state", () => {
     const { Group } = await import("./screens/Group");
     await mount(<Group />);
     expect(container.textContent).toContain("設立集團");
-    expect(container.textContent).toContain("Lv.4");
+    expect(container.textContent).toContain("Lv.5");
     const found = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("設立集團（"))!;
     expect(found.hasAttribute("disabled")).toBe(true); // 條件沒達到、也沒取名
 

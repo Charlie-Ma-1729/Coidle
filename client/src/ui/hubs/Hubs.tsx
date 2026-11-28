@@ -22,7 +22,7 @@ const HUB_PLAN: Record<Exclude<HubId, "operate">, { title: string; tabs: { tab: 
       { tab: { id: "workshop", label: "研發工坊" }, from: ["工坊（Workshop）：素材、配方、試吃、線索"], note: "試吃待決會顯示在待辦中心與工坊入口的徽章。" },
       { tab: { id: "tech", label: "科技" }, from: ["科技（Tech）：12 項科技"], note: "第一次可研發時才顯示。" },
       { tab: { id: "leasing", label: "招商", badge: 2 }, from: ["招商（Leasing）：候選品牌、還價、續約"], note: "目前有 2 個品牌想進駐（示範）。" },
-      { tab: { id: "group", label: "集團" }, from: ["集團（Group）：設立集團、開辦事業（人力派遣・教育）"], note: "商場 Lv.4 以上才顯示。" },
+      { tab: { id: "group", label: "集團" }, from: ["集團（Group）：設立集團、開辦事業（人力派遣・教育）"], note: "商場 Lv.5 以上才顯示。" },
     ],
   },
   finance: {

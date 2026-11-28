@@ -6,11 +6,11 @@ import { calendarDay } from "./calendar";
 // 商場長成「集團」之後，可以開辦事業（子公司）。事業是 `MallState.ventures` 的選填欄位，收支進同一套每日帳／稅／報表。
 // 這個檔案只有規則與資料（純函式）；結算在 server/src/sim/ventures.ts。
 
-export const GROUP_MIN_LEVEL = 4;
-/** 累計營收達這個數字才能設立集團（勤勞玩家約第 50–60 天） */
-export const GROUP_MIN_REVENUE = 200_000_000;
+export const GROUP_MIN_LEVEL = 5;
+/** 累計營收達這個數字才能設立集團（勤勞玩家約第 80–100 天；2026-11-29 從 2 億調高到 5 億） */
+export const GROUP_MIN_REVENUE = 500_000_000;
 /** 設立集團（控股公司）的登記與專家費用 */
-export const GROUP_FEE = 3_000_000;
+export const GROUP_FEE = 10_000_000;
 export const GROUP_NAME_MAX = 16;
 
 export type VentureKind = "staffing";

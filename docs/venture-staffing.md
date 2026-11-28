@@ -1,10 +1,10 @@
 # 集團與第一個事業：人力派遣・教育（階段 3 第一批）
 
-> 狀態（2026-11-29）：已實作並 commit，**尚未部署**。規則在 `shared/src/game/ventures.ts`，結算在 `server/src/sim/ventures.ts`，畫面在 `client/src/screens/Group.tsx`（開發樞紐的「集團」分頁，商場 Lv.4 以上顯示）。測試 `server/src/ventures.test.ts`、`client/src/ui.test.tsx` 的 Group 一項；掃描 `server/src/bots/ventsweep.ts`（純函式全年損益）與 `ventrun.ts`（機器人開／關對照）。
+> 狀態（2026-11-29）：已實作並 commit，**尚未部署**。規則在 `shared/src/game/ventures.ts`，結算在 `server/src/sim/ventures.ts`，畫面在 `client/src/screens/Group.tsx`（開發樞紐的「集團」分頁，商場 Lv.5 以上顯示）。測試 `server/src/ventures.test.ts`、`client/src/ui.test.tsx` 的 Group 一項；掃描 `server/src/bots/ventsweep.ts`（純函式全年損益）與 `ventrun.ts`（機器人開／關對照）。
 
 ## 集團
 - `MallState.group?: { name, foundedTick }`（可選欄位，舊存檔沒有、不升版）。指令 `foundGroup { name }`、`renameGroup { name }`。
-- 設立條件：商場 Lv.4、累計營收 ≥ ¥200M（勤勞玩家約第 50–60 天）、資金付得起設立費 ¥3M（記為費用，不退）。名稱 1–16 字（`cleanGroupName`）。
+- 設立條件：商場 Lv.5、累計營收 ≥ ¥500M（勤勞玩家約第 80–100 天；原本 Lv.4／2 億，2026-11-29 調高）、資金付得起設立費 ¥10M（記為費用，不退）。名稱 1–16 字（`cleanGroupName`）。
 - **只有掌權者**（持股過半的實際控制人；沒有就是創辦人）能設立、改名、開辦事業（`MallService.runCommand` 的 `assertAuthority`）。日常經營（`staffingOps`、處理事件）沿用現有規則：有股份的成員都能做。
 - 集團是「商場成為母公司」：事業的收支併進這座商場的日報與稅，沒有新的資金進出路徑（`equity.md` 原則 4 的封閉清單不變）。
 

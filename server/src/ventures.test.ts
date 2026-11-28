@@ -45,7 +45,7 @@ const withVenture = (s = withGroup()): MallState => apply(s, { type: "foundVentu
 
 describe("group founding", () => {
   it("needs level, cumulative revenue, cash and a valid name; only once", () => {
-    expect(fails(mk(3), { type: "foundGroup", name: "A集團" })).toMatch(/Lv\.4/);
+    expect(fails(mk(4), { type: "foundGroup", name: "A集團" })).toMatch(/Lv\.5/);
     const poorRev = mk();
     poorRev.totalRevenue = 1;
     expect(fails(poorRev, { type: "foundGroup", name: "A集團" })).toMatch(/累計營收/);
