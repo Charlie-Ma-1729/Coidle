@@ -65,6 +65,20 @@ describe("NPC malls are a pure function of the real time", () => {
     expect(NPC_MALLS.length).toBeGreaterThanOrEqual(8);
   });
 
+  it("chase the top player instead of stalling at a fixed ceiling", () => {
+    const t = WORLD_EPOCH_MS + 200 * DAY;
+    const plain = npcEntries(t).map((e) => e.score);
+    const chased = npcEntries(t, {}, 90).map((e) => e.score);
+    expect(Math.max(...chased)).toBeGreaterThan(Math.max(...plain));
+    expect(Math.max(...chased)).toBeGreaterThan(75);
+    expect(Math.max(...chased)).toBeLessThanOrEqual(97);
+    // 起伏像人在經營：相鄰幾天的分數不是同一條平滑曲線
+    const def = NPC_MALLS[0]!;
+    const xs = Array.from({ length: 30 }, (_, i) => npcEntry(def, t + i * DAY).score);
+    expect(new Set(xs).size).toBeGreaterThan(15);
+    expect(npcEntry(def, t, undefined, 90)).toEqual(npcEntry(def, t, undefined, 90));
+  });
+
   it("rank entries three ways", () => {
     const list = npcEntries(WORLD_EPOCH_MS + 100 * DAY);
     for (const board of ["score", "revenue", "rep"] as const) {

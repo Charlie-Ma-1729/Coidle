@@ -75,14 +75,17 @@ export class NpcService {
     this.cache = null;
   }
 
+  /** 目前最頂尖真人商場的綜合分數（由 WorldService 提供）；NPC 以此為追趕目標 */
+  pace: () => number = () => 0;
+
   entries(at = this.now()): DirectoryEntry[] {
-    return npcEntries(at, this.overrides());
+    return npcEntries(at, this.overrides(), this.pace());
   }
 
   /** 包含被隱藏的（管理畫面要看得到） */
   entryAny(npcId: string, at = this.now()): DirectoryEntry | null {
     const def = NPC_BY_ID[npcId];
-    return def ? npcEntry(def, at, this.overrides()[npcId]) : null;
+    return def ? npcEntry(def, at, this.overrides()[npcId], this.pace()) : null;
   }
 
   isHidden(npcId: string): boolean {

@@ -41,6 +41,14 @@ export class WorldService {
     private readonly now: () => number,
   ) {
     this.npc = new NpcService(repo, now);
+    let cache: { at: number; v: number } | null = null;
+    this.npc.pace = () => {
+      const t = now();
+      if (cache && t - cache.at < 5_000 && t >= cache.at) return cache.v;
+      const v = this.repo.directoryRows().reduce((m, r) => Math.max(m, r.score), 0);
+      cache = { at: t, v };
+      return v;
+    };
   }
 
   /** 對外代號（或內部代號）→ 內部代號；NPC 對外長得和真人商場一樣（"m:9000+"） */
@@ -121,7 +129,7 @@ export class WorldService {
           eligible: p.created_at <= end - SEASON_MIN_AGE_MS && p.revenue30 > 0,
         })),
         ...NPC_MALLS.filter((n) => !this.npc.overrides()[n.id]?.hidden).map((n) => {
-          const e = npcEntry(n, end, this.npc.overrides()[n.id]);
+          const e = npcEntry(n, end, this.npc.overrides()[n.id], this.npc.pace());
           return { key: e.key, kind: "npc" as const, name: e.name, score: e.score, level: e.level, revenue30: e.revenue30, eligible: false };
         }),
       ];

@@ -110,12 +110,50 @@ export function npcStockouts(id: string, nowMs: number): number {
   return r < 0.12 ? 1 + (r < 0.04 ? 1 : 0) : 0;
 }
 
-/** 這個 NPC 商場在某個真實時間點的公開資料。純函式：同樣的時間永遠得到同樣的結果，所以不用存檔 */
-export function npcEntry(def: NpcMallDef, nowMs: number, ov?: NpcOverride): DirectoryEntry {
+const hash01 = (s: string): number => {
+  let h = 2166136261;
+  for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+  return (h >>> 0) / 4294967296;
+};
+const smooth = (t: number): number => t * t * (3 - 2 * t);
+
+/**
+ * 「經營者的手感」：每 6 天一段，隨機（但由 id 與日期決定）有檔期衝刺（+3～+8）、
+ * 整修／缺人手的低潮（−2～−6）或平穩；段與段之間平滑銜接，所以像是有人在調整策略，而不是規律的正弦波。
+ */
+function npcOperatorSwing(id: string, days: number): number {
+  const block = Math.floor(days / 6);
+  const at = (b: number): number => {
+    const r = hash01(`${id}:op:${b}`);
+    if (r < 0.28) return 3 + hash01(`${id}:opa:${b}`) * 5;
+    if (r < 0.4) return -(2 + hash01(`${id}:opb:${b}`) * 4);
+    return (hash01(`${id}:opc:${b}`) - 0.5) * 1.6;
+  };
+  return at(block) + (at(block + 1) - at(block)) * smooth(days / 6 - block);
+}
+
+/** 這個 NPC 追著頂尖玩家的「企圖心」：0.80～0.98，每座不同，所以有的緊貼、有的落後 */
+export function npcAmbition(def: NpcMallDef): number {
+  return 0.8 + 0.18 * hash01(`${def.id}:ambition`);
+}
+
+/**
+ * 這個 NPC 商場在某個真實時間點的公開資料。純函式：同樣的輸入永遠得到同樣的結果，所以不用存檔。
+ * `pace`＝目前最頂尖真人商場的綜合分數：NPC 像有人在經營，會被玩家的進度推著走，
+ * 不會停在固定天花板被追過（沒給或 ≤0 就只走自己的曲線）。
+ */
+export function npcEntry(def: NpcMallDef, nowMs: number, ov?: NpcOverride, pace = 0): DirectoryEntry {
   const days = Math.max(0, (nowMs - WORLD_EPOCH_MS) / DAY_MS);
-  const growth = (def.cap - def.base) * (1 - Math.exp(-days / 50));
+  // 起步較快、之後仍緩慢爬升（不再停在 cap）
+  const growth = (def.cap - def.base) * (1 - Math.exp(-days / 50)) + (92 - def.cap) * 0.4 * (1 - Math.exp(-days / 220));
   const wobble = 2.5 * Math.sin(days / 11 + def.phase) + 1.2 * Math.sin(days / 3.1 + def.phase * 2);
-  const baseScore = Math.max(10, Math.min(95, def.base + growth + wobble));
+  let own = def.base + growth + wobble + npcOperatorSwing(def.id, days);
+  if (pace > 0) {
+    // 追趕有延遲：差距越大追得越快，但不會一步到位
+    const target = pace * npcAmbition(def) + wobble * 0.6 + npcOperatorSwing(def.id, days) * 0.5;
+    if (target > own) own += (target - own) * 0.8;
+  }
+  const baseScore = Math.max(10, Math.min(pace > 0 ? 97 : 95, own));
   const score = Math.round(clampN(baseScore * (ov?.scoreMult ?? 1), 5, 99) * 10) / 10;
   const level = clampN(Math.floor((score - 22) / 6) + Math.round(ov?.levelDelta ?? 0), 1, 8);
   const rep = Math.round(clampN(Math.min(95, 38 + score * 0.55 + wobble) + (ov?.repDelta ?? 0), 0, 100) * 10) / 10;
@@ -140,8 +178,8 @@ export function npcEntry(def: NpcMallDef, nowMs: number, ov?: NpcOverride): Dire
   };
 }
 
-export function npcEntries(nowMs: number, overrides: Record<string, NpcOverride> = {}): DirectoryEntry[] {
-  return NPC_MALLS.filter((n) => !overrides[n.id]?.hidden).map((n) => npcEntry(n, nowMs, overrides[n.id]));
+export function npcEntries(nowMs: number, overrides: Record<string, NpcOverride> = {}, pace = 0): DirectoryEntry[] {
+  return NPC_MALLS.filter((n) => !overrides[n.id]?.hidden).map((n) => npcEntry(n, nowMs, overrides[n.id], pace));
 }
 
 // ───────── 對外的商場代號 ─────────
