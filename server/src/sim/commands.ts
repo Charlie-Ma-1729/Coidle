@@ -379,8 +379,8 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
       if (to.id === from.id) return err("已經在這個店面了");
       if (!isLiveSlot(to) || slotSpan(to) !== 1) return err("目的地不是一般店面");
       if (slotBusy(s, to)) return err("目的地已被使用或正在施工");
-      if (!isZoneUnlocked(s, to.zone)) return err("這個區域尚未解鎖");
-      const q = moveQuote(cat.buildCost, cat.buildTicks, 1, to.zone !== from.zone);
+      if (to.zone !== from.zone) return err("只能搬到同一層樓的店面");
+      const q = moveQuote(cat.buildCost, cat.buildTicks, 1);
       if (s.funds < q.cost) return err(`資金不足（搬遷費 ¥${q.cost.toLocaleString("en-US")}）`);
       s.funds -= q.cost;
       s.today.repairs += q.cost;

@@ -34,7 +34,6 @@ import {
   spanCostFactor,
   ZONE_BY_ID,
   isLiveSlot,
-  isZoneUnlocked,
   moveQuote,
   slotBusy,
   slotSpan,
@@ -44,6 +43,7 @@ import { Btn, Card, Chip, Field, Meter, Sheet } from "../components/ui";
 import { gameDuration, money, num } from "../format";
 import { categoryIcon } from "../icons";
 import { run, state } from "../store";
+import { FLOOR_LABELS } from "../stage/adapter";
 import { confirmThen } from "../components/ConfirmHost";
 
 function NumberInput(props: { value: number; onChange: (v: number) => void; step?: number; min?: number }) {
@@ -65,26 +65,26 @@ function MoveCard({ shop }: { shop: Shop }) {
   const cat = CATEGORY_BY_ID[shop.category]!;
   const from = s.slots[shop.slot];
   const moving = s.builds.some((b) => b.shopId === shop.id);
-  const free = s.slots.filter((x) => x.id !== shop.slot && isLiveSlot(x) && slotSpan(x) === 1 && !slotBusy(s, x) && isZoneUnlocked(s, x.zone));
+  const free = s.slots.filter((x) => x.id !== shop.slot && x.zone === from?.zone && isLiveSlot(x) && slotSpan(x) === 1 && !slotBusy(s, x));
   const [to, setTo] = useState<number | null>(null);
-  const dest = free.find((x) => x.id === to) ?? null;
-  const q = dest && from ? moveQuote(cat.buildCost, cat.buildTicks, 1, dest.zone !== from.zone) : null;
-  const label = (x: (typeof free)[number]) => `${ZONE_BY_ID[x.zone]?.name ?? x.zone}・第 ${x.id + 1} 號店面`;
+  const dest = free.find((x) => x.id === to) ?? free[0] ?? null;
+  const q = dest ? moveQuote(cat.buildCost, cat.buildTicks, 1) : null;
+  const label = (x: (typeof free)[number]) => `${FLOOR_LABELS[x.zone] ?? ""} #${x.id + 1}`;
   return (
     <Card title="🚚 搬遷">
       <div class="stack">
-        <p class="small dim">把店搬到另一個空店面：要付搬遷費（跨區更貴）、搬遷期間歇業；庫存、等級與菜單都會帶過去。</p>
+        <p class="small dim">把店搬到同一層樓的另一個空店面：要付搬遷費、搬遷期間歇業；庫存、等級與菜單都會帶過去。</p>
         {free.length === 0 ? (
-          <p class="small dim">目前沒有可搬的空店面（先擴建或拆除重排）。</p>
+          <p class="small dim">這一層沒有空店面可搬（先擴建或拆除重排）。</p>
         ) : (
-          <select value={to ?? ""} onChange={(e) => setTo((e.currentTarget as HTMLSelectElement).value === "" ? null : Number((e.currentTarget as HTMLSelectElement).value))}>
-            <option value="">選擇目的地…</option>
+          <div class="row small">
+            <span class="dim">店面：</span>
             {free.map((x) => (
-              <option key={x.id} value={x.id}>
+              <button key={x.id} class={`zone-tab ${dest?.id === x.id ? "active" : ""}`} onClick={() => setTo(x.id)}>
                 {label(x)}
-              </option>
+              </button>
             ))}
-          </select>
+          </div>
         )}
         <Btn
           disabled={!dest || !q || moving || s.funds < q.cost}
