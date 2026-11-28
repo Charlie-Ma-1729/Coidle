@@ -182,6 +182,8 @@ export function describeCommand(s: MallState, cmd: Command, actor: string): stri
       return `${actor} 收回「${FACILITY_BY_KIND[cmd.kind]?.name ?? "設施"}」自營`;
     case "upgradeShop":
       return `${actor} 讓「${shopName(cmd.shopId)}」開始翻新`;
+    case "moveShop":
+      return `${actor} 讓「${shopName(cmd.shopId)}」開始搬遷`;
     case "refreshShop":
       return `${actor} 幫「${shopName(cmd.shopId)}」換了新菜單`;
     case "resolveEvent":

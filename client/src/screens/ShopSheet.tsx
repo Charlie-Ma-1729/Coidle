@@ -32,6 +32,13 @@ import {
   PERSONA_BY_ID,
   openPlanEnabled,
   spanCostFactor,
+  ZONE_BY_ID,
+  isLiveSlot,
+  isZoneUnlocked,
+  moveQuote,
+  slotBusy,
+  slotSpan,
+  type Shop,
 } from "@coidle/shared";
 import { Btn, Card, Chip, Field, Meter, Sheet } from "../components/ui";
 import { gameDuration, money, num } from "../format";
@@ -49,6 +56,44 @@ function NumberInput(props: { value: number; onChange: (v: number) => void; step
       min={props.min ?? 0}
       onInput={(e) => props.onChange(Number((e.target as HTMLInputElement).value))}
     />
+  );
+}
+
+/** 搬遷：選一個空店面，顯示費用與工期；搬遷期間歇業 */
+function MoveCard({ shop }: { shop: Shop }) {
+  const s = state.value!;
+  const cat = CATEGORY_BY_ID[shop.category]!;
+  const from = s.slots[shop.slot];
+  const moving = s.builds.some((b) => b.shopId === shop.id);
+  const free = s.slots.filter((x) => x.id !== shop.slot && isLiveSlot(x) && slotSpan(x) === 1 && !slotBusy(s, x) && isZoneUnlocked(s, x.zone));
+  const [to, setTo] = useState<number | null>(null);
+  const dest = free.find((x) => x.id === to) ?? null;
+  const q = dest && from ? moveQuote(cat.buildCost, cat.buildTicks, 1, dest.zone !== from.zone) : null;
+  const label = (x: (typeof free)[number]) => `${ZONE_BY_ID[x.zone]?.name ?? x.zone}・第 ${x.id + 1} 號店面`;
+  return (
+    <Card title="🚚 搬遷">
+      <div class="stack">
+        <p class="small dim">把店搬到另一個空店面：要付搬遷費（跨區更貴）、搬遷期間歇業；庫存、等級與菜單都會帶過去。</p>
+        {free.length === 0 ? (
+          <p class="small dim">目前沒有可搬的空店面（先擴建或拆除重排）。</p>
+        ) : (
+          <select value={to ?? ""} onChange={(e) => setTo((e.currentTarget as HTMLSelectElement).value === "" ? null : Number((e.currentTarget as HTMLSelectElement).value))}>
+            <option value="">選擇目的地…</option>
+            {free.map((x) => (
+              <option key={x.id} value={x.id}>
+                {label(x)}
+              </option>
+            ))}
+          </select>
+        )}
+        <Btn
+          disabled={!dest || !q || moving || s.funds < q.cost}
+          onClick={() => dest && q && confirmThen(`把「${shop.name}」搬到${label(dest)}？\n搬遷費 ${money(q.cost)}，現在就會扣款；搬遷${gameDuration(q.ticks)}，期間歇業。`, () => run({ type: "moveShop", shopId: shop.id, toSlot: dest.id }, "開始搬遷"))}
+        >
+          {moving ? "施工中…" : q ? `搬遷（${money(q.cost)}・${gameDuration(q.ticks)}）` : "搬遷"}
+        </Btn>
+      </div>
+    </Card>
   );
 }
 
@@ -282,6 +327,8 @@ export function ShopSheet({ shopId, onClose }: { shopId: string; onClose: () => 
           </Btn>
         </div>
       </Card>
+
+      {shop.mode === "direct" && (shop.span ?? 1) === 1 && <MoveCard shop={shop} />}
 
       {shop.tenant && !shop.tenant.own && (
         <Card title={`🤝 租戶：${shop.tenant.brand}`}>

@@ -255,3 +255,35 @@ describe("closing a big shop", () => {
     expect(freeCells(closed, ZONE)).toBe(freeCells(s, ZONE));
   });
 });
+
+describe("moving a shop", () => {
+  it("costs money and time, closes the shop meanwhile, then swaps the slot", () => {
+    const s = mk();
+    const [a, b] = emptyIn(s);
+    const built = finish(apply(s, { type: "buildShop", slot: a!.id, category: CAT }));
+    const shop = built.shops.find((x) => x.slot === a!.id)!;
+    shop.stock = 77;
+    const funds = built.funds;
+    const moving = apply(built, { type: "moveShop", shopId: shop.id, toSlot: b!.id });
+    expect(moving.funds).toBeLessThan(funds);
+    expect(moving.builds.some((x) => x.kind === "move")).toBe(true);
+    expect(moving.shops.find((x) => x.id === shop.id)!.closedUntilTick).toBeGreaterThan(moving.tick);
+    expect(fails(moving, { type: "moveShop", shopId: shop.id, toSlot: b!.id })).not.toBeNull(); // 施工中
+    const done = finish(moving);
+    const m = done.shops.find((x) => x.id === shop.id)!;
+    expect(m.slot).toBe(b!.id);
+    expect(m.stock).toBeGreaterThan(0);
+    expect(done.slots[b!.id]!.shopId).toBe(shop.id);
+    expect(done.slots[a!.id]!.shopId).toBeNull();
+  });
+
+  it("rejects occupied destinations and poor owners", () => {
+    const s = mk();
+    const [a, b] = emptyIn(s);
+    const built = finish(apply(s, { type: "buildShop", slot: a!.id, category: CAT }));
+    const shop = built.shops[built.shops.length - 1]!;
+    expect(fails(built, { type: "moveShop", shopId: shop.id, toSlot: shop.slot })).not.toBeNull();
+    built.funds = 0;
+    expect(fails(built, { type: "moveShop", shopId: shop.id, toSlot: b!.id })).toContain("資金不足");
+  });
+});

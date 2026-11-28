@@ -32,6 +32,8 @@ export type Command =
   /** 自營店歇業：店面空出來，庫存與工坊進度作廢，不退費 */
   | { type: "closeShop"; shopId: string }
   | { type: "upgradeShop"; shopId: string }
+  /** 搬遷：把店搬到同商場另一個空店面，要花錢也要工期（期間歇業） */
+  | { type: "moveShop"; shopId: string; toSlot: number }
   /** 擴建：在已開放的區域多蓋一個店面（越蓋越貴） */
   | { type: "expandZone"; zone: string }
   | { type: "buildFacility"; kind: string }

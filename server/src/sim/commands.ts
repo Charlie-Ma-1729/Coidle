@@ -32,6 +32,9 @@ import {
   applyResize,
   footprintOf,
   isLiveSlot,
+  moveQuote,
+  slotBusy,
+  slotSpan,
   openPlanEnabled,
   instantBuildEnabled,
   planResize,
@@ -359,6 +362,32 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
         cost,
       });
       addLog(s, "build", `「${shop.name}」開始翻新。`);
+      if (instantBuildEnabled(s)) finishBuildsNow(s);
+      break;
+    }
+
+    case "moveShop": {
+      const shop = findShop(cmd.shopId);
+      if (!shop) return err("找不到這間店");
+      if (shop.mode === "lease") return err("出租中的店不能搬遷");
+      if (shopSpan(shop) !== 1) return err("大店牽涉併格，請用「拆除重排」");
+      if (s.builds.some((b) => b.shopId === shop.id)) return err("施工中的店不能搬遷");
+      const from = s.slots[shop.slot];
+      const to = s.slots[cmd.toSlot];
+      const cat = CATEGORY_BY_ID[shop.category];
+      if (!from || !to || !cat) return err("店面無效");
+      if (to.id === from.id) return err("已經在這個店面了");
+      if (!isLiveSlot(to) || slotSpan(to) !== 1) return err("目的地不是一般店面");
+      if (slotBusy(s, to)) return err("目的地已被使用或正在施工");
+      if (!isZoneUnlocked(s, to.zone)) return err("這個區域尚未解鎖");
+      const q = moveQuote(cat.buildCost, cat.buildTicks, 1, to.zone !== from.zone);
+      if (s.funds < q.cost) return err(`資金不足（搬遷費 ¥${q.cost.toLocaleString("en-US")}）`);
+      s.funds -= q.cost;
+      s.today.repairs += q.cost;
+      const completeTick = s.tick + q.ticks;
+      s.builds.push({ id: nextId(s, "bld"), kind: "move", slot: to.id, fromSlot: from.id, shopId: shop.id, completeTick, cost: q.cost });
+      shop.closedUntilTick = Math.max(shop.closedUntilTick, completeTick);
+      addLog(s, "build", `「${shop.name}」開始搬遷（搬遷費 ¥${q.cost.toLocaleString("en-US")}，搬遷期間歇業）。`);
       if (instantBuildEnabled(s)) finishBuildsNow(s);
       break;
     }

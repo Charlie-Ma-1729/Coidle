@@ -64,6 +64,18 @@ export const spanBasket = (span: Span | undefined): number => ({ 1: 1, 2: 1.15, 
 export const DEMOLISH_FEE_RATE = 0.25;
 /** 同一區域兩次拆除之間的冷卻（遊戲日） */
 export const DEMOLISH_COOLDOWN_DAYS = 1;
+
+/** 搬遷：費用＝業態建造費 × 比例（跨區再加成），工期＝建造工期 × 比例（至少 MOVE_MIN_TICKS）；搬遷期間店面歇業 */
+export const MOVE_COST_RATE = 0.35;
+export const MOVE_CROSS_ZONE_MULT = 1.4;
+export const MOVE_TICKS_RATE = 0.6;
+export const MOVE_MIN_TICKS = 48;
+export function moveQuote(buildCost: number, buildTicks: number, span: Span | undefined, crossZone: boolean): { cost: number; ticks: number } {
+  return {
+    cost: Math.round((buildCost * spanCostFactor(span) * MOVE_COST_RATE * (crossZone ? MOVE_CROSS_ZONE_MULT : 1)) / 1000) * 1000,
+    ticks: Math.max(MOVE_MIN_TICKS, Math.round(buildTicks * spanTicksFactor(span) * MOVE_TICKS_RATE)),
+  };
+}
 /** 擴建面積上限的硬上限（island 版型寬度與地圖捲動；預設維持 14） */
 export const MAX_AREA = 14;
 

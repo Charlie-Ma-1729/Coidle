@@ -205,6 +205,16 @@ export function completeBuilds(s: MallState): void {
         s.shops.push(shop);
         addLog(s, "build", b.tenant ? `新租戶開張：「${shop.name}」（${cat.name}）進駐了！` : `新店開張：「${shop.name}」（${cat.name}）！`);
       }
+    } else if (b.kind === "move" && b.shopId) {
+      const shop = s.shops.find((x) => x.id === b.shopId);
+      const to = s.slots[b.slot];
+      const from = s.slots[shop?.slot ?? -1];
+      if (shop && to && from && !to.shopId) {
+        from.shopId = null;
+        to.shopId = shop.id;
+        shop.slot = to.id;
+        addLog(s, "build", `「${shop.name}」搬遷完成，重新開張。`);
+      }
     } else if (b.kind === "upgrade" && b.shopId) {
       const shop = s.shops.find((x) => x.id === b.shopId);
       if (shop) {

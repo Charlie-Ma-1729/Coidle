@@ -160,8 +160,10 @@ export interface Slot {
 
 export interface BuildTask {
   id: string;
-  kind: "open" | "upgrade";
+  /** move＝搬遷：slot 是目的地，fromSlot 是原本的店面，完工時整間店（庫存、等級、菜單）搬過去 */
+  kind: "open" | "upgrade" | "move";
   slot: number;
+  fromSlot?: number;
   category?: CategoryId;
   shopId?: string;
   completeTick: number;
