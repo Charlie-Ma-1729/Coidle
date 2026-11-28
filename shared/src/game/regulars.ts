@@ -6,6 +6,12 @@ import type { RegularDef } from "./types";
 
 export const REGULAR_START_AFFINITY = 10;
 export const GREET_COOLDOWN_TICKS = 72; // 6 遊戲小時
+/** 熟客上門後這段時間內算「還在店裡」，才聊得到（3 遊戲小時） */
+export const GREET_WINDOW_TICKS = 36;
+/** 這位熟客現在是不是在店裡可以招呼：剛上門不久，而且這趟還沒聊過 */
+export function regularIsHere(reg: { lastVisitTick: number; lastTalkTick: number }, tick: number): boolean {
+  return tick - reg.lastVisitTick <= GREET_WINDOW_TICKS && reg.lastVisitTick > reg.lastTalkTick;
+}
 export const GIFT_COOLDOWN_TICKS = 288; // 1 遊戲日
 export const GIFT_COST = 3_000;
 /** 已停用：專屬座位不符合現實。舊存檔的專屬座位會在日結時退費（RESERVE_FEE）並取消；維持費常數保留給舊的帳務計算 */

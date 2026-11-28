@@ -5,6 +5,7 @@ import {
   GIFT_COOLDOWN_TICKS,
   GIFT_COST,
   GREET_COOLDOWN_TICKS,
+  regularIsHere,
   HELP_MIN_AFFINITY,
   FRIEND_MIN_AFFINITY,
   KNOWN_GAIN_MULT,
@@ -348,6 +349,7 @@ export function regularAction(s: MallState, regularId: string, action: string): 
 
   switch (action) {
     case "greet":
+      if (!regularIsHere(reg, s.tick)) return { ok: false, error: `「${def.name}」現在不在店裡，等他上門的時候再聊` };
       if (s.tick < reg.lastTalkTick + GREET_COOLDOWN_TICKS) return { ok: false, error: `剛跟「${def.name}」聊過，晚一點再來` };
       reg.lastTalkTick = s.tick;
       gain(s, reg, def, 1);

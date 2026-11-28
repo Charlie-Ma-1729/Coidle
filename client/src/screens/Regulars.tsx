@@ -6,6 +6,7 @@ import {
   GIFT_COOLDOWN_TICKS,
   GIFT_COST,
   GREET_COOLDOWN_TICKS,
+  regularIsHere,
   HELP_MIN_AFFINITY,
   KNOWN_GAIN_MULT,
   KNOWN_VISIT_MULT,
@@ -56,6 +57,7 @@ function RegularCard({ s, r, def }: { s: PublicMallState; r: RegularState; def: 
   const kind = def.kind ? REGULAR_KINDS[def.kind] : null;
   const tier = regularTier(r.affinity);
   const greetWait = r.lastTalkTick + GREET_COOLDOWN_TICKS;
+  const here = regularIsHere(r, s.tick);
   const giftWait = r.lastGiftTick + GIFT_COOLDOWN_TICKS;
   const act = (action: "greet" | "remember" | "gift", okText: string) => run({ type: "regularAction", regularId: r.id, action }, okText);
   const c = r.contrib;
@@ -121,8 +123,8 @@ function RegularCard({ s, r, def }: { s: PublicMallState; r: RegularState; def: 
       ) : null}
 
       <div class="row" style={{ flexWrap: "wrap" }}>
-        <Btn small disabled={s.tick < greetWait} title={s.tick < greetWait ? `${gameDeadline(greetWait, s.tick)} 起可再聊` : "免費，親密度＋1"} onClick={() => act("greet", `和${def.name}聊了幾句`)}>
-          💬 招呼{s.tick < greetWait ? `（${wait(s, greetWait)}）` : ""}
+        <Btn small disabled={!here || s.tick < greetWait} title={!here ? "他現在不在店裡，上門的時候才聊得到" : s.tick < greetWait ? `${gameDeadline(greetWait, s.tick)} 起可再聊` : "免費，親密度＋1"} onClick={() => act("greet", `和${def.name}聊了幾句`)}>
+          💬 招呼{!here ? "（不在店裡）" : s.tick < greetWait ? `（${wait(s, greetWait)}）` : ""}
         </Btn>
         {!r.knowsPrefs && (
           <Btn small title={`免費，親密度＋2；之後看得到他的喜好，而且被記住的人來得更勤（×${KNOWN_VISIT_MULT}）、關係成長更快（×${KNOWN_GAIN_MULT}）`} onClick={() => act("remember", "記住他的喜好了")}>

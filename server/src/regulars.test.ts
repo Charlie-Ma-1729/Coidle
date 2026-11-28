@@ -5,6 +5,8 @@ import {
   GIFT_COOLDOWN_TICKS,
   GIFT_COST,
   GREET_COOLDOWN_TICKS,
+  GREET_WINDOW_TICKS,
+  regularIsHere,
   MAX_FAN_IDX,
   PERSONA_BY_ID,
   REGULARS,
@@ -111,7 +113,8 @@ describe("meeting regulars", () => {
 
 describe("visits", () => {
   it("good service raises affinity, counts visits and produces tips", () => {
-    let s = createInitialState(4, START);
+    // 每日隨機加入後亂數序列改變；30 個種子平均上門次數與舊版相近，但種子 4 這 8 天剛好沒人來，換一個
+    let s = createInitialState(1, START);
     const r = meet(s, "afu", 35);
     const startFunds = s.funds;
     s = advanceTo(s, START + 8 * DAY);
@@ -178,6 +181,7 @@ describe("stories, drift and word of mouth", () => {
     expect(s.log.some((l) => l.text.includes("《老位子》"))).toBe(true);
     expect(s.today.regularNotes.some((n) => n.includes("老位子"))).toBe(true);
     const funds = s.funds;
+    reg(s, "afu").lastVisitTick = s.tick; // 剛上門，才聊得到
     s = apply(s, { type: "regularAction", regularId: "afu", action: "greet" }); // 不會再次解鎖同一個故事
     expect(reg(s, "afu").storyStage).toBe(1);
     expect(s.funds).toBe(funds);
@@ -224,14 +228,31 @@ describe("interactions", () => {
 
   it("greet is free, helps, and has a cooldown", () => {
     let s = createInitialState(7, START);
-    meet(s, "afu", 20);
+    meet(s, "afu", 20).lastVisitTick = s.tick;
     const funds = s.funds;
     s = apply(s, { type: "regularAction", regularId: "afu", action: "greet" });
     expect(reg(s, "afu").affinity).toBeCloseTo(21, 5);
     expect(s.funds).toBe(funds);
     expect(applyCommand(s, { type: "regularAction", regularId: "afu", action: "greet" }).ok).toBe(false);
     s = advanceTo(s, s.tick + GREET_COOLDOWN_TICKS + 1);
+    reg(s, "afu").lastVisitTick = s.tick; // 又上門一趟
     expect(applyCommand(s, { type: "regularAction", regularId: "afu", action: "greet" }).ok).toBe(true);
+  });
+
+  it("can only greet a regular who has just come by, once per visit", () => {
+    let s = createInitialState(7, START);
+    meet(s, "afu", 20); // 還沒上門過
+    const away = applyCommand(s, { type: "regularAction", regularId: "afu", action: "greet" });
+    expect(away.ok).toBe(false);
+    expect(away.ok === false && away.error).toContain("不在店裡");
+    reg(s, "afu").lastVisitTick = s.tick;
+    s = advanceTo(s, s.tick + GREET_WINDOW_TICKS - 1);
+    expect(regularIsHere(reg(s, "afu"), s.tick)).toBe(true);
+    s = apply(s, { type: "regularAction", regularId: "afu", action: "greet" });
+    expect(regularIsHere(reg(s, "afu"), s.tick)).toBe(false); // 這一趟已經聊過
+    // 久了就走了：就算冷卻過了、沒有新的上門，也聊不到
+    s = advanceTo(s, s.tick + GREET_COOLDOWN_TICKS + 1);
+    expect(applyCommand(s, { type: "regularAction", regularId: "afu", action: "greet" }).ok).toBe(false);
   });
 
   it("remember works once and unlocks the preferences", () => {

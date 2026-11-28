@@ -220,6 +220,7 @@ describe("promotions", () => {
     const r = a.regulars.find((x) => x.id === "afu")!;
     r.met = true;
     r.affinity = 15;
+    r.lastVisitTick = a.tick; // 剛上門，才能招呼
     const normal = apply(a, { type: "regularAction", regularId: "afu", action: "greet" }).regulars.find((x) => x.id === "afu")!.affinity - 15;
     const promo = apply(structuredClone(a), { type: "schedulePromo", defId: "loyalty" });
     const boosted = apply(promo, { type: "regularAction", regularId: "afu", action: "greet" }).regulars.find((x) => x.id === "afu")!.affinity - 15;
