@@ -420,9 +420,10 @@ export class MallService {
     return toPublic(s, this.serverFor(mallId) ? this.serverTick() : undefined);
   }
 
-  /** 這座商場套用的伺服器時鐘；測試商場獨立於世界之外，不受夾限 */
-  private serverFor(mallId: number): ServerClock | undefined {
-    return this.repo.isSandbox(mallId) ? undefined : this.serverClock;
+  /** 這座商場套用的伺服器時鐘；測試商場也一樣受夾限（只是不進名錄／賽季／聯名／貿易／搶客，也不記平衡數據），
+   * 否則暫停久了時間脫鉤，測試的行為（離線追趕、落後擋住的操作）就和真實商場不一樣 */
+  private serverFor(_mallId: number): ServerClock | undefined {
+    return this.serverClock;
   }
 
   /** 發起跨商場互動前的共用檢查：落後伺服器基準時間太多就擋下 */
@@ -600,7 +601,7 @@ export class MallService {
       created = true;
     }
     const id = mallId;
-    // 測試商場不受伺服器時鐘夾限：先在還受夾限時同步到現在，再把速度改成 1×、錨點移到現在（時間不跳動）
+    // 先同步到現在，再把速度改成 1×、錨點移到現在（時間不跳動；測試商場一樣受伺服器時鐘夾限，會自己追趕）
     this.mutate(id, (s) => {
       s.clock.speed = 1;
       delete s.clock.lag;
@@ -1411,8 +1412,7 @@ export class MallService {
       }
     }
     s = this.advanceNow(mallId, s, nowMs);
-    const free = this.serverFor(mallId) === undefined; // 測試商場不受伺服器時鐘夾限
-    if (!free) {
+    if (this.serverFor(mallId)) {
       // 舊版有比伺服器同速更慢的檔位（悠閒、現實…）；現在最慢就是 1×（暫停才是慢慢玩的方式）。
       // 檔位也一律對齊到現有的幾檔；從現在起生效，不會讓時間跳動
       const snapped = Math.max(SLOWEST_SPEED, presetOfSpeed(s.clock.speed).mult);

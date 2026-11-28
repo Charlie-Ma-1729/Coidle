@@ -43,7 +43,7 @@ npm run admin -- create-overseer | rotate-overseer-key | sandbox-mall <帳號> [
 - 引擎只認 tick，不碰真實時間；新狀態欄位用**可選欄位＋`?? 0`**，必要時才升版並寫 `sim/migrate.ts`。
 - DB 結構只能在 `MIGRATIONS` 尾端加新項，不改舊的。
 - 跨商場效果用信件 `at_tick`（伺服器 tick），商場自己的時鐘模擬到那刻才套用。
-- 給玩家的狀態用 `MallService.pub()`（附 `serverTick`）；sandbox 商場不受時鐘夾限、不進名錄／賽季／聯名／貿易／搶客，也不記平衡數據。
+- 給玩家的狀態用 `MallService.pub()`（附 `serverTick`）；sandbox 商場一樣受伺服器時鐘夾限（暫停會落後、追趕）、但不進名錄／賽季／聯名／貿易／搶客，也不記平衡數據。
 - 管理 API 走 `requireOverseer` 並用 `note()` 寫稽核；管理室不用 `window.confirm/prompt`，用 `kit.tsx` 的 `confirmBox/promptBox/secretBox`。
 - 改規則或數字後：跑機器人模擬確認，結論寫進 `docs/balance-report.md`（開頭有「速查」，新結論加在對應章節）。
 
