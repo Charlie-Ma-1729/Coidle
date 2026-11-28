@@ -5,7 +5,7 @@
  *
  * - 持股過半（> 50%）＝實際控制人，管事的是他；創辦人頭銜只有一個、不會變。
  * - 持股 ≥ 20% 視同經手：離開（被請出）後仍是關係企業。
- * - 錢進出商場只有這幾條路：股利（按比例、扣稅）、商場回購（9 折、有上限）、注資換股（按帳面價值）。
+ * - 錢進出商場只有這幾條路：股利（按比例、扣稅）、商場回購（9 折、有上限）、注資換股（按估值，見 valuation.ts）。
  * 延伸方向見 docs/equity.md。
  */
 
@@ -21,7 +21,7 @@ export const RELATED_STAKE_PCT = 0.2;
 export const CONTROL_PCT = 0.5;
 /** 持股過半者的頭銜。創辦人（is_owner）永遠只有一位、不會變；實際控制人是現在真正掌控商場的人，可以換 */
 export const CONTROLLER_TITLE = "實際控制人";
-/** 商場回購的價格＝帳面價值 × 這個折數（留一點給留下來的人，也避免拿回購當提款機） */
+/** 商場回購的價格＝估值 × 這個折數（留一點給留下來的人，也避免拿回購當提款機） */
 export const BUYBACK_DISCOUNT = 0.9;
 /** 一次回購最多只能動用商場現金的這個比例（超過請改賣給其他股東，或分次賣） */
 export const BUYBACK_MAX_CASH_PCT = 0.5;
@@ -88,16 +88,17 @@ export const sharePct = (shares: number, total: number = INITIAL_SHARES): number
 export const isControlling = (shares: number, total: number): boolean => shares * 2 > total;
 /** 持股 ≥ 20% 視同經手 */
 export const isBigStake = (shares: number, total: number): boolean => shares * 5 >= total;
-/** 這些股份按帳面價值（商場現金 × 比例）值多少 */
-export const stakeValue = (shares: number, cash: number, total: number): number => Math.round((Math.max(0, cash) * shares) / total);
-/** 商場回購這些股份要付多少（帳面價值 × 折數，取整數） */
-export const buybackPrice = (shares: number, cash: number, total: number): number => Math.floor(stakeValue(shares, cash, total) * BUYBACK_DISCOUNT);
-/** 注資換股／出售庫藏股的每股價：帳面價值每股，但不低於 MIN_SHARE_PRICE */
-export const issuePrice = (cash: number, total: number): number => Math.max(MIN_SHARE_PRICE, Math.max(0, cash) / total);
+// 下面四個函式的 value＝商場的股權估值（見 valuation.ts 的 mallBookValue，再夾進每日浮動帶），不是現金。
+/** 這些股份按估值（估值 × 比例）值多少 */
+export const stakeValue = (shares: number, value: number, total: number): number => Math.round((Math.max(0, value) * shares) / total);
+/** 商場回購這些股份要付多少（估值 × 折數，取整數） */
+export const buybackPrice = (shares: number, value: number, total: number): number => Math.floor(stakeValue(shares, value, total) * BUYBACK_DISCOUNT);
+/** 注資換股／出售庫藏股的每股價：估值每股，但不低於 MIN_SHARE_PRICE */
+export const issuePrice = (value: number, total: number): number => Math.max(MIN_SHARE_PRICE, Math.max(0, value) / total);
 
 /** 注資 amount 能換到幾股、實際要付多少（整數股；價格是每股 price，進位到整數元；付的不會超過 amount） */
-export function sharesForCapital(amount: number, cash: number, total: number): { shares: number; cost: number; price: number } {
-  const price = issuePrice(cash, total);
+export function sharesForCapital(amount: number, value: number, total: number): { shares: number; cost: number; price: number } {
+  const price = issuePrice(value, total);
   let shares = Math.floor(amount / price);
   let cost = Math.ceil(shares * price);
   while (shares > 0 && cost > amount) {
@@ -132,7 +133,7 @@ export function splitDividend(amount: number, total: number, holders: { userId: 
   return { lines, paid: lines.reduce((a, l) => a + l.gross, 0), tax: lines.reduce((a, l) => a + l.tax, 0) };
 }
 
-/** 一份出售股份的出價：賣方把股份按帳面價值賣給另一位股東，對方同意並付得起才成交 */
+/** 一份出售股份的出價：賣方把股份按估值賣給另一位股東，對方同意並付得起才成交 */
 export interface ShareOfferView {
   id: number;
   mallId: number;
@@ -141,7 +142,7 @@ export interface ShareOfferView {
   toId: number;
   toName: string;
   shares: number;
-  /** 成交價（出價當下的帳面價值；成交時照這個價收付） */
+  /** 成交價（出價當下的估值；成交時照這個價收付） */
   price: number;
   expiresAt: number;
 }
@@ -154,7 +155,7 @@ export interface CapitalRequestView {
   userName: string;
   amount: number;
   expiresAt: number;
-  /** 照現在的帳面價值，這筆錢能換到幾股（核准時以當下價格重算） */
+  /** 照現在的估值，這筆錢能換到幾股（核准時以當下價格重算） */
   estShares: number;
 }
 
@@ -183,8 +184,10 @@ export interface HoldingsView {
   treasury: number;
   /** 請求者目前不能撤資／轉讓／出價的原因（股權變現門檻）；null 或沒有＝可以。只有「看股權表」那支 API 會帶 */
   cashOutBlocker?: string | null;
-  /** 商場現金（四捨五入），算回購、股利、注資的價錢用 */
+  /** 商場現金（四捨五入），算股利與回購的上限用 */
   mallCash: number;
+  /** 商場估值（淨資產＋獲利溢價，夾進每日浮動帶）；回購、注資、出價的價錢都用它算。舊版伺服器沒有 */
+  equityValue?: number;
   /** 注資換股現在每股多少錢 */
   sharePrice: number;
   /** 這次最多能發多少股利（現金的 30%，且還在冷卻中就是 0） */
@@ -193,7 +196,7 @@ export interface HoldingsView {
   dividendReadyAt: number;
 }
 
-/** 一位玩家在各商場的持股與帳面價值（商場帳上現金 × 持股比例；還沒有更完整的估值） */
+/** 一位玩家在各商場的持股與價值（商場估值 × 持股比例；估值見 valuation.ts，不含商場持有的股票與 IPO） */
 export interface StakeView {
   mallId: number;
   mallName: string;
@@ -280,8 +283,8 @@ export const EQUITY_TEXT = {
   founder: `每座商場起初發行 ${INITIAL_SHARES.toLocaleString()} 股，創辦人全數持有。股份和職位是兩回事：職位決定誰能下指令，股份是你在這座商場的比例。`,
   related: "持股達 20% 以上，就算被請出商場也仍視為經手人：你的兩座商場之間依然是關係企業。",
   control: `持股過半（超過 50%）的人是「${CONTROLLER_TITLE}」：請成員離開、改名、換邀請碼、轉讓創辦人頭銜、發股利、核准注資這些事由他說了算。創辦人頭銜只有一個、不會變，但在有實際控制人的時候，管事的是實際控制人。`,
-  exit: "撤資與退出：離開商場前要先把股份處理掉——賣給其他股東（照帳面價值，對方同意、付得起才成交），或「撤資」由商場回購（帳面價值 9 折，一次最多動用商場現金的一半，可以分次、可以只撤一部分）。賣得的錢進個人錢包。被回購的股份變成庫藏股，之後新的注資會先買它。",
+  exit: "撤資與退出：離開商場前要先把股份處理掉——賣給其他股東（照估值，對方同意、付得起才成交），或「撤資」由商場回購（估值 9 折，一次最多動用商場現金的一半，可以分次、可以只撤一部分）。賣得的錢進個人錢包。被回購的股份變成庫藏股，之後新的注資會先買它。",
   dividend: `${CONTROLLER_TITLE}（沒有的話是創辦人）可以宣布發股利：一次最多商場現金的 30%，每 2 天（約 12 遊戲日）最多一次，按持股比例分給每位股東；收到時扣 20% 所得稅。庫藏股不領股利，零頭留在商場。`,
-  capital: "中途加入的成員可以申請注資：決定投入多少錢（從個人錢包出），照帳面價值每股的價格換股份，錢進商場。先賣掉商場的庫藏股，不夠再發新股（原股東被稀釋，但每股帳面價值不變）。要由實際控制人（沒有就是創辦人）同意。",
+  capital: "中途加入的成員可以申請注資：決定投入多少錢（從個人錢包出），照估值每股的價格換股份，錢進商場。估值＝淨資產（現金＋庫存＋店面設備折舊價值－貸款）加上獲利溢價，且每個遊戲日最多浮動 10%，不是只看現金。先賣掉商場的庫藏股，不夠再發新股（原股東被稀釋，但每股估值不變）。要由實際控制人（沒有就是創辦人）同意。",
   market: "商場的股份還不能在市場上自由買賣（之後上市才開放）；現在可以無償轉給現任成員、賣給其他股東、請商場回購，或透過注資換股取得。個人錢包的錢可以到「股市」買虛構集團的股票。",
 } as const;

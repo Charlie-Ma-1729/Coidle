@@ -35,7 +35,7 @@ export function ShareActions(props: { mallId: number; mallName: string; meId: nu
   const shares = whole(amount);
   const target = Number(to);
   const targetPerson = others.find((p) => p.userId === target);
-  const price = shares >= 1 ? buybackPrice(shares, view.mallCash, view.total) : 0;
+  const price = shares >= 1 ? buybackPrice(shares, view.equityValue ?? view.mallCash, view.total) : 0;
   const needTarget = () => (targetPerson ? true : (void notice("先選一位對象"), false));
   // 股權變現門檻：自己還不合格時三個動作都不能按（對方不合格由伺服器回覆原因）
   const blocked = view.cashOutBlocker ?? null;
@@ -62,7 +62,7 @@ export function ShareActions(props: { mallId: number; mallName: string; meId: nu
           disabled={busy || !!blocked || shares < 1 || shares > mine}
           title={blocked ?? undefined}
           onClick={() =>
-            confirmThen(`撤資：請商場回購 ${shares.toLocaleString()} 股，商場付你 ${price.toLocaleString()}（帳面價值 9 折，進你的錢包）？一次最多動用商場現金的 ${Math.round(BUYBACK_MAX_CASH_PCT * 100)}%。`, () =>
+            confirmThen(`撤資：請商場回購 ${shares.toLocaleString()} 股，商場付你 ${price.toLocaleString()}（估值 9 折，進你的錢包）？一次最多動用商場現金的 ${Math.round(BUYBACK_MAX_CASH_PCT * 100)}%。`, () =>
               run(() => api.buybackShares(mallId, shares), "已撤資，錢進你的錢包"),
             )
           }
@@ -81,7 +81,7 @@ export function ShareActions(props: { mallId: number; mallName: string; meId: nu
               </option>
             ))}
           </select>
-          <button class="st-btn" disabled={busy || !!blocked || shares < 1 || shares > mine} title={blocked ?? undefined} onClick={() => needTarget() && run(() => api.offerShares(mallId, target, shares), "已送出出價（照帳面價值，等對方同意）")}>
+          <button class="st-btn" disabled={busy || !!blocked || shares < 1 || shares > mine} title={blocked ?? undefined} onClick={() => needTarget() && run(() => api.offerShares(mallId, target, shares), "已送出出價（照估值，等對方同意）")}>
             出價賣給他
           </button>
           <button

@@ -13,6 +13,7 @@ import {
   STARTER_QUESTS,
   WORLD_EPOCH_MS,
   buybackPrice,
+  mallBookValue,
   equityBlocker,
   sharesForCapital,
   splitDividend,
@@ -56,6 +57,8 @@ const get = (a: App, cookie: string, url: string) => a.app.inject({ method: "GET
 /** 持股加庫藏股＝總股數（永遠成立） */
 const conserved = (a: App, mallId: number) => a.repo.holdingsOfMall(mallId).reduce((x, h) => x + h.shares, 0) + a.repo.treasuryOf(mallId) === a.repo.totalSharesOf(mallId);
 const funds = (a: App, mallId: number) => Math.round(a.service.sync(mallId).funds);
+/** 商場估值（沒跑過整個遊戲日，所以沒有錨點，等於即時估值） */
+const worth = (a: App, mallId: number) => mallBookValue(a.service.sync(mallId));
 
 function setFunds(a: App, ids: number[], value = 10_000_000) {
   const cache = (a.service as unknown as { cache: Map<number, MallState> }).cache;
@@ -156,10 +159,11 @@ describe("leaving means settling your shares", () => {
     expect(left.statusCode).toBe(409);
     expect(left.json().error).toContain("股份");
     const before = funds(a, w.A);
+    const value = worth(a, w.A);
     const r = await post(a, w.bob.cookie, `/api/malls/${w.A}/shares/buyback`, { shares: 1000 });
     expect(r.statusCode).toBe(200);
-    const price = buybackPrice(1000, before, INITIAL_SHARES); // 帳面價值 9 折
-    expect(price).toBe(900_000);
+    const price = buybackPrice(1000, value, INITIAL_SHARES); // 估值 9 折
+    expect(price).toBe(Math.floor(value * 0.1 * 0.9));
     expect(a.repo.walletOf(w.bob.id)).toBe(price);
     expect(funds(a, w.A)).toBe(before - price);
     expect(a.repo.treasuryOf(w.A)).toBe(1000);
@@ -171,31 +175,32 @@ describe("leaving means settling your shares", () => {
     const a = make();
     const w = await world(a);
     await gift(a, w.alice, w.A, w.bob.id, 6000);
-    const big = await post(a, w.bob.cookie, `/api/malls/${w.A}/shares/buyback`, { shares: 6000 }); // 9折 540 萬 > 現金一半 500 萬
+    const big = await post(a, w.bob.cookie, `/api/malls/${w.A}/shares/buyback`, { shares: 6000 }); // 估值 9 折 > 現金一半 500 萬
     expect(big.statusCode).toBe(409);
     expect(a.repo.sharesOf(w.A, w.bob.id)).toBe(6000);
-    expect((await post(a, w.bob.cookie, `/api/malls/${w.A}/shares/buyback`, { shares: 5000 })).statusCode).toBe(200);
+    expect((await post(a, w.bob.cookie, `/api/malls/${w.A}/shares/buyback`, { shares: 3000 })).statusCode).toBe(200);
     // 最後一位股東不能把股份全部賣回去
-    await gift(a, w.bob, w.A, w.alice.id, 1000);
-    expect((await post(a, w.alice.cookie, `/api/malls/${w.A}/shares/buyback`, { shares: 5000 })).statusCode).toBe(409);
+    await gift(a, w.bob, w.A, w.alice.id, 3000);
+    expect((await post(a, w.alice.cookie, `/api/malls/${w.A}/shares/buyback`, { shares: 7000 })).statusCode).toBe(409);
   });
 
   it("sells to another shareholder only when they agree and can pay", async () => {
     const a = make();
     const w = await world(a);
     await gift(a, w.alice, w.A, w.bob.id, 2500);
+    const value = worth(a, w.A);
     const o = await post(a, w.bob.cookie, `/api/malls/${w.A}/shares/offer`, { userId: w.alice.id, shares: 1000 });
     expect(o.statusCode).toBe(200);
     const offer = o.json().offers[0];
-    expect(offer.price).toBe(1_000_000); // 帳面價值，不打折
+    expect(offer.price).toBe(Math.round(value * 0.1)); // 估值，不打折
     // 只有被出價的人看得到、能同意；錢包不夠付會被擋
     expect((await post(a, w.bob.cookie, `/api/shares/offers/${offer.id}/respond`, { accept: true })).statusCode).toBe(403);
     expect((await post(a, w.alice.cookie, `/api/shares/offers/${offer.id}/respond`, { accept: true })).statusCode).toBe(402);
     a.repo.addCash(w.alice.id, 5_000_000);
     expect((await post(a, w.alice.cookie, `/api/shares/offers/${offer.id}/respond`, { accept: true })).statusCode).toBe(200);
     expect(a.repo.sharesOf(w.A, w.bob.id)).toBe(1500);
-    expect(a.repo.walletOf(w.bob.id)).toBe(1_000_000);
-    expect(a.repo.walletOf(w.alice.id)).toBe(4_000_000);
+    expect(a.repo.walletOf(w.bob.id)).toBe(offer.price);
+    expect(a.repo.walletOf(w.alice.id)).toBe(5_000_000 - offer.price);
     expect(conserved(a, w.A)).toBe(true);
     // 拒絕與取消
     const o2 = (await post(a, w.bob.cookie, `/api/malls/${w.A}/shares/offer`, { userId: w.alice.id, shares: 100 })).json().offers[0];
@@ -243,11 +248,13 @@ describe("putting capital in", () => {
     const a = make();
     const w = await world(a);
     await gift(a, w.alice, w.A, w.bob.id, 1000);
-    await post(a, w.bob.cookie, `/api/malls/${w.A}/shares/buyback`, { shares: 1000 }); // 庫藏股 1000，商場現金 910 萬
+    const buyPrice = buybackPrice(1000, worth(a, w.A), INITIAL_SHARES);
+    await post(a, w.bob.cookie, `/api/malls/${w.A}/shares/buyback`, { shares: 1000 }); // 庫藏股 1000，商場付出回購款
     expect(a.repo.treasuryOf(w.A)).toBe(1000);
     a.repo.addCash(w.bob.id, 3_000_000);
     const cash = funds(a, w.A);
-    const est = sharesForCapital(3_000_000, cash, 9_000); // 流通在外 9000 股（庫藏股不算）
+    const value = worth(a, w.A);
+    const est = sharesForCapital(3_000_000, value, 9_000); // 流通在外 9000 股（庫藏股不算）
     const req = await post(a, w.bob.cookie, `/api/malls/${w.A}/capital`, { amount: 3_000_000 });
     expect(req.json()).toMatchObject({ applied: false });
     expect(a.repo.sharesOf(w.A, w.bob.id)).toBe(0); // 還沒核准
@@ -258,11 +265,11 @@ describe("putting capital in", () => {
     expect(a.repo.sharesOf(w.A, w.bob.id)).toBe(est.shares);
     expect(a.repo.treasuryOf(w.A)).toBe(0); // 庫藏股先賣光
     expect(a.repo.totalSharesOf(w.A)).toBe(10_000 + (est.shares - 1000)); // 其餘是新發
-    expect(a.repo.walletOf(w.bob.id)).toBe(900_000 + 3_000_000 - est.cost); // 撤資拿到的 90 萬 + 補進去的 300 萬 − 實際花費
+    expect(a.repo.walletOf(w.bob.id)).toBe(buyPrice + 3_000_000 - est.cost); // 撤資拿到的錢 + 補進去的 300 萬 − 實際花費
     expect(funds(a, w.A)).toBe(cash + est.cost);
     expect(conserved(a, w.A)).toBe(true);
-    // 每股帳面價值沒變（不稀釋價值，只稀釋比例）
-    expect((cash + est.cost) / (9_000 + est.shares)).toBeCloseTo(cash / 9_000, 0);
+    // 每股估值沒變（不稀釋價值，只稀釋比例）
+    expect((worth(a, w.A))/ (9_000 + est.shares)).toBeCloseTo(value / 9_000, 0);
   });
 
   it("goes straight through when the controller invests, and refuses what the wallet can't cover", async () => {
@@ -270,23 +277,26 @@ describe("putting capital in", () => {
     const w = await world(a);
     expect((await post(a, w.alice.cookie, `/api/malls/${w.A}/capital`, { amount: 1_000_000 })).statusCode).toBe(402);
     a.repo.addCash(w.alice.id, 1_000_000);
+    const est = sharesForCapital(1_000_000, worth(a, w.A), INITIAL_SHARES); // 每股＝估值 ÷ 1 萬股，不是現金
     const r = await post(a, w.alice.cookie, `/api/malls/${w.A}/capital`, { amount: 1_000_000 });
-    expect(r.json()).toMatchObject({ applied: true, shares: 1000 }); // 每股 1000，換 1000 股
-    expect(a.repo.totalSharesOf(w.A)).toBe(11_000);
-    expect(a.repo.walletOf(w.alice.id)).toBe(0);
+    expect(r.json()).toMatchObject({ applied: true, shares: est.shares });
+    expect(est.shares).toBeLessThan(1000); // 估值比現金高，同樣一百萬換得到的股數比只看現金時少
+    expect(a.repo.totalSharesOf(w.A)).toBe(10_000 + est.shares);
+    expect(a.repo.walletOf(w.alice.id)).toBe(1_000_000 - est.cost);
   });
 });
 
 describe("a starting grant is one per player", () => {
-  it("lets a newcomer put their grant in at book value, once", async () => {
+  it("lets a newcomer put their grant in at the mall's valuation, once", async () => {
     const a = make();
     const w = await world(a);
     const carol = await reg(a, "carol");
+    const est = sharesForCapital(INITIAL_FUNDS, worth(a, w.A), INITIAL_SHARES);
     const joined = await post(a, carol.cookie, "/api/malls/join", { code: w.code });
     expect(joined.statusCode).toBe(200);
-    expect(joined.json().grantShares).toBe(2000); // 200 萬 ÷ 每股 1000
-    expect(a.repo.totalSharesOf(w.A)).toBe(12_000);
-    expect(funds(a, w.A)).toBe(12_000_000);
+    expect(joined.json().grantShares).toBe(est.shares); // 200 萬 ÷ 每股估值
+    expect(a.repo.totalSharesOf(w.A)).toBe(10_000 + est.shares);
+    expect(funds(a, w.A)).toBe(10_000_000 + est.cost);
     expect(a.service.contributeGrant(w.A, carol.id)).toEqual({ contributed: false, shares: 0 }); // 只有一次
     expect(a.repo.foundedCount(carol.id)).toBe(1);
   });
@@ -369,16 +379,31 @@ describe("a big stake counts as running the mall", () => {
   });
 });
 
+describe("valuation band", () => {
+  it("keeps the share price within ±10% of yesterday's closing valuation, whatever today's cash does", async () => {
+    const a = make();
+    const w = await world(a);
+    const cache = (a.service as unknown as { cache: Map<number, MallState> }).cache;
+    const live = worth(a, w.A);
+    cache.get(w.A)!.valuationAnchor = Math.round(live / 2); // 昨天收盤只有現在的一半：今天最多只能漲 10%
+    const view = a.service.holdings(w.A);
+    expect(view.equityValue).toBe(Math.round((live / 2) * 1.1));
+    expect(view.sharePrice).toBeCloseTo(((live / 2) * 1.1) / 10_000, 1);
+    expect(view.mallCash).toBe(10_000_000); // 現金照實顯示，只是不再等於股價基準
+  });
+});
+
 describe("personal holdings", () => {
-  it("values a stake as its share of the mall's cash, plus the wallet", async () => {
+  it("values a stake as its share of the mall's valuation, plus the wallet", async () => {
     const a = make();
     const w = await world(a);
     await gift(a, w.alice, w.A, w.bob.id, 2500);
     a.repo.addCash(w.bob.id, 123_456);
     const cash = funds(a, w.A);
+    const value = worth(a, w.A);
     const bobWealth = (await get(a, w.bob.cookie, "/api/me/wealth")).json();
     expect(bobWealth.stakes).toHaveLength(2); // B 的 100% 加上 A 的 25%
-    expect(bobWealth.stakes.find((s: { mallId: number }) => s.mallId === w.A)).toMatchObject({ shares: 2500, pct: 25, mallCash: cash, value: Math.round(cash * 0.25), isMember: true });
+    expect(bobWealth.stakes.find((s: { mallId: number }) => s.mallId === w.A)).toMatchObject({ shares: 2500, pct: 25, mallCash: cash, value: Math.round(value * 0.25), isMember: true });
     expect(bobWealth.cash).toBe(123_456);
     expect(bobWealth.totalValue).toBe(bobWealth.stakes.reduce((x: number, s: { value: number }) => x + s.value, 0) + 123_456);
   });
