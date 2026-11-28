@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  BIG_UNLOCK,
   CATEGORY_BY_ID,
+  FOOTPRINT_BY_CATEGORY,
   DEMOLISH_FEE_RATE,
   OPEN_PLAN_FLAG,
   STARTER_QUESTS,
@@ -14,10 +16,12 @@ import {
   mergedCount,
   planResize,
   shopWagePerDay,
+  shopDemand,
   slotSpan,
   spanCostFactor,
   usedCells,
   type MallState,
+  type PersonaId,
 } from "@coidle/shared";
 import { advanceTo, applyCommand, createInitialState, migrateState, type Command } from "./sim";
 import { shopCapacity } from "./sim/state";
@@ -170,5 +174,28 @@ describe("demolish", () => {
     const one = advanceTo(structuredClone(built), built.tick + 600);
     const two = advanceTo(advanceTo(structuredClone(built), built.tick + 250), built.tick + 600);
     expect(JSON.stringify(two)).toBe(JSON.stringify(one));
+  });
+});
+
+describe("big shop unlocks new customer segments", () => {
+  it("adds demand only for span >= 2, never lowers existing demand, and every big-capable category has an unlock", () => {
+    for (const id of Object.keys(FOOTPRINT_BY_CATEGORY)) {
+      const cat = CATEGORY_BY_ID[id]!;
+      const u = BIG_UNLOCK[id];
+      expect(u, `${id} 有大店解鎖客層`).toBeDefined();
+      expect(Object.keys(u!.demand).length).toBeGreaterThan(0);
+      for (const p of Object.keys(u!.demand) as PersonaId[]) {
+        expect(shopDemand(cat, undefined, p)).toBe(cat.demand[p] ?? 0); // 小店不變
+        expect(shopDemand(cat, 1, p)).toBe(cat.demand[p] ?? 0);
+        expect(shopDemand(cat, 2, p)).toBeGreaterThan(cat.demand[p] ?? 0);
+      }
+    }
+  });
+
+  it("KTV: a big venue draws commuters (company parties) that a small one barely gets", () => {
+    const cat = CATEGORY_BY_ID.karaoke!;
+    expect(shopDemand(cat, 2, "commuter")).toBeGreaterThan(shopDemand(cat, 1, "commuter") * 2);
+    expect(shopDemand(cat, 2, "family")).toBeGreaterThan(0);
+    expect(shopDemand(cat, 1, "family")).toBe(0);
   });
 });

@@ -60,7 +60,7 @@ import {
   type PersonaDef,
   type Shop,
 } from "@coidle/shared";
-import { mallBookValue, parkingTrafficMult, slotSpan, spanBasket, spanDraw } from "@coidle/shared";
+import { mallBookValue, parkingTrafficMult, shopDemand, slotSpan, spanBasket, spanDraw } from "@coidle/shared";
 import { facilityDaily, runCinema, runParking, runVenues, stepFacilities } from "./facilities";
 import { expireModifiers, maybeSpawnEvent, resolveDeadlines } from "./events";
 import { generateDailyReviews, noteGrievance, resolveInboxDeadlines } from "./guests";
@@ -384,7 +384,7 @@ function pickShop(s: MallState, rng: Rng, p: PersonaDef, shops: Shop[], withOuts
     if (!cat) return 0;
     // 天氣／節慶／事件的影響每天強弱不同（指數抖動），再加上每日業態雜訊；經濟能力決定「付不付得起」
     const situation = Math.pow(demandMult(s, cat.id, s.tick), effectStrength(s, cat.id, s.tick)) * categoryNoise(s, cat.id, s.tick);
-    const d = (cat.demand[p.id] ?? 0) * situation * affordability(wealth, 1, cat) * weatherZoneFactor(weather, zoneOfSlot(s, shop.slot) ?? "");
+    const d = (shop.span ? shopDemand(cat, shop.span, p.id) : cat.demand[p.id] ?? 0) * situation * affordability(wealth, 1, cat) * weatherZoneFactor(weather, zoneOfSlot(s, shop.slot) ?? "");
     if (d <= 0) return 0;
     const priceF = clamp(Math.exp(p.sensitivity * (1 - effectivePrice(s, shop) / cat.refPrice)), 0.15, 1.6);
     const qualityF = 0.6 + 0.8 * shopQuality(shop) * supplierQualityFactor(s, shop.category);

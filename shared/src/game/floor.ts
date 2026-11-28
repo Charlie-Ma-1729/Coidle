@@ -6,7 +6,7 @@
 //   舊存檔沒有 span，面積＝slot 數，`expansionsOf` 與舊算法相等。
 // - `Slot.id === 陣列索引` 永不改、不重排、不刪除；墓碑留在陣列裡，所有「找空地」的地方要用 `liveSlots` 排除。
 // - 空的 slot（shopId 為空、沒在施工）都是可流通的格子：要開 span N 的店，就從同區找 N−1 個空的 span-1 slot 吸收。
-import type { CategoryDef, MallState, Shop, Slot } from "./types";
+import type { CategoryDef, MallState, PersonaId, Shop, Slot } from "./types";
 
 export type Span = 1 | 2 | 4;
 export const SPANS: readonly Span[] = [1, 2, 4];
@@ -32,10 +32,31 @@ export const spanFactor = (span: Span | undefined): number => SPAN_FACTOR[span ?
 
 /** 目的地型業態：大小直接決定能吸多少客（包廂數、器材數、展區） */
 export const DESTINATION_CATEGORIES: readonly string[] = ["karaoke", "gym", "kids_play", "arcade_vr", "observatory", "art_gallery", "claw"];
-const DRAW_DESTINATION: Record<Span, number> = { 1: 1, 2: 2.3, 4: 4.4 };
-const DRAW_RETAIL: Record<Span, number> = { 1: 1, 2: 1.8, 4: 3.2 };
+const DRAW_DESTINATION: Record<Span, number> = { 1: 1, 2: 1.5, 4: 2.8 };
+const DRAW_RETAIL: Record<Span, number> = { 1: 1, 2: 1.3, 4: 2.3 };
 /** 吸客力：客人挑店的權重倍數（小店＝1） */
 export const spanDraw = (span: Span | undefined, category: string): number => (DESTINATION_CATEGORIES.includes(category) ? DRAW_DESTINATION : DRAW_RETAIL)[span ?? 1] ?? 1;
+/**
+ * 大店解鎖的新客層：2 格以上的店，除了原本的客層，還吸引小店吸引不到的客人
+ * （KTV 的宴會大包廂＝公司聚會與家族慶生、健身房的團體課程教室＝親子與情侶課…）。
+ * demand 是「加到該業態對該客層的需求」上（原本沒有的客層從 0 起算）。
+ */
+export const BIG_UNLOCK: Record<string, { label: string; demand: Partial<Record<PersonaId, number>> }> = {
+  karaoke: { label: "宴會大包廂（公司聚會、家族慶生）", demand: { commuter: 0.5, family: 0.4, tourist: 0.2 } },
+  gym: { label: "團體課程教室（親子課、雙人課、團課）", demand: { family: 0.4, couple: 0.3, student: 0.3 } },
+  kids_play: { label: "生日派對包場（社區活動、旅客親子）", demand: { local: 0.4, tourist: 0.3 } },
+  arcade_vr: { label: "團戰與包場區（公司團康、家庭同樂）", demand: { commuter: 0.5, family: 0.4 } },
+  art_gallery: { label: "特展與校外教學", demand: { student: 0.5, commuter: 0.3 } },
+  claw: { label: "主題專區（觀光與下班順路）", demand: { tourist: 0.4, commuter: 0.4, local: 0.3 } },
+  observatory: { label: "夜景包場與活動", demand: { student: 0.4, commuter: 0.4, local: 0.3 } },
+  grocery: { label: "生鮮與熟食區（伴手禮、年輕客）", demand: { tourist: 0.3, student: 0.3, couple: 0.2 } },
+  electronics: { label: "體驗與課程區（親子、情侶）", demand: { family: 0.4, couple: 0.3 } },
+  camera: { label: "攝影課與沖洗服務（親子、下班族）", demand: { family: 0.4, commuter: 0.3 } },
+};
+/** 這間店（依大小）對某客層的需求：基本需求＋大店解鎖 */
+export const shopDemand = (cat: Pick<CategoryDef, "id" | "demand">, span: Span | undefined, persona: PersonaId): number =>
+  (cat.demand[persona] ?? 0) + (span && span > 1 ? BIG_UNLOCK[cat.id]?.demand[persona] ?? 0 : 0);
+
 /** 零售（有庫存）業態：品項更齊，每組客人買得更多 */
 export const spanBasket = (span: Span | undefined): number => ({ 1: 1, 2: 1.15, 4: 1.3 })[span ?? 1] ?? 1;
 

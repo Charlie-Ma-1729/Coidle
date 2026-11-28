@@ -27,7 +27,9 @@ import {
   TERMINATE_PENALTY,
   leaseRemainingRent,
   spanFactor,
+  BIG_UNLOCK,
   DEMOLISH_FEE_RATE,
+  PERSONA_BY_ID,
   openPlanEnabled,
   spanCostFactor,
 } from "@coidle/shared";
@@ -146,6 +148,11 @@ export function ShopSheet({ shopId, onClose }: { shopId: string; onClose: () => 
           <b>{Math.ceil(cat.baseCapacity * (1 + 0.3 * (shop.level - 1)) * spanFactor(shop.span))}</b>
         </div>
       </div>
+      {shop.span && shop.span > 1 && BIG_UNLOCK[shop.category] && (
+        <p class="small dim">
+          🏬 大店解鎖客層：{BIG_UNLOCK[shop.category]!.label}（{Object.keys(BIG_UNLOCK[shop.category]!.demand).map((p) => PERSONA_BY_ID[p as keyof typeof PERSONA_BY_ID]?.name ?? p).join("、")}）
+        </p>
+      )}
 
       {direct && (
         <>

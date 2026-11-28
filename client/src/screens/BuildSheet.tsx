@@ -1,5 +1,5 @@
 import { useState } from "preact/hooks";
-import { BRAND_TIER_NAME, CATEGORIES, PERSONA_BY_ID, brandsOfCategory, SHOP_NAME_MAX, ZONE_BY_ID, availableSpans, footprintOf, isCategoryAvailable, licenseOf, openPlanEnabled, spanCostFactor, spanDraw, spanFactor, type PersonaId, type Span } from "@coidle/shared";
+import { BRAND_TIER_NAME, CATEGORIES, PERSONA_BY_ID, brandsOfCategory, SHOP_NAME_MAX, ZONE_BY_ID, availableSpans, footprintOf, isCategoryAvailable, licenseOf, openPlanEnabled, BIG_UNLOCK, spanCostFactor, spanDraw, spanFactor, type PersonaId, type Span } from "@coidle/shared";
 import { Btn, Chip, Sheet } from "../components/ui";
 import { gameDuration, money } from "../format";
 import { categoryIcon, PERSONA_ICONS } from "../icons";
@@ -50,6 +50,11 @@ export function BuildSheet({ slotId, onClose }: { slotId: number; onClose: () =>
                       {sp} 格{sp > 1 ? `（併入左右相鄰的空格，容量 ×${spanFactor(sp)}，吸客力 ×${spanDraw(sp, c.id)}）` : "（迷你版）"}
                     </button>
                   ))}
+                </div>
+              )}
+              {span > 1 && BIG_UNLOCK[c.id] && (
+                <div class="small dim">
+                  🏬 解鎖客層：{BIG_UNLOCK[c.id]!.label}（{Object.keys(BIG_UNLOCK[c.id]!.demand).map((p) => PERSONA_BY_ID[p as PersonaId]?.name ?? p).join("、")}）
                 </div>
               )}
               {openPlanEnabled(s) && spans.length === 1 && footprintOf(c).options.length > 1 && <div class="small dim">這格左右沒有可併的空地，只能開 1 格。</div>}
