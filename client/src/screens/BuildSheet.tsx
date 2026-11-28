@@ -43,11 +43,13 @@ export function BuildSheet({ slotId, onClose }: { slotId: number; onClose: () =>
                 客單價約 {money(c.refPrice)}・施工 {gameDuration(c.buildTicks + (lic?.extraTicks ?? 0))}
               </div>
               {spans.length > 1 && (
-                <div class="persona-tags">
-                  <span class="small dim">大小：</span>
+                <div class="span-pick" role="radiogroup" aria-label="店面大小">
                   {spans.map((sp) => (
-                    <button key={sp} type="button" class={`chip ${sp === span ? "on" : ""}`} onClick={() => setPicked({ ...picked, [c.id]: sp })}>
-                      {sp} 格{sp > 1 ? `（併入 1 個空格，容量 ×${spanFactor(sp)}，吸客力 ×${spanDraw(sp, c.id)}）` : "（迷你版）"}
+                    <button key={sp} type="button" role="radio" aria-checked={sp === span} class={`span-opt ${sp === span ? "on" : ""}`} onClick={() => setPicked({ ...picked, [c.id]: sp })}>
+                      <span class="span-ico" aria-hidden="true">{sp > 1 ? "▮▮" : "▮"}</span>
+                      <b>{sp > 1 ? `${sp} 格大店` : sp === 1 && spans.length > 1 ? "1 格迷你版" : "1 格"}</b>
+                      <small>{sp > 1 ? `併入 1 個空格・容量 ×${spanFactor(sp)}・吸客力 ×${spanDraw(sp, c.id)}` : "只佔 1 個空格"}</small>
+                      <small class="span-cost">建造費 ×{spanCostFactor(sp)}</small>
                     </button>
                   ))}
                 </div>

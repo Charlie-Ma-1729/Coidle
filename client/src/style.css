@@ -284,3 +284,11 @@ input[type="range"] { width: 100%; accent-color: var(--pink); }
 .dlg { width: min(92vw, 400px); background: var(--panel-solid); border: 1px solid var(--line); border-radius: 18px; padding: 18px; display: grid; gap: 12px; box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55); animation: pop 0.18s; }
 .dlg h3 { font-size: 1.05rem; white-space: pre-wrap; }
 .dlg p { white-space: pre-wrap; }
+.span-pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin: 8px 0; }
+.span-opt { display: grid; gap: 2px; justify-items: start; text-align: left; padding: 10px 12px; border-radius: 12px; border: 2px solid var(--line); background: var(--panel); color: inherit; cursor: pointer; font: inherit; }
+.span-opt .span-ico { font-size: 1.1rem; letter-spacing: 2px; color: var(--dim); }
+.span-opt small { color: var(--dim); font-size: 0.72rem; line-height: 1.35; }
+.span-opt .span-cost { color: var(--amber); }
+.span-opt:hover { border-color: rgba(255, 95, 162, 0.5); }
+.span-opt.on { border-color: var(--pink); background: rgba(255, 95, 162, 0.12); box-shadow: 0 0 12px rgba(255, 95, 162, 0.3); }
+.span-opt.on .span-ico { color: var(--pink); }
