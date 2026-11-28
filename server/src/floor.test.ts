@@ -177,6 +177,25 @@ describe("demolish", () => {
   });
 });
 
+describe("expansion vs. merged big shops", () => {
+  it("blocks an expansion that would turn the layout into the island type and no longer fit the existing big shops", () => {
+    // cul 有 8 格（壓縮型，最多併 4 間）；併 2 間後再擴建到 9 格（島型，最多併 1 間）就會放不下
+    let s = mk();
+    s.flags["zone:cul"] = true;
+    const cul = () => liveSlots(s, "cul").filter((x) => !x.shopId && !s.builds.some((b) => b.slot === x.id));
+    expect(s.slots.filter((x) => x.zone === "cul")).toHaveLength(8);
+    for (let i = 0; i < 2; i++) s = apply(s, { type: "buildShop", slot: cul()[0]!.id, category: "electronics", span: 2 });
+    expect(mergedCount(s, "cul")).toBe(2);
+    expect(mergeCapacity(9)).toBeLessThan(2);
+    expect(fails(s, { type: "expandZone", zone: "cul" })).toMatch(/版面|大店/);
+    // 拆掉一間以後，只剩 1 間，擴建就放行
+    const shop = finish(s).shops.find((x) => (x.span ?? 1) > 1)!;
+    const t = apply(finish(s), { type: "demolishShop", shopId: shop.id });
+    expect(mergedCount(t, "cul")).toBe(1);
+    expect(fails(t, { type: "expandZone", zone: "cul" })).toBeNull();
+  });
+});
+
 describe("big shop unlocks new customer segments", () => {
   it("adds demand only for span >= 2, never lowers existing demand, and every big-capable category has an unlock", () => {
     for (const id of Object.keys(FOOTPRINT_BY_CATEGORY)) {

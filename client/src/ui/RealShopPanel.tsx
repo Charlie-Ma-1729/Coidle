@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import { CATEGORY_BY_ID, MAX_SHOP_LEVEL, PRICE_TOLERANCE, REFRESH_COST, PRICE_MIN, PRICE_HARD_MAX, UPGRADE_BASE_COST, UPGRADE_TICKS, categoryHasStock, currentUnitCost, leaseEnabled, leaseRemainingRent, TERMINATE_PENALTY } from "@coidle/shared";
+import { CATEGORY_BY_ID, MAX_SHOP_LEVEL, PRICE_TOLERANCE, REFRESH_COST, PRICE_MIN, PRICE_HARD_MAX, UPGRADE_BASE_COST, UPGRADE_TICKS, categoryHasStock, currentUnitCost, leaseEnabled, leaseRemainingRent, TERMINATE_PENALTY, BIG_UNLOCK, DEMOLISH_FEE_RATE, PERSONA_BY_ID, openPlanEnabled, spanCostFactor } from "@coidle/shared";
 import { gameDeadline, gameDuration, money, num } from "../format";
 import { workshopFocus } from "../screens/Workshop";
 import type { HubId, StageFloor } from "../stage/model";
@@ -99,7 +99,7 @@ export function RealShopPanel(props: {
   const stale = direct && shop.freshness < 40;
   const complaints = s.inbox.filter((i) => i.shopId === shop.id).length;
   const upgrading = s.builds.some((b) => b.kind === "upgrade" && b.shopId === shop.id);
-  const upgradeCost = UPGRADE_BASE_COST * shop.level;
+  const upgradeCost = UPGRADE_BASE_COST * shop.level * spanCostFactor(shop.span);
   const refreshCost = REFRESH_COST * shop.level;
   const gap = price - shop.price;
   const canLease = leaseEnabled(s) && (!shop.tenant || shop.tenant.own);
@@ -109,10 +109,17 @@ export function RealShopPanel(props: {
       <Head
         color={hex(stage.color)}
         title={shop.name}
-        sub={`${cat.name}・Lv.${shop.level}・${shop.mode === "direct" ? "直營" : "出租"}・${closed ? "休息中" : "營業中"}`}
+        sub={`${cat.name}${shop.span && shop.span > 1 ? `・${shop.span} 格大店` : ""}・Lv.${shop.level}・${shop.mode === "direct" ? "直營" : "出租"}・${closed ? "休息中" : "營業中"}`}
         onClose={props.onClose}
       />
       <div class="st-side-body">
+        {shop.span && shop.span > 1 && BIG_UNLOCK[shop.category] && (
+          <div class="st-tip">
+            <span>
+              🏬 <b>大店解鎖客層</b>：{BIG_UNLOCK[shop.category]!.label}（{Object.keys(BIG_UNLOCK[shop.category]!.demand).map((p) => PERSONA_BY_ID[p as keyof typeof PERSONA_BY_ID]?.name ?? p).join("、")}）
+            </span>
+          </div>
+        )}
         {closed && (
           <div class="st-tip red">
             <span>
@@ -243,6 +250,22 @@ export function RealShopPanel(props: {
             {shop.mode === "direct" && (
               <button class="st-btn" disabled={busy.value} onClick={() => confirmThen(`讓「${shop.name}」歇業？\n店面會空出來，庫存與研發進度作廢、不退費。`, () => run({ type: "closeShop", shopId: shop.id }, "已歇業"))}>
                 歇業
+              </button>
+            )}
+            {shop.mode === "direct" && openPlanEnabled(s) && (
+              <button
+                class="st-btn"
+                disabled={busy.value}
+                onClick={() => {
+                  const fee = Math.round(cat.buildCost * spanCostFactor(shop.span) * DEMOLISH_FEE_RATE);
+                  const merged = shop.span && shop.span > 1 ? "併進來的格子會還成空地，之後可以重新規劃大小。" : "";
+                  confirmThen(
+                    ["拆除「" + shop.name + "」？", `拆除費 ${money(fee)}（建造費的 ${Math.round(DEMOLISH_FEE_RATE * 100)}%，裝潢報廢不退款），現在就會扣款。`, merged, "同一層拆完要隔一個遊戲日才能再拆。"].filter(Boolean).join("\n"),
+                    () => run({ type: "demolishShop", shopId: shop.id }, "已拆除"),
+                  );
+                }}
+              >
+                拆除重建
               </button>
             )}
           </div>

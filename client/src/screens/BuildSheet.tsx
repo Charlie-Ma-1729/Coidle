@@ -47,7 +47,7 @@ export function BuildSheet({ slotId, onClose }: { slotId: number; onClose: () =>
                   <span class="small dim">大小：</span>
                   {spans.map((sp) => (
                     <button key={sp} type="button" class={`chip ${sp === span ? "on" : ""}`} onClick={() => setPicked({ ...picked, [c.id]: sp })}>
-                      {sp} 格{sp > 1 ? `（併入左右相鄰的空格，容量 ×${spanFactor(sp)}，吸客力 ×${spanDraw(sp, c.id)}）` : "（迷你版）"}
+                      {sp} 格{sp > 1 ? `（併入 1 個空格，容量 ×${spanFactor(sp)}，吸客力 ×${spanDraw(sp, c.id)}）` : "（迷你版）"}
                     </button>
                   ))}
                 </div>
