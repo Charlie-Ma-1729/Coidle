@@ -248,7 +248,7 @@ export function RealShopPanel(props: {
               </button>
             )}
             {shop.mode === "direct" && (
-              <button class="st-btn" disabled={busy.value} onClick={() => confirmThen(`讓「${shop.name}」歇業？\n店面會空出來，庫存與研發進度作廢、不退費。`, () => run({ type: "closeShop", shopId: shop.id }, "已歇業"))}>
+              <button class="st-btn" disabled={busy.value} onClick={() => confirmThen(`讓「${shop.name}」歇業？\n店面會空出來，庫存與研發進度作廢、不退費。${shop.span && shop.span > 1 ? "\n併進來的格子會還成空地。" : ""}`, () => run({ type: "closeShop", shopId: shop.id }, "已歇業"))}>
                 歇業
               </button>
             )}

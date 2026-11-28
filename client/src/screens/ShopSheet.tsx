@@ -321,7 +321,7 @@ export function ShopSheet({ shopId, onClose }: { shopId: string; onClose: () => 
               small
               kind="danger"
               onClick={() =>
-                confirmThen(`讓「${shop.name}」歇業？\n店面會空出來，庫存與研發進度作廢、不退費，之後可以重新蓋別的店或招商。`, async () => {
+                confirmThen(`讓「${shop.name}」歇業？\n店面會空出來，庫存與研發進度作廢、不退費，之後可以重新蓋別的店或招商。${shop.span && shop.span > 1 ? "\n併進來的格子會還成空地。" : ""}`, async () => {
                   if (await run({ type: "closeShop", shopId: shop.id }, "已歇業")) onClose();
                 })
               }

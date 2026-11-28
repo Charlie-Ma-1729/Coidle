@@ -12,6 +12,8 @@ import {
   RENEWAL_TTL,
   TERMINATE_PENALTY,
   TICKS_PER_DAY,
+  applyResize,
+  planResize,
   baselineRevenue,
   brandName,
   brandsOfCategory,
@@ -152,6 +154,11 @@ export function declineTenant(s: MallState, candidateId: string): GuestResult {
 export function vacate(s: MallState, shop: Shop): void {
   const slot = s.slots[shop.slot];
   if (slot) slot.shopId = null;
+  // 大店（歇業、解約、被收回…）：併進來的格子一併還成空地，不留 2 格寬的空地，這樣歇業不能繞過拆除
+  if (slot && (shop.span ?? 1) > 1) {
+    const rp = planResize(s, slot.id, 1);
+    if (rp.ok) applyResize(s, slot.id, 1, rp);
+  }
   s.shops = s.shops.filter((x) => x.id !== shop.id);
   s.workshop.jobs = s.workshop.jobs.filter((j) => j.shopId !== shop.id);
 }

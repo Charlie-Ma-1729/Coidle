@@ -240,3 +240,18 @@ describe("instant build flag", () => {
     expect(s3.shops.find((x) => x.id === shop.id)!.level).toBe(lv + 1);
   });
 });
+
+describe("closing a big shop", () => {
+  it("returns the merged cell to the floor, so closing cannot leave a wide empty lot", () => {
+    const s = mk();
+    const slot = emptyIn(s).find((x) => planResize(s, x.id, 2).ok)!;
+    const done = finish(apply(s, { type: "buildShop", slot: slot.id, category: CAT, span: 2 }));
+    const big = done.shops.find((x) => x.slot === slot.id)!;
+    expect(big.span).toBe(2);
+    const closed = apply(done, { type: "closeShop", shopId: big.id });
+    expect(closed.slots[slot.id]!.span).toBeUndefined();
+    expect(closed.slots.filter((x) => x.zone === ZONE && x.span === 0)).toHaveLength(0);
+    expect(floorArea(closed, ZONE)).toBe(floorArea(s, ZONE));
+    expect(freeCells(closed, ZONE)).toBe(freeCells(s, ZONE));
+  });
+});
