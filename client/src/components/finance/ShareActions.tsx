@@ -35,7 +35,7 @@ export function ShareActions(props: { mallId: number; mallName: string; meId: nu
   const shares = whole(amount);
   const target = Number(to);
   const targetPerson = others.find((p) => p.userId === target);
-  const price = shares >= 1 ? buybackPrice(shares, view.equityValue ?? view.mallCash, view.total) : 0;
+  const price = shares >= 1 ? buybackPrice(shares, view.equityValue ?? view.mallCash, view.total, view.netAssetsValue) : 0;
   const needTarget = () => (targetPerson ? true : (void notice("先選一位對象"), false));
   // 股權變現門檻：自己還不合格時三個動作都不能按（對方不合格由伺服器回覆原因）
   const blocked = view.cashOutBlocker ?? null;

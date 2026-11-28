@@ -78,6 +78,7 @@ import {
   buybackPrice,
   clampToAnchor,
   mallBookValue,
+  netAssets,
   isBigStake,
   isControlling,
   issuePrice,
@@ -810,6 +811,20 @@ export class MallService {
     }
   }
 
+  /** 商場淨資產（不含獲利溢價、不夾浮動帶）：撤資價的上限用它。傳 s 就用那份已同步的狀態 */
+  private navOf(mallId: number, s?: MallState): number {
+    try {
+      return Math.max(0, Math.round(netAssets(s ?? this.load(mallId))));
+    } catch {
+      return 0;
+    }
+  }
+
+  /** 注資換股用的估值：不低於淨資產（浮動帶落後時也不能用低於淨資產的價格買進），和撤資價上限配成「撤資再注資不獲利」 */
+  private entryValueOf(mallId: number, s?: MallState): number {
+    return Math.max(this.valueOf(mallId, s), this.navOf(mallId, s));
+  }
+
   private assertEquityMall(mallId: number): void {
     if (!this.repo.mallById(mallId)) throw new ServiceError(404, "找不到這座商場");
     if (this.repo.isSandbox(mallId)) throw new ServiceError(403, "測試商場沒有股權");
@@ -840,6 +855,7 @@ export class MallService {
       treasury: this.repo.treasuryOf(mallId),
       mallCash: cash,
       equityValue: value,
+      netAssetsValue: this.navOf(mallId),
       sharePrice: Math.round(issuePrice(value, total) * 100) / 100,
       dividendMax: ready ? Math.max(0, Math.floor(cash * DIVIDEND_MAX_CASH_PCT)) : 0,
       dividendReadyAt: ready ? 0 : readyAt,
@@ -961,7 +977,7 @@ export class MallService {
     if (!holders.some((h) => (h.userId === userId ? held - shares : h.shares) > 0)) throw new ServiceError(409, "商場至少要留一位股東，不能把股份全部回購");
     const st = this.sync(mallId);
     const funds = Math.floor(st.funds);
-    const price = buybackPrice(shares, this.valueOf(mallId, st), total);
+    const price = buybackPrice(shares, this.valueOf(mallId, st), total, Math.max(0, netAssets(st)));
     if (price <= 0) throw new ServiceError(409, "商場估值不足，沒辦法回購");
     if (price > funds * BUYBACK_MAX_CASH_PCT) throw new ServiceError(409, `一次回購最多只能動用商場現金的一半（約 ${Math.floor(funds * BUYBACK_MAX_CASH_PCT).toLocaleString()}）；請分次賣，或賣給其他股東`);
     const before = this.controllerOf(mallId);
@@ -1007,7 +1023,7 @@ export class MallService {
 
   // ── 注資換股：成員從個人錢包拿錢投入商場，照帳面價值每股的價格換股份
   capitalRequests(mallId: number): CapitalRequestView[] {
-    const value = this.valueOf(mallId);
+    const value = this.entryValueOf(mallId);
     const total = this.outstanding(mallId);
     return this.repo.capitalRequests(mallId, this.now()).map((r) => ({
       id: r.id,
@@ -1026,7 +1042,7 @@ export class MallService {
     if (!this.repo.member(mallId, userId)) throw new ServiceError(403, "只有商場成員可以注資");
     if (typeof amount !== "number" || !Number.isInteger(amount) || amount < 1) throw new ServiceError(400, "金額要是 1 以上的整數");
     if (this.repo.walletOf(userId) < amount) throw new ServiceError(402, `你的錢包只有 ${this.repo.walletOf(userId).toLocaleString()}，不夠投入 ${amount.toLocaleString()}`);
-    const est = sharesForCapital(amount, this.valueOf(mallId), this.outstanding(mallId));
+    const est = sharesForCapital(amount, this.entryValueOf(mallId), this.outstanding(mallId));
     if (est.shares < 1) throw new ServiceError(400, `這筆錢換不到 1 股（每股約 ${Math.ceil(est.price).toLocaleString()}）`);
     if (this.authorityOf(mallId) === userId) return { applied: true, shares: this.applyCapital(mallId, userId, amount) };
     this.repo.setCapitalRequest(mallId, userId, amount, this.now() + OFFER_TTL_MS);
@@ -1058,7 +1074,7 @@ export class MallService {
     this.assertCanInteract(mallId);
     const issuedTotal = this.repo.totalSharesOf(mallId); // 已發行（含庫藏股）
     const total = this.outstanding(mallId); // 流通在外：比例、價格都用它（庫藏股是商場自己的，不算）
-    const { shares, cost } = sharesForCapital(amount, this.valueOf(mallId, this.sync(mallId)), total);
+    const { shares, cost } = sharesForCapital(amount, this.entryValueOf(mallId, this.sync(mallId)), total);
     if (shares < 1) throw new ServiceError(400, "這筆錢換不到 1 股");
     const treasury = this.repo.treasuryOf(mallId);
     const fromTreasury = Math.min(treasury, shares);

@@ -14,6 +14,7 @@ import {
   WORLD_EPOCH_MS,
   buybackPrice,
   mallBookValue,
+  netAssets,
   equityBlocker,
   sharesForCapital,
   splitDividend,
@@ -376,6 +377,41 @@ describe("a big stake counts as running the mall", () => {
     a.service.kickMember(w.A, w.alice.id, w.bob.id);
     clock.t += RELATED_TAIL_MS + DAY;
     expect(a.service.related(w.A, w.B)).toBe(false);
+  });
+});
+
+describe("cash-out / buy-in never profits", () => {
+  it("caps a buyback at the stake's share of net assets, however high the valuation premium", async () => {
+    const a = make();
+    const w = await world(a);
+    await gift(a, w.alice, w.A, w.bob.id, 1000);
+    const cache = (a.service as unknown as { cache: Map<number, MallState> }).cache;
+    const st = cache.get(w.A)!;
+    const nav = netAssets(st);
+    st.valuationAnchor = Math.round(nav * 2); // 昨天收盤估值是淨資產的 2 倍：今天估值 ≈ 淨資產 × 1.8
+    expect(a.service.holdings(w.A).equityValue!).toBeGreaterThan(nav * 1.5);
+    const r = await post(a, w.bob.cookie, `/api/malls/${w.A}/shares/buyback`, { shares: 1000 });
+    expect(r.statusCode).toBe(200);
+    const got = a.repo.walletOf(w.bob.id);
+    expect(got).toBeLessThanOrEqual(Math.round(nav * 0.1) + 1); // 1000/10000 股 × 淨資產，領不到溢價
+    expect(got).toBeGreaterThan(0);
+  });
+
+  it("buys in at no less than net assets per share, even when yesterday's anchor lags below it", async () => {
+    const a = make();
+    const w = await world(a);
+    const cache = (a.service as unknown as { cache: Map<number, MallState> }).cache;
+    const st = cache.get(w.A)!;
+    const nav = netAssets(st);
+    st.valuationAnchor = Math.round(nav / 2); // 估值被夾在 0.55 × 淨資產：舊算法能用 5 折買進
+    a.repo.addCash(w.alice.id, 1_000_000);
+    const before = a.repo.sharesOf(w.A, w.alice.id);
+    const total = a.repo.totalSharesOf(w.A);
+    await post(a, w.alice.cookie, `/api/malls/${w.A}/capital`, { amount: 1_000_000 }); // 管事的人自己注資，直接成交
+    const bought = a.repo.sharesOf(w.A, w.alice.id) - before;
+    expect(bought).toBeGreaterThan(0);
+    expect(1_000_000 / bought).toBeGreaterThanOrEqual(nav / total - 1); // 每股價 ≥ 淨資產每股
+    expect(conserved(a, w.A)).toBe(true);
   });
 });
 

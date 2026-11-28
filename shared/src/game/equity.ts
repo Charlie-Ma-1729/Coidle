@@ -91,8 +91,16 @@ export const isBigStake = (shares: number, total: number): boolean => shares * 5
 // 下面四個函式的 value＝商場的股權估值（見 valuation.ts 的 mallBookValue，再夾進每日浮動帶），不是現金。
 /** 這些股份按估值（估值 × 比例）值多少 */
 export const stakeValue = (shares: number, value: number, total: number): number => Math.round((Math.max(0, value) * shares) / total);
-/** 商場回購這些股份要付多少（估值 × 折數，取整數） */
-export const buybackPrice = (shares: number, value: number, total: number): number => Math.floor(stakeValue(shares, value, total) * BUYBACK_DISCOUNT);
+/**
+ * 商場回購這些股份要付多少：估值 × 折數，且**不超過這些股份在淨資產上的份額**（取整數）。
+ * 獲利溢價只是帳面價值，不能被撤資領成真現金；注資買股用估值（≥ 淨資產每股），
+ * 所以「撤資 → 注資」不管兩座商場的溢價差多少，實質淨資產份額都不會增加。
+ * nav 省略（舊版伺服器／測試）＝只用估值 9 折。
+ */
+export const buybackPrice = (shares: number, value: number, total: number, nav?: number): number => {
+  const byValue = Math.floor(stakeValue(shares, value, total) * BUYBACK_DISCOUNT);
+  return nav === undefined ? byValue : Math.min(byValue, Math.floor(stakeValue(shares, nav, total)));
+};
 /** 注資換股／出售庫藏股的每股價：估值每股，但不低於 MIN_SHARE_PRICE */
 export const issuePrice = (value: number, total: number): number => Math.max(MIN_SHARE_PRICE, Math.max(0, value) / total);
 
@@ -188,6 +196,8 @@ export interface HoldingsView {
   mallCash: number;
   /** 商場估值（淨資產＋獲利溢價，夾進每日浮動帶）；回購、注資、出價的價錢都用它算。舊版伺服器沒有 */
   equityValue?: number;
+  /** 商場淨資產（不含獲利溢價）；撤資價不會超過持股在它上面的份額。舊版伺服器沒有 */
+  netAssetsValue?: number;
   /** 注資換股現在每股多少錢 */
   sharePrice: number;
   /** 這次最多能發多少股利（現金的 30%，且還在冷卻中就是 0） */
