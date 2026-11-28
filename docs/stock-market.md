@@ -74,7 +74,7 @@
 - 單一標的最多流通股的 **10%**、全部投資市值最多商場現金的 **40%**（`corporateCap`）；手續費與賣出獲利稅同個人；配息入公司資金（扣稅）。
 - 持股變動跨過 **5%**（`disclosureCrossing`）→ 公開一則「大量持有報告」（`stock_disclosures`，無價格效果，避免炒作）。
 - 狀態：`mall_positions(mall_id, company, shares, cost_total)`（DB 表，不放進商場存檔，所以配息與估值不必掃全部商場）。資金變動走 `MallService.mutate`，和 DB 持倉包在同一個 `repo.tx`。
-- 估值：`WealthView.corporate` ＝ 我的持股比例 × 商場持有的股票市值；`stakes[].value`（帳面價值）仍只算帳上現金，撤資、出價與增資價格不變（保守）。
+- 估值：`WealthView.corporate` ＝ 我的持股比例 × 商場持有的股票市值；`stakes[].value` 現在是商場估值（淨資產＋獲利溢價，見 `docs/equity.md`「估值」），但**不含**商場持有的股票市價，所以這部分仍另列在 `corporate`。
 - API：`GET /api/me/corporate`、`POST /api/malls/:id/portfolio/:key/buy|sell`（稽核 `portfolio.buy|sell`）。畫面：股市詳情頁「交易帳戶」切換到「〈商場〉（公司資金）」。
 
 ## API
@@ -104,7 +104,7 @@ v13：`stock_positions`、`stock_trades`（v16 加 `gain`）、`wallet_ledger`�
 2. **價格衝擊**：用全服的淨買賣量推價。
 3. **Overseer 工具**：市場消息覆寫、臨時休市／暫停交易、調整上限。
 4. **更多玩法**：放空、損益相抵、融資、指數基金／ETF、持股排行（都會放大「系統發放獲利」，要小心）。
-5. **更真實的估值**：商場持股改用「現金＋店面與設備折舊＋營收倍數」（`docs/equity.md`）。
+5. **商場持股併入估值**：內部估值（淨資產＋獲利）已完成；商場持有的股票市價（扣一次賣出手續費）併入 `mallBookValue` 留到 IPO 時做（`docs/equity.md`）。
 
 ## 已知限制
 - 市場對手是系統流動性，獲利與配息是系統發放的；靠上限與稅控制，上線後要看實際的錢包成長。

@@ -52,7 +52,10 @@ async function reg(a: App, username: string) {
   const me = (await a.app.inject({ method: "GET", url: "/api/me", headers: { cookie } })).json();
   return { cookie, id: me.user.id as number };
 }
-const post = (a: App, cookie: string, url: string, payload: unknown = {}) => a.app.inject({ method: "POST", url, headers: { cookie }, payload: payload as object });
+const post = (a: App, cookie: string, url: string, payload: unknown = {}) => {
+  a.repo.vouchAllMembers(); // 不是在測股權變現門檻：成員先視為達標
+  return a.app.inject({ method: "POST", url, headers: { cookie }, payload: payload as object });
+};
 const get = (a: App, cookie: string, url: string) => a.app.inject({ method: "GET", url, headers: { cookie } });
 const KEY = STOCK_GROUPS[0]!.key;
 const fund = (a: App, userId: number, n: number) => a.repo.addCash(userId, n);

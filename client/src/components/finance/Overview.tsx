@@ -58,7 +58,7 @@ export function Overview(props: { wealth: WealthView | null; equity: PersonalEqu
   const stakes = w.stakes.reduce((a, s) => a + s.value, 0);
   const parts = [
     { id: "cash", label: "個人錢包", value: w.cash, tone: "" },
-    { id: "stakes", label: "商場持股（帳面價值）", value: stakes, tone: "amber" },
+    { id: "stakes", label: "商場持股（估值）", value: stakes, tone: "amber" },
     { id: "stock", label: "股票市值", value: w.portfolio, tone: "red" },
     ...(w.corporate > 0 ? [{ id: "corp", label: "法人投資（商場持有的股票）", value: w.corporate, tone: "amber" }] : []),
   ];

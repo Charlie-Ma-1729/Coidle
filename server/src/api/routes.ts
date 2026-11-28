@@ -371,7 +371,8 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     // 股東（含被請出商場、不再是成員的人）也看得到股權表，才能處理自己的持股
     const me = userFromRequest(req, repo, now());
     if (!(me && repo.sharesOf(mallId, me.id) > 0)) requireReader(req, mallId);
-    return service.holdings(mallId);
+    const view = service.holdings(mallId);
+    return me ? { ...view, cashOutBlocker: service.equityBlockerOf(me.id) } : view;
   });
 
   app.post("/api/malls/:id/shares/transfer", async (req) => {

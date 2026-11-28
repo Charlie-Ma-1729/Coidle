@@ -16,7 +16,7 @@ export function OfferRows(props: { offers: ShareOfferView[]; meId: number; mallN
             <span class="grow">
               {where(o)}
               {o.fromName} 想賣你 <b>{o.shares.toLocaleString()}</b> 股，價款 <b>{moneyShort(o.price)}</b>
-              <small>照出價當下的帳面價值；你同意、而且錢包付得起才會成交</small>
+              <small>照出價當下的估值；你同意、而且錢包付得起才會成交</small>
             </span>
             <button class="st-btn" disabled={busy} onClick={() => run(() => api.respondOffer(o.id, true), "已買下")}>
               同意

@@ -2,6 +2,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { DatabaseSync } from "node:sqlite";
 import {
   DIVIDEND_COOLDOWN_MS,
+  EQUITY_MIN_ACCOUNT_AGE_MS,
+  EQUITY_MIN_ACTIVE_DAYS,
+  EQUITY_MIN_MALL_REVENUE,
   FOUNDING_COST,
   INITIAL_FUNDS,
   INITIAL_SHARES,
@@ -10,8 +13,10 @@ import {
   STARTER_QUESTS,
   WORLD_EPOCH_MS,
   buybackPrice,
+  equityBlocker,
   sharesForCapital,
   splitDividend,
+  type EquityStanding,
   type MallState,
 } from "@coidle/shared";
 import { buildApp } from "./app";
@@ -41,7 +46,12 @@ async function reg(a: App, username: string) {
   const me = (await a.app.inject({ method: "GET", url: "/api/me", headers: { cookie } })).json();
   return { cookie, id: me.user.id as number };
 }
-const post = (a: App, cookie: string, url: string, payload: unknown = {}) => a.app.inject({ method: "POST", url, headers: { cookie }, payload: payload as object });
+/** 既有測試不是在測股權變現門檻，所以送出前先把成員都視為達標；門檻本身的測試用 raw()（不 vouch） */
+const raw = (a: App, cookie: string, url: string, payload: unknown = {}) => a.app.inject({ method: "POST", url, headers: { cookie }, payload: payload as object });
+const post = (a: App, cookie: string, url: string, payload: unknown = {}) => {
+  a.repo.vouchAllMembers();
+  return raw(a, cookie, url, payload);
+};
 const get = (a: App, cookie: string, url: string) => a.app.inject({ method: "GET", url, headers: { cookie } });
 /** 持股加庫藏股＝總股數（永遠成立） */
 const conserved = (a: App, mallId: number) => a.repo.holdingsOfMall(mallId).reduce((x, h) => x + h.shares, 0) + a.repo.treasuryOf(mallId) === a.repo.totalSharesOf(mallId);
@@ -417,5 +427,64 @@ describe("migrations v11 and v12", () => {
       { id: 4, founded_count: 0 },
     ]);
     db.close();
+  });
+});
+
+describe("equity cash-out gate (throwaway accounts)", () => {
+  const std = (o: Partial<EquityStanding> = {}): EquityStanding => ({ accountCreatedAt: 0, activeDays: EQUITY_MIN_ACTIVE_DAYS, mallRevenue: EQUITY_MIN_MALL_REVENUE, vouched: false, ...o });
+  const NOW = EQUITY_MIN_ACCOUNT_AGE_MS + 1;
+
+  it("needs account age, distinct active game days and real mall revenue", () => {
+    expect(equityBlocker(std(), NOW)).toBeNull();
+    expect(equityBlocker(std({ accountCreatedAt: NOW - 1000 }), NOW)).toContain("帳號建立還不夠久");
+    expect(equityBlocker(std({ activeDays: EQUITY_MIN_ACTIVE_DAYS - 1 }), NOW)).toContain("經營紀錄");
+    expect(equityBlocker(std({ mallRevenue: EQUITY_MIN_MALL_REVENUE - 1 }), NOW)).toContain("營業額");
+    expect(equityBlocker(std({ accountCreatedAt: NOW - 1000, activeDays: 0, mallRevenue: 0, vouched: true }), NOW)).toBeNull();
+  });
+
+  it("counts at most one active day per game day, no matter how many commands", async () => {
+    const a = make();
+    const alice = await reg(a, "alice");
+    const { mallId } = a.service.createMall(alice.id, "甲商場");
+    for (let i = 0; i < 50; i++) a.repo.recordActiveDay(mallId, alice.id, 20_000);
+    expect(a.repo.equityStanding(alice.id, { days: 8, revenue: 0 }).activeDays).toBe(1);
+    a.repo.recordActiveDay(mallId, alice.id, 20_001);
+    expect(a.repo.equityStanding(alice.id, { days: 8, revenue: 0 }).activeDays).toBe(2);
+  });
+
+  it("blocks transfer, offer, accept and buyback for fresh accounts", async () => {
+    const a = make();
+    const w = await world(a);
+    const r = await raw(a, w.alice.cookie, `/api/malls/${w.A}/shares/transfer`, { userId: w.bob.id, shares: 100 });
+    expect(r.statusCode).toBe(403);
+    expect(r.json().error).toContain("帳號建立");
+    expect((await raw(a, w.alice.cookie, `/api/malls/${w.A}/shares/offer`, { userId: w.bob.id, shares: 100 })).statusCode).toBe(403);
+    expect((await raw(a, w.alice.cookie, `/api/malls/${w.A}/shares/buyback`, { shares: 100 })).statusCode).toBe(403);
+    expect(a.repo.sharesOf(w.A, w.alice.id)).toBe(INITIAL_SHARES);
+    expect(conserved(a, w.A)).toBe(true);
+  });
+
+  it("blocks when only the receiver is a fresh/idle account", async () => {
+    const a = make();
+    const w = await world(a);
+    a.repo.vouchAllMembers();
+    const carol = await reg(a, "carol");
+    a.service.joinMall(w.code, carol.id, "ops", 8);
+    const r = await raw(a, w.alice.cookie, `/api/malls/${w.A}/shares/transfer`, { userId: carol.id, shares: 100 });
+    expect(r.statusCode).toBe(403);
+    expect(r.json().error).toContain("對方");
+  });
+});
+
+describe("holdings view exposes the cash-out blocker", () => {
+  it("shows the reason to a fresh account and nothing once vouched", async () => {
+    const a = make();
+    const alice = await reg(a, "alice");
+    const { mallId } = a.service.createMall(alice.id, "甲商場");
+    const before = (await get(a, alice.cookie, `/api/malls/${mallId}/holdings`)).json();
+    expect(before.cashOutBlocker).toContain("帳號建立");
+    a.repo.vouchAllMembers();
+    const after = (await get(a, alice.cookie, `/api/malls/${mallId}/holdings`)).json();
+    expect(after.cashOutBlocker).toBeNull();
   });
 });

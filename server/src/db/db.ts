@@ -423,6 +423,13 @@ export const MIGRATIONS: string[] = [
   `,
   // 名錄：缺貨中的店是哪些業態（逗號分隔的業態名）
   `ALTER TABLE mall_directory ADD COLUMN stockout_cats TEXT NOT NULL DEFAULT '';`,
+  // 股權變現門檻（防免洗帳號）：活躍遊戲日數（每個遊戲日最多 +1）；升版當下已存在的成員一律視為達標（vouched）
+  `
+  ALTER TABLE memberships ADD COLUMN active_days INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE memberships ADD COLUMN last_active_day INTEGER NOT NULL DEFAULT -1;
+  ALTER TABLE memberships ADD COLUMN vouched INTEGER NOT NULL DEFAULT 0;
+  UPDATE memberships SET vouched = 1;
+  `,
 ];
 
 export function openDb(path: string): Db {

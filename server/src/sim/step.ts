@@ -57,7 +57,7 @@ import {
   type PersonaDef,
   type Shop,
 } from "@coidle/shared";
-import { parkingTrafficMult } from "@coidle/shared";
+import { mallBookValue, parkingTrafficMult } from "@coidle/shared";
 import { facilityDaily, runCinema, runParking, runVenues, stepFacilities } from "./facilities";
 import { expireModifiers, maybeSpawnEvent, resolveDeadlines } from "./events";
 import { generateDailyReviews, noteGrievance, resolveInboxDeadlines } from "./guests";
@@ -605,6 +605,7 @@ function rollover(s: MallState, time: TimeInfo): void {
   patrolDaily(s); // 巡店：沒處理的問題造成影響、惡化、冒出新問題
   legalDaily(s); // 保險費、管理不善的商場可能收到請求書（要在各店當日統計重置之前）
   inventoryDaily(s); // 日均銷量、放太久的貨會壞（要在各店當日統計重置之前）
+  s.valuationAnchor = mallBookValue(s); // 股權估值的收盤錨點（隔天價格最多從這裡浮動 ±10%）
   for (const shop of s.shops) {
     shop.day = newShopDayStats();
     shop.spentToday = 0;

@@ -1,4 +1,4 @@
-import { DEFAULT_SERVER_CLOCK, INITIAL_SHARES, serverTickAt, type ActivityEntry, type LedgerEntry, type LedgerKind, type MemberInfo, type RoleId, type ServerClock } from "@coidle/shared";
+import { DEFAULT_SERVER_CLOCK, INITIAL_SHARES, serverTickAt, type ActivityEntry, type EquityStanding, type LedgerEntry, type LedgerKind, type MemberInfo, type RoleId, type ServerClock } from "@coidle/shared";
 import type { Db } from "./db";
 
 export type UserRole = "player" | "overseer";
@@ -170,6 +170,38 @@ export class Repo {
   /** 這位成員剛剛在這座商場（只往後記，不會倒退） */
   touchMember(mallId: number, userId: number, now: number): void {
     this.db.prepare("UPDATE memberships SET last_active_at = ? WHERE mall_id = ? AND user_id = ? AND last_active_at < ?").run(now, mallId, userId, now);
+  }
+  /** 玩家下了會改變商場的指令：同一個遊戲日只算一次（點再多次也只 +1） */
+  recordActiveDay(mallId: number, userId: number, day: number): void {
+    this.db
+      .prepare("UPDATE memberships SET active_days = active_days + 1, last_active_day = ? WHERE mall_id = ? AND user_id = ? AND last_active_day < ?")
+      .run(day, mallId, userId, day);
+  }
+  /** 把所有現有成員視為達標（測試與管理用；正式環境只有 migration 那一次） */
+  vouchAllMembers(): void {
+    this.db.prepare("UPDATE memberships SET vouched = 1").run();
+  }
+  /** 股權變現門檻用：帳號年齡＋所有成員身分中最好的一座（活躍遊戲日、加入後的商場營業額）。有任何一座達標就算達標 */
+  equityStanding(userId: number, thresholds: { days: number; revenue: number }): EquityStanding {
+    const u = this.db.prepare("SELECT created_at FROM users WHERE id = ?").get(userId) as { created_at: number } | undefined;
+    const rows = this.db
+      .prepare(
+        `SELECT m.active_days, m.vouched,
+           COALESCE((SELECT SUM(b.revenue) FROM balance_daily b WHERE b.mall_id = m.mall_id AND b.recorded_at >= m.joined_at), 0) AS rev
+         FROM memberships m WHERE m.user_id = ?`,
+      )
+      .all(userId) as { active_days: number; vouched: number; rev: number }[];
+    let best = { activeDays: 0, mallRevenue: 0 };
+    let vouched = false;
+    for (const r of rows) {
+      if (r.vouched === 1) vouched = true;
+      const ok = r.active_days >= thresholds.days && r.rev >= thresholds.revenue;
+      const bestOk = best.activeDays >= thresholds.days && best.mallRevenue >= thresholds.revenue;
+      if ((ok && !bestOk) || (ok === bestOk && r.active_days + r.rev / 1e6 > best.activeDays + best.mallRevenue / 1e6)) {
+        best = { activeDays: r.active_days, mallRevenue: r.rev };
+      }
+    }
+    return { accountCreatedAt: u?.created_at ?? 0, activeDays: best.activeDays, mallRevenue: best.mallRevenue, vouched };
   }
   mallsOfUser(userId: number): { id: number; name: string; role: RoleId; is_owner: number }[] {
     return this.db

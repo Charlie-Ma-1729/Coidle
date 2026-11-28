@@ -39,6 +39,42 @@ export const MIN_SHARE_PRICE = 100;
 export const OFFER_TTL_MS = 3 * 86_400_000;
 
 /**
+ * 股權變現門檻（防免洗帳號：開小號 → 股份集中 → 套現）。轉讓、出價、同意買進、撤資都要過：
+ * 帳號夠老，而且在某座商場「真的有在營運」。營運不用點擊次數量化（腳本能狂點），而是兩個被時間與模擬綁住的指標：
+ * 1. 活躍遊戲日：有多少個不同的遊戲日下過會改變商場的指令（一天最多算 1，1 遊戲日＝真實 4 小時）
+ * 2. 商場自加入以來由模擬產生的累計營業額（客人真的來買；點擊刷不出來）
+ */
+export const EQUITY_MIN_ACCOUNT_AGE_MS = 3 * 86_400_000;
+export const EQUITY_MIN_ACTIVE_DAYS = 8;
+export const EQUITY_MIN_MALL_REVENUE = 300_000;
+
+export interface EquityStanding {
+  /** 帳號建立時間（ms） */
+  accountCreatedAt: number;
+  /** 所有成員身分中最好的一座：活躍遊戲日、加入後的商場營業額；或是舊制度前就在的成員（視為達標） */
+  activeDays: number;
+  mallRevenue: number;
+  vouched: boolean;
+}
+
+/** 回傳 null＝可以；否則是給玩家看的原因 */
+export function equityBlocker(st: EquityStanding, nowMs: number): string | null {
+  if (st.vouched) return null;
+  const age = nowMs - st.accountCreatedAt;
+  if (age < EQUITY_MIN_ACCOUNT_AGE_MS) {
+    const hrs = Math.ceil((EQUITY_MIN_ACCOUNT_AGE_MS - age) / 3_600_000);
+    return `帳號建立還不夠久，股權變現要滿 ${EQUITY_MIN_ACCOUNT_AGE_MS / 86_400_000} 天（還差約 ${hrs} 小時）`;
+  }
+  if (st.activeDays < EQUITY_MIN_ACTIVE_DAYS) {
+    return `還沒有足夠的經營紀錄：要在 ${EQUITY_MIN_ACTIVE_DAYS} 個不同的遊戲日實際經營過商場（目前 ${st.activeDays} 個）`;
+  }
+  if (st.mallRevenue < EQUITY_MIN_MALL_REVENUE) {
+    return `商場還沒有足夠的實際營業額：你加入後要累計 ¥${EQUITY_MIN_MALL_REVENUE.toLocaleString("en-US")}（目前 ¥${Math.round(st.mallRevenue).toLocaleString("en-US")}）`;
+  }
+  return null;
+}
+
+/**
  * 起始資金是「每位玩家一次」，不是「每座商場一次」：第一座商場的 INITIAL_FUNDS 是免費的起始資金（視為創辦人投入），
  * 之後每開一座新商場，就要從個人錢包拿出同樣一筆錢當創業資金——所以多開帳號、多開商場都不能憑空生錢。
  */
@@ -145,6 +181,8 @@ export interface HoldingsView {
   people: { userId: number; displayName: string; isMember: boolean }[];
   /** 商場自己持有的庫藏股（被回購、還沒賣出；沒有投票權也不領股利）。持股人加庫藏股＝總股數 */
   treasury: number;
+  /** 請求者目前不能撤資／轉讓／出價的原因（股權變現門檻）；null 或沒有＝可以。只有「看股權表」那支 API 會帶 */
+  cashOutBlocker?: string | null;
   /** 商場現金（四捨五入），算回購、股利、注資的價錢用 */
   mallCash: number;
   /** 注資換股現在每股多少錢 */

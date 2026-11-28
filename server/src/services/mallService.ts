@@ -59,6 +59,10 @@ import {
   TICKS_PER_DAY,
   RELATED_TAIL_MS,
   BUYBACK_MAX_CASH_PCT,
+  EQUITY_MIN_ACTIVE_DAYS,
+  EQUITY_MIN_MALL_REVENUE,
+  equityBlocker,
+  dayOfTick,
   CONTROLLER_TITLE,
   DIVIDEND_COOLDOWN_MS,
   DIVIDEND_MAX_CASH_PCT,
@@ -803,6 +807,15 @@ export class MallService {
     };
   }
 
+  /** 股權變現門檻（轉讓、出價、同意買進、撤資）：帳號夠老、且在某座商場真的有在營運。who 是錯誤訊息的主詞 */
+  equityBlockerOf(userId: number): string | null {
+    return equityBlocker(this.repo.equityStanding(userId, { days: EQUITY_MIN_ACTIVE_DAYS, revenue: EQUITY_MIN_MALL_REVENUE }), this.now());
+  }
+  private assertEquityEligible(userId: number, who: string): void {
+    const why = this.equityBlockerOf(userId);
+    if (why) throw new ServiceError(403, who === "你" ? why : `${who}：${why}`);
+  }
+
   /** 把自己的股份無償轉給這座商場的現任成員（整數股，不能轉給自己、不能超過持有） */
   transferShares(mallId: number, fromId: number, toId: number, shares: number): HoldingsView {
     this.assertEquityMall(mallId);
@@ -812,6 +825,8 @@ export class MallService {
     if (held <= 0) throw new ServiceError(403, "你沒有這座商場的股份");
     if (shares > held) throw new ServiceError(400, `你只有 ${held.toLocaleString()} 股`);
     if (!this.repo.member(mallId, toId)) throw new ServiceError(404, "股份只能轉給這座商場的現任成員");
+    this.assertEquityEligible(fromId, "你");
+    this.assertEquityEligible(toId, "對方");
     const total = this.outstanding(mallId);
     const before = this.controllerOf(mallId);
     this.moveShares(mallId, fromId, toId, shares, total);
@@ -836,6 +851,8 @@ export class MallService {
     if (fromId === toId) throw new ServiceError(400, "不能賣給自己");
     if (this.repo.sharesOf(mallId, fromId) < shares) throw new ServiceError(400, `你只有 ${this.repo.sharesOf(mallId, fromId).toLocaleString()} 股`);
     if (!this.repo.member(mallId, toId) && this.repo.sharesOf(mallId, toId) <= 0) throw new ServiceError(404, "只能賣給這座商場的成員或股東");
+    this.assertEquityEligible(fromId, "你");
+    this.assertEquityEligible(toId, "對方");
     if (this.repo.openOfferCount(mallId, fromId, this.now()) >= 5) throw new ServiceError(429, "你同時最多只能有 5 份出價，先取消幾份");
     const price = stakeValue(shares, this.cashOf(mallId), this.outstanding(mallId));
     this.repo.addOffer({ mallId, fromId, toId, shares, price, expiresAt: this.now() + OFFER_TTL_MS });
@@ -871,6 +888,8 @@ export class MallService {
     if (o.to_id !== userId) throw new ServiceError(403, "要由被出價的人同意");
     const mallId = o.mall_id;
     this.assertEquityMall(mallId);
+    this.assertEquityEligible(o.from_id, "賣方");
+    this.assertEquityEligible(userId, "你");
     if (this.repo.sharesOf(mallId, o.from_id) < o.shares) {
       this.repo.deleteOffer(offerId);
       throw new ServiceError(409, "賣方已經沒有這麼多股份了，出價作廢");
@@ -896,6 +915,7 @@ export class MallService {
     MallService.wholeShares(shares);
     const held = this.repo.sharesOf(mallId, userId);
     if (held < shares) throw new ServiceError(400, held > 0 ? `你只有 ${held.toLocaleString()} 股` : "你沒有這座商場的股份");
+    this.assertEquityEligible(userId, "你");
     this.assertCanInteract(mallId);
     const total = this.outstanding(mallId);
     const holders = this.repo.holdingsOfMall(mallId);
@@ -1484,6 +1504,8 @@ export class MallService {
     const result = applyCommand(current, cmd, { id: String(user.id), name: user.displayName });
     if (!result.ok) return result;
     const after = result.state;
+    // 股權變現門檻的「活躍遊戲日」：用伺服器時間的遊戲日，同一天只算一次（狂點沒用）
+    this.repo.recordActiveDay(mallId, user.id, dayOfTick(this.serverTick()));
     // 處理完重要事件、時鐘從暫停回到運轉：錨點移到現在，暫停期間不補算
     if (isPaused(current.clock) && !isPaused(after.clock)) reanchor(after.clock, after.tick, this.now());
     this.cache.set(mallId, after);

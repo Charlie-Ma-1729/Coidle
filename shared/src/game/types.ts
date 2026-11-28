@@ -1019,6 +1019,8 @@ export interface MallState {
   members?: MemberState;
   /** 金融：貸款、營業中斷險、重整（舊存檔沒有）。見 finance.ts */
   finance?: FinanceState;
+  /** 股權估值的錨點：前一個遊戲日收盤時的估值（見 valuation.ts）；舊存檔沒有 */
+  valuationAnchor?: number;
   /** 巡店：隱藏問題與行動點（舊存檔沒有） */
   patrol?: PatrolState;
   /** 大型設施（地下停車場…；舊存檔沒有）。見 facilities.ts */

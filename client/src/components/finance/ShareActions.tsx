@@ -37,10 +37,17 @@ export function ShareActions(props: { mallId: number; mallName: string; meId: nu
   const targetPerson = others.find((p) => p.userId === target);
   const price = shares >= 1 ? buybackPrice(shares, view.mallCash, view.total) : 0;
   const needTarget = () => (targetPerson ? true : (void notice("先選一位對象"), false));
+  // 股權變現門檻：自己還不合格時三個動作都不能按（對方不合格由伺服器回覆原因）
+  const blocked = view.cashOutBlocker ?? null;
 
   return (
     <div class="st-sec">
       <p class="st-hint">{EQUITY_TEXT.exit}</p>
+      {blocked && (
+        <p class="st-hint" role="note" data-testid="cashout-blocker">
+          🔒 目前不能撤資、出價或轉讓：{blocked}。對方也要符合同樣的條件。
+        </p>
+      )}
       <div class="st-row">
         <input class="st-in" type="number" min={1} max={mine} step={1} placeholder={`股數（最多 ${mine.toLocaleString()}）`} value={amount} onInput={(e) => setAmount((e.target as HTMLInputElement).value)} aria-label="要處理的股數" />
         {[0.25, 0.5, 1].map((f) => (
@@ -52,7 +59,8 @@ export function ShareActions(props: { mallId: number; mallName: string; meId: nu
       <div class="st-row">
         <button
           class="st-btn"
-          disabled={busy || shares < 1 || shares > mine}
+          disabled={busy || !!blocked || shares < 1 || shares > mine}
+          title={blocked ?? undefined}
           onClick={() =>
             confirmThen(`撤資：請商場回購 ${shares.toLocaleString()} 股，商場付你 ${price.toLocaleString()}（帳面價值 9 折，進你的錢包）？一次最多動用商場現金的 ${Math.round(BUYBACK_MAX_CASH_PCT * 100)}%。`, () =>
               run(() => api.buybackShares(mallId, shares), "已撤資，錢進你的錢包"),
@@ -73,12 +81,13 @@ export function ShareActions(props: { mallId: number; mallName: string; meId: nu
               </option>
             ))}
           </select>
-          <button class="st-btn" disabled={busy || shares < 1 || shares > mine} onClick={() => needTarget() && run(() => api.offerShares(mallId, target, shares), "已送出出價（照帳面價值，等對方同意）")}>
+          <button class="st-btn" disabled={busy || !!blocked || shares < 1 || shares > mine} title={blocked ?? undefined} onClick={() => needTarget() && run(() => api.offerShares(mallId, target, shares), "已送出出價（照帳面價值，等對方同意）")}>
             出價賣給他
           </button>
           <button
             class="st-btn"
-            disabled={busy || shares < 1 || shares > mine || (!!targetPerson && !targetPerson.isMember)}
+            disabled={busy || !!blocked || shares < 1 || shares > mine || (!!targetPerson && !targetPerson.isMember)}
+            title={blocked ?? undefined}
             onClick={() => needTarget() && confirmThen(`把 ${shares.toLocaleString()} 股無償轉給「${targetPerson!.displayName}」？`, () => run(() => api.transferShares(mallId, target, shares), "已轉出股份"))}
           >
             無償轉給

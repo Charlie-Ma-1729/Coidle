@@ -7,6 +7,7 @@ export * from "./game/hours";
 export * from "./game/calendar";
 export * from "./game/concept";
 export * from "./game/equity";
+export * from "./game/valuation";
 export * from "./game/ma";
 export * from "./game/market";
 export * from "./game/market/exchange";

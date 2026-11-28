@@ -55,7 +55,7 @@ export function EquityCard() {
     }
   };
   const capNum = whole(capital);
-  const capEst = view && capNum >= 1 ? sharesForCapital(capNum, view.mallCash, view.total) : null;
+  const capEst = view && capNum >= 1 ? sharesForCapital(capNum, view.equityValue ?? view.mallCash, view.total) : null;
   const divMax = view?.dividendMax ?? 0;
   const divReadyAt = view?.dividendReadyAt ?? 0;
 
@@ -92,7 +92,7 @@ export function EquityCard() {
               </div>
             )}
             <p class="small dim">
-              每股約 {moneyShort(view.sharePrice)}（商場現金 {moneyShort(view.mallCash)} ÷ 總股數）。
+              每股約 {moneyShort(view.sharePrice)}（商場估值 {moneyShort(view.equityValue ?? view.mallCash)} ÷ 總股數；估值＝現金＋庫存＋店面設備折舊價值－貸款，賺錢的商場再加一點溢價；現金 {moneyShort(view.mallCash)}）。
             </p>
           </>
         )}
