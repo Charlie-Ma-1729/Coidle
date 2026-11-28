@@ -37,6 +37,7 @@ import {
   type ShopDayStats,
   type Slot,
   memberTrafficMult,
+  spanFactor,
 } from "@coidle/shared";
 import { initialRegulars } from "./regulars";
 import { timeInfo } from "./time";
@@ -257,5 +258,5 @@ export function shopQuality(shop: Shop): number {
 export function shopCapacity(shop: Shop, s?: Pick<MallState, "tech">): number {
   const cat = CATEGORY_BY_ID[shop.category];
   const mult = s ? techFx(s.tech.done).capacityMult : 1;
-  return Math.max(1, Math.ceil((cat?.baseCapacity ?? 1) * (1 + 0.3 * (shop.level - 1)) * mult));
+  return Math.max(1, Math.ceil((cat?.baseCapacity ?? 1) * (1 + 0.3 * (shop.level - 1)) * mult * spanFactor(shop.span)));
 }

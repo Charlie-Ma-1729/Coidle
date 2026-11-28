@@ -118,6 +118,8 @@ export interface ShopDayStats {
 export interface Shop {
   id: string;
   slot: number;
+  /** 這間店佔幾格（開店完工時從 slot 帶入；缺＝1）。容量、人事、翻新與固定資產評價隨它放大 */
+  span?: 1 | 2 | 4;
   category: CategoryId;
   name: string;
   level: number;
@@ -150,6 +152,8 @@ export interface Slot {
   id: number;
   zone: ZoneId;
   shopId: string | null;
+  /** 佔幾格（缺＝1）；0＝墓碑（被旁邊的大店吸收的格子）。見 shared/src/game/floor.ts */
+  span?: 0 | 1 | 2 | 4;
 }
 
 export interface BuildTask {
@@ -1036,6 +1040,8 @@ export interface MallState {
   valuationAnchor?: number;
   /** 法人持股的市價淨值（扣一次賣出手續費；由伺服器在同步與交易時寫入，併入股權估值。沒有持股＝沒有這個欄位） */
   holdMark?: number;
+  /** 各區域最近一次拆店的 tick（拆除冷卻用；階段 C，舊存檔沒有） */
+  demolishAt?: Record<string, number>;
   /** 巡店：隱藏問題與行動點（舊存檔沒有） */
   patrol?: PatrolState;
   /** 大型設施（地下停車場…；舊存檔沒有）。見 facilities.ts */

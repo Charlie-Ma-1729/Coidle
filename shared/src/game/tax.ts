@@ -111,7 +111,7 @@ export function assessedValue(s: Pick<MallState, "shops"> & Partial<Pick<MallSta
   }
   for (const sh of s.shops) {
     const cat = CATEGORY_BY_ID[sh.category];
-    if (cat) v += cat.buildCost * sh.level;
+    if (cat) v += cat.buildCost * sh.level * (sh.span ?? 1);
   }
   return v;
 }

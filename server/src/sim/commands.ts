@@ -26,6 +26,18 @@ import {
   SHOP_NAME_MAX,
   licenseOf,
   TICKS_PER_DAY,
+  DEMOLISH_COOLDOWN_DAYS,
+  DEMOLISH_FEE_RATE,
+  SPANS,
+  applyResize,
+  footprintOf,
+  isLiveSlot,
+  openPlanEnabled,
+  planResize,
+  shopSpan,
+  spanCostFactor,
+  spanTicksFactor,
+  type Span,
   type Command,
   type ConceptId,
   type MallState,
@@ -201,8 +213,19 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
       if (!isZoneUnlocked(s, slot.zone)) return err("這個區域尚未解鎖");
       if (!isCategoryAvailable(s, cat.id)) return err(`這個業態要商場 Lv.${cat.minLevel ?? 1} 才能開`);
       if (slot.shopId || s.builds.some((b) => b.slot === slot.id)) return err("這個店面已被使用或正在施工");
+      if (!isLiveSlot(slot)) return err("店面無效");
+      // 大小（階段 C，樓層空地化）：旗標關閉時只能 1 格，行為與以前完全相同
+      const span: Span = cmd.span ?? 1;
+      if (span !== 1) {
+        if (!openPlanEnabled(s)) return err("大店尚未開放");
+        if (!SPANS.includes(span)) return err("大小無效");
+        if (!footprintOf(cat).options.includes(span)) return err("這個業態不能開這個大小");
+      }
+      if (cmd.cells !== undefined && (!Array.isArray(cmd.cells) || !cmd.cells.every((c) => isInt(c) && c >= 0))) return err("選的格子無效");
+      const rp = planResize(s, slot.id, span, cmd.cells);
+      if (!rp.ok) return err(rp.error ?? "放不下這個大小");
       const lic = licenseOf(cat.id); // 許認可：規費與審查時間
-      const total = cat.buildCost + (lic?.fee ?? 0);
+      const total = cat.buildCost * spanCostFactor(span) + (lic?.fee ?? 0);
       let name: string | undefined;
       if (cmd.name !== undefined && cmd.name !== "") {
         const n = cleanShopName(cmd.name);
@@ -212,16 +235,42 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
       }
       if (s.funds < total) return err("資金不足");
       s.funds -= total;
+      applyResize(s, slot.id, span, rp); // 先把格子留給這間店（吸收旁邊的空格）
       s.builds.push({
         id: nextId(s, "bld"),
         kind: "open",
         slot: slot.id,
         category: cat.id,
-        completeTick: s.tick + cat.buildTicks + (lic?.extraTicks ?? 0),
+        completeTick: s.tick + Math.round(cat.buildTicks * spanTicksFactor(span)) + (lic?.extraTicks ?? 0),
         cost: total,
         ...(name ? { name } : {}),
       });
       addLog(s, "build", `開始興建「${cat.name}」。${lic ? `（同步辦理：${lic.name}）` : ""}`);
+      break;
+    }
+
+    case "demolishShop": {
+      if (!openPlanEnabled(s)) return err("拆除重排尚未開放");
+      const shop = findShop(cmd.shopId);
+      if (!shop) return err("找不到這間店");
+      if (shop.mode === "lease") return err("出租中的店請先「解約」或「收回自營」");
+      if (s.builds.some((b) => b.shopId === shop.id)) return err("翻新施工中，完工後才能拆除");
+      if (s.shops.length <= 1) return err("商場至少要留一間店");
+      const slot = s.slots[shop.slot];
+      const cat = CATEGORY_BY_ID[shop.category];
+      if (!slot || !cat) return err("店面無效");
+      const last = s.demolishAt?.[slot.zone];
+      if (last !== undefined && s.tick < last + DEMOLISH_COOLDOWN_DAYS * TICKS_PER_DAY) return err("這一層剛拆過店，要隔一個遊戲日才能再拆");
+      const fee = Math.round(cat.buildCost * spanCostFactor(shopSpan(shop)) * DEMOLISH_FEE_RATE);
+      if (s.funds < fee) return err(`資金不足（拆除費 ¥${fee.toLocaleString("en-US")}）`);
+      s.funds -= fee;
+      s.today.repairs += fee;
+      const old = shop.name;
+      vacate(s, shop);
+      const rp = planResize(s, slot.id, 1);
+      if (rp.ok) applyResize(s, slot.id, 1, rp); // 把吸收的格子還給樓板
+      s.demolishAt = { ...(s.demolishAt ?? {}), [slot.zone]: s.tick };
+      addLog(s, "build", `「${old}」拆除了（拆除費 ¥${fee.toLocaleString("en-US")}），變回空地。`);
       break;
     }
 
@@ -290,7 +339,7 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
       if (!shop) return err("找不到這間店");
       if (shop.level >= MAX_SHOP_LEVEL) return err("已達最高等級");
       if (s.builds.some((b) => b.shopId === shop.id)) return err("正在翻新中");
-      const cost = UPGRADE_BASE_COST * shop.level;
+      const cost = UPGRADE_BASE_COST * shop.level * spanCostFactor(shop.span);
       if (s.funds < cost) return err("資金不足");
       s.funds -= cost;
       s.builds.push({

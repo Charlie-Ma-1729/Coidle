@@ -1,5 +1,21 @@
 # 樓層空地化與店面可變大小（階段 C 設計）
 
+## 實作狀態（2026-11-28，規則與伺服器已做、畫面排版未做）
+
+**已做（旗標預設關，舊存檔與舊行為完全不變）**
+- **模型簡化（和下面 §1 的草案不同）**：**格＝slot**。大店開在一個 slot 上，並**吸收**同區 span−1 個空的 slot（變成 `span: 0` 的墓碑）；樓板面積 `floorArea` ＝ 同區 slot 的 span 總和，resize／拆除只在店與墓碑之間搬格子，**面積不變，只有擴建 +1**，所以**不需要 `floorExtra`、`expandZone` 不用改**（`expansionsOf` 改成面積差，舊存檔結果相同）。空的 slot 都是可流通的格子；`cell` 座標沒做，玩家用 `cells: [slotId]` 指定要吸收哪一格。
+- `shared/src/game/floor.ts`：`slotSpan`、`liveSlots`、`floorArea`／`usedCells`／`freeCells`、`planResize`／`applyResize`（client／server 共用的可放置判定）、`availableSpans`、`FOOTPRINT_BY_CATEGORY`（§6 的 10 個業態）、`SPAN_FACTOR`（1／1.8／3.2）、拆除費 25%、冷卻 1 遊戲日。
+- 指令：`buildShop` 可帶 `span`／`cells`（旗標關或業態不允許就拒絕）、新增 `demolishShop`；建造費與翻新費 ×格數、工期 ×√格數、人事與容量 ×`SPAN_FACTOR`、固定資產評價 ×格數；完工時店帶 `span`。
+- 旗標：`flags["feature:open_plan"]`（管理室「商場旗標」可對單一商場開，先 sandbox）；環境變數 `OPEN_PLAN_ENABLED=1` 對全服開。
+- client：墓碑不畫、不當招商空位；`BuildSheet` 旗標開時可選大小；`ShopSheet` 容量用共用係數。
+- 測試：`server/src/floor.test.ts`（舊存檔 span 缺＝1／遷移不寫新欄位、旗標關行為不變、吸收與面積守恆、指定格子、拒絕、拆除費與冷卻、決定性與分段推進等價）。
+
+**還沒做（需要人眼在瀏覽器驗證）**
+- `layoutFloor` 的面積排版與寬房間（§3、§4.1）：現在大店仍畫成 1 格房間、少一格空間，**所以不要在正式環境開旗標**。
+- 規劃模式 UI（點空地→選業態→選大小→預覽）、拆除按鈕、手機版抽屜。
+- 機器人平衡掃描（大店單位面積收益、擴建 ROI、×1.2 最佳倍率），結論要寫進 `docs/balance-report.md`。
+- 握手回報 `BUILD_ID`（舊 client 拒絕新指令的友善訊息）。
+
 > 狀態：**設計草案，尚未動工**。前置：階段 0（設施框架）、A（地下停車層）、B（跨兩層電影院）上線穩定後再做。
 > 來源：大型設施重做計畫的「階段 C」。本文件只定方向與介面，數字（成本、容量係數）一律用機器人模擬調，不在這裡拍板。
 

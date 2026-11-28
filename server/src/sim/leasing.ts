@@ -22,6 +22,7 @@ import {
   marketRent,
   techFx,
   type CategoryDef,
+  isLiveSlot,
   type MallState,
   type Shop,
   type Tenant,
@@ -48,7 +49,7 @@ function logLease(s: MallState, text: string): void {
 }
 
 function emptySlots(s: MallState, zone: string): number[] {
-  return s.slots.filter((x) => x.zone === zone && !x.shopId && !s.builds.some((b) => b.slot === x.id) && isZoneUnlocked(s, x.zone)).map((x) => x.id);
+  return s.slots.filter((x) => x.zone === zone && isLiveSlot(x) && !x.shopId && !s.builds.some((b) => b.slot === x.id) && isZoneUnlocked(s, x.zone)).map((x) => x.id);
 }
 
 // ───────── 候選品牌 ─────────

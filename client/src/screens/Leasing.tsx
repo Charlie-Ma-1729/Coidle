@@ -20,7 +20,7 @@ import { run, state } from "../store";
 import { confirmThen } from "../components/ConfirmHost";
 
 function freeSlots(s: PublicMallState, zone: string): number[] {
-  return s.slots.filter((x) => x.zone === zone && !x.shopId && !s.builds.some((b) => b.slot === x.id)).map((x) => x.id);
+  return s.slots.filter((x) => x.zone === zone && x.span !== 0 && !x.shopId && !s.builds.some((b) => b.slot === x.id)).map((x) => x.id);
 }
 
 function Candidate({ s, c }: { s: PublicMallState; c: TenantCandidate }) {

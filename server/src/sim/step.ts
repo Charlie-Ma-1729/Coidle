@@ -60,7 +60,7 @@ import {
   type PersonaDef,
   type Shop,
 } from "@coidle/shared";
-import { mallBookValue, parkingTrafficMult } from "@coidle/shared";
+import { mallBookValue, parkingTrafficMult, slotSpan } from "@coidle/shared";
 import { facilityDaily, runCinema, runParking, runVenues, stepFacilities } from "./facilities";
 import { expireModifiers, maybeSpawnEvent, resolveDeadlines } from "./events";
 import { generateDailyReviews, noteGrievance, resolveInboxDeadlines } from "./guests";
@@ -191,6 +191,7 @@ function completeBuilds(s: MallState): void {
         const n = s.shops.filter((x) => x.category === b.category).length + 1;
         const shop = makeShop(s, b.category, n > 1 ? `${cat.name}・${n}號店` : `${cat.name}`, slot.id);
         if (b.name && !b.tenant) shop.name = b.name;
+        if (slotSpan(slot) > 1) shop.span = slotSpan(slot) as 2 | 4; // 大店：容量、人事與評價隨格數放大
         slot.shopId = shop.id;
         if (b.tenant) applyTenantToShop(shop, b.tenant);
         s.shops.push(shop);

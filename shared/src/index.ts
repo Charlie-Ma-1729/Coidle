@@ -14,6 +14,7 @@ export * from "./game/market/exchange";
 export * from "./game/market/news";
 export * from "./game/market/engine";
 export * from "./game/corporate";
+export * from "./game/floor";
 export * from "./game/helpers";
 export * from "./game/guests";
 export * from "./game/patrol";

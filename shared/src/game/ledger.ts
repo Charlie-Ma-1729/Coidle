@@ -1,4 +1,5 @@
 import { CATEGORY_BY_ID, CLEANING_COST_PER_DAY, MAINTENANCE_COST_PER_DAY, UTILITIES_PER_DAY } from "./data";
+import { spanFactor } from "./floor";
 import { facilityScale } from "./helpers";
 import { isHourOpen } from "./hours";
 import { RESERVE_UPKEEP_PER_DAY } from "./regulars";
@@ -9,10 +10,10 @@ import type { MallState, Shop } from "./types";
 type CostInput = Pick<MallState, "shops" | "hours" | "tech" | "cleaningLevel" | "maintenanceLevel">;
 
 /** 一間直營店一天的薪資（深夜與長時間營業有加成；出租店沒有） */
-export function shopWagePerDay(s: Pick<MallState, "hours" | "tech">, shop: Pick<Shop, "mode" | "category" | "level">): number {
+export function shopWagePerDay(s: Pick<MallState, "hours" | "tech">, shop: Pick<Shop, "mode" | "category" | "level"> & Partial<Pick<Shop, "span">>): number {
   if (shop.mode === "lease") return 0;
   const cat = CATEGORY_BY_ID[shop.category];
-  return cat ? cat.wage * shop.level * laborCostFactor(s.hours.open, s.hours.close) * techFx(s.tech.done).wageMult : 0;
+  return cat ? cat.wage * shop.level * spanFactor(shop.span) * laborCostFactor(s.hours.open, s.hours.close) * techFx(s.tech.done).wageMult : 0;
 }
 
 /** 一天的薪資（深夜與長時間營業有加成） */

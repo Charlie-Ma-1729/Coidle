@@ -14,7 +14,19 @@ export type Command =
   | { type: "orderStock"; shopId: string; qty: number; /** 急件：貴三成、交期縮短 */ rush?: boolean }
   | { type: "setCleaning"; level: 0 | 1 | 2 }
   | { type: "setMaintenance"; level: 0 | 1 | 2 }
-  | { type: "buildShop"; slot: number; category: string; /** 店名（沒有＝依業態自動命名） */ name?: string }
+  | {
+      type: "buildShop";
+      slot: number;
+      category: string;
+      /** 店名（沒有＝依業態自動命名） */
+      name?: string;
+      /** 佔幾格（缺＝1；要開了「樓層空地化」旗標，且在業態 footprint 允許的大小內） */
+      span?: 1 | 2 | 4;
+      /** 要一起吸收的空格（規劃模式；缺＝自動挑同區的空格） */
+      cells?: number[];
+    }
+  /** 拆除自營店變回空地（拆除費＝建造費×格數×25%，同區 1 遊戲日冷卻；要開了「樓層空地化」旗標） */
+  | { type: "demolishShop"; shopId: string }
   /** 自營店改店名（出租中的租戶店名由品牌決定） */
   | { type: "renameShop"; shopId: string; name: string }
   /** 自營店歇業：店面空出來，庫存與工坊進度作廢，不退費 */

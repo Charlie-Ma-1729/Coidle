@@ -1,5 +1,5 @@
 import { useState } from "preact/hooks";
-import { BRAND_TIER_NAME, CATEGORIES, PERSONA_BY_ID, brandsOfCategory, SHOP_NAME_MAX, ZONE_BY_ID, isCategoryAvailable, licenseOf, type PersonaId } from "@coidle/shared";
+import { BRAND_TIER_NAME, CATEGORIES, PERSONA_BY_ID, brandsOfCategory, SHOP_NAME_MAX, ZONE_BY_ID, availableSpans, footprintOf, isCategoryAvailable, licenseOf, openPlanEnabled, spanCostFactor, spanFactor, type PersonaId, type Span } from "@coidle/shared";
 import { Btn, Chip, Sheet } from "../components/ui";
 import { gameDuration, money } from "../format";
 import { categoryIcon, PERSONA_ICONS } from "../icons";
@@ -8,6 +8,7 @@ import { run, state } from "../store";
 export function BuildSheet({ slotId, onClose }: { slotId: number; onClose: () => void }) {
   const s = state.value;
   const [name, setName] = useState("");
+  const [picked, setPicked] = useState<Record<string, Span>>({});
   const slot = s?.slots[slotId];
   if (!s || !slot) return null;
   const zone = ZONE_BY_ID[slot.zone];
@@ -26,7 +27,11 @@ export function BuildSheet({ slotId, onClose }: { slotId: number; onClose: () =>
           .sort((a, b) => b[1] - a[1])
           .slice(0, 3);
         const lic = licenseOf(c.id);
-        const afford = s.funds >= c.buildCost + (lic?.fee ?? 0);
+        // 樓層空地化（旗標開了才有）：可選的大小＝業態允許的大小 ∩ 這一區空地放得下的
+        const spans: Span[] = openPlanEnabled(s) && footprintOf(c).options.length > 1 ? availableSpans(s, slotId, c) : [1];
+        const span: Span = picked[c.id] !== undefined && spans.includes(picked[c.id]!) ? picked[c.id]! : 1;
+        const cost = c.buildCost * spanCostFactor(span) + (lic?.fee ?? 0);
+        const afford = s.funds >= cost;
         const open = isCategoryAvailable(s, c.id);
         return (
           <div class="build-item" key={c.id}>
@@ -36,6 +41,16 @@ export function BuildSheet({ slotId, onClose }: { slotId: number; onClose: () =>
               <div class="small dim">
                 客單價約 {money(c.refPrice)}・施工 {gameDuration(c.buildTicks + (lic?.extraTicks ?? 0))}
               </div>
+              {spans.length > 1 && (
+                <div class="persona-tags">
+                  <span class="small dim">大小：</span>
+                  {spans.map((sp) => (
+                    <button key={sp} type="button" class={`chip ${sp === span ? "on" : ""}`} onClick={() => setPicked({ ...picked, [c.id]: sp })}>
+                      {sp} 格{sp > 1 ? `（容量 ×${spanFactor(sp)}）` : ""}
+                    </button>
+                  ))}
+                </div>
+              )}
               {lic && (
                 <div class="small dim">
                   📜 {lic.name}（{lic.law}）規費 {money(lic.fee)}
@@ -67,10 +82,10 @@ export function BuildSheet({ slotId, onClose }: { slotId: number; onClose: () =>
               small
               disabled={!afford || !open}
               onClick={async () => {
-                if (await run({ type: "buildShop", slot: slotId, category: c.id, ...(name.trim() ? { name: name.trim() } : {}) }, `開始興建「${name.trim() || c.name}」`)) onClose();
+                if (await run({ type: "buildShop", slot: slotId, category: c.id, ...(span > 1 ? { span } : {}), ...(name.trim() ? { name: name.trim() } : {}) }, `開始興建「${name.trim() || c.name}」`)) onClose();
               }}
             >
-              {open ? money(c.buildCost + (lic?.fee ?? 0)) : `Lv.${c.minLevel}`}
+              {open ? money(cost) : `Lv.${c.minLevel}`}
             </Btn>
           </div>
         );

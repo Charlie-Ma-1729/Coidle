@@ -80,7 +80,7 @@ function diligentDay(s0: MallState, rnd: () => number, f: Features = ALL): MallS
   // 擴張：資金夠就開下一間（優先常客喜歡的類型）；沒有空店面時，錢很多就擴建
   if (expand && s.funds > 2_500_000 && s.builds.length === 0) {
     const have = new Set(s.shops.map((x) => x.category));
-    const open = s.slots.filter((x) => !x.shopId && isZoneUnlocked(s, x.zone));
+    const open = s.slots.filter((x) => !x.shopId && x.span !== 0 && isZoneUnlocked(s, x.zone));
     const usable = (zone: string, fresh: boolean) =>
       [...PREFERRED.map((id) => CATEGORY_BY_ID[id]), ...CATEGORIES].find((c) => c && c.zone === zone && isCategoryAvailable(s, c.id) && (!fresh || !have.has(c.id)));
     let done = false;

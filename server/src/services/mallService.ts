@@ -22,6 +22,8 @@ import {
   MARKET_TAX_RATE,
   buyQuote,
   corporateSellQuote,
+  OPEN_PLAN_FLAG,
+  openPlanEnabled,
   stockGroupOf,
   type CorporateAccount,
   type CorporateHolding,
@@ -158,6 +160,8 @@ export function describeCommand(s: MallState, cmd: Command, actor: string): stri
       return `${actor} 把設備維護等級調到 ${cmd.level}`;
     case "buildShop":
       return `${actor} 開始興建「${CATEGORY_BY_ID[cmd.category]?.name ?? "新店"}」`;
+    case "demolishShop":
+      return `${actor} 拆除了「${shopName(cmd.shopId)}」`;
     case "expandZone":
       return `${actor} 擴建了「${ZONE_BY_ID[cmd.zone]?.name ?? "區域"}」`;
     case "buildFacility":
@@ -1392,6 +1396,11 @@ export class MallService {
           reanchor(s.clock, s.tick, threshold);
         }
       }
+    }
+    // 樓層空地化（階段 C）：環境變數 OPEN_PLAN_ENABLED=1 對全服啟用；否則只有管理室開了旗標的商場（sandbox 先試）
+    if (process.env.OPEN_PLAN_ENABLED === "1" && !openPlanEnabled(s)) {
+      s = s === before ? structuredClone(s) : s;
+      s.flags[OPEN_PLAN_FLAG] = true;
     }
     // 法人持股的市價淨值寫進狀態（併入股權估值與日終錨點；只有持股的商場才會動到）
     if (!this.repo.isSandbox(mallId)) {

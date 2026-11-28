@@ -26,6 +26,7 @@ import {
   brandByName,
   TERMINATE_PENALTY,
   leaseRemainingRent,
+  spanFactor,
 } from "@coidle/shared";
 import { Btn, Card, Chip, Field, Meter, Sheet } from "../components/ui";
 import { gameDuration, money, num } from "../format";
@@ -139,7 +140,7 @@ export function ShopSheet({ shopId, onClose }: { shopId: string; onClose: () => 
         </div>
         <div class="stat">
           <span>每 5 分鐘容量</span>
-          <b>{Math.ceil(cat.baseCapacity * (1 + 0.3 * (shop.level - 1)))}</b>
+          <b>{Math.ceil(cat.baseCapacity * (1 + 0.3 * (shop.level - 1)) * spanFactor(shop.span))}</b>
         </div>
       </div>
 

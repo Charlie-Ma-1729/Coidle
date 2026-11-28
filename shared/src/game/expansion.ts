@@ -1,4 +1,5 @@
 import { ZONE_BY_ID } from "./data";
+import { floorArea } from "./floor";
 import type { MallState } from "./types";
 
 // 擴建：在已開放的區域加蓋店面。越蓋越貴；同一區域能擴建的數量有上限；
@@ -6,11 +7,11 @@ import type { MallState } from "./types";
 
 export const EXPAND_BASE_COST = 2_000_000;
 
-/** 這個區域已經擴建了幾個店面（以實際店面數與基本店面數的差計算） */
+/** 這個區域已經擴建了幾次（以樓板面積與基本面積的差計算；舊存檔每個 slot 一格，結果與舊算法相同） */
 export function expansionsOf(s: Pick<MallState, "slots">, zoneId: string): number {
   const z = ZONE_BY_ID[zoneId];
   if (!z) return 0;
-  return Math.max(0, s.slots.filter((x) => x.zone === zoneId).length - z.slots);
+  return Math.max(0, floorArea(s, zoneId) - z.slots);
 }
 
 /** 第 n+1 次擴建（n 從 0 起算）的費用 */
