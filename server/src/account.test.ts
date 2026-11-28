@@ -107,6 +107,8 @@ describe("team management", () => {
     const t = await team(a);
     expect((await post(a, t.owner, `/api/malls/${t.id}/leave`)).statusCode).toBe(409);
     expect((await post(a, t.owner, `/api/malls/${t.id}/transfer`, { userId: 99999 })).statusCode).toBe(404);
+    // 創辦人持股過半時，管事的是實際控制人（見 docs/equity.md）；先讓出一些股份、沒人過半，邀請碼才跟著創辦人頭銜走
+    expect((await post(a, t.owner, `/api/malls/${t.id}/shares/transfer`, { userId: t.uid("朋友"), shares: 6000 })).statusCode).toBe(200); // 剩下的股份撤資時不會超過商場現金的一半
     expect((await post(a, t.owner, `/api/malls/${t.id}/transfer`, { userId: t.uid("朋友") })).statusCode).toBe(200);
     expect((await get(a, t.friend, `/api/malls/${t.id}`)).json().inviteCode).toBeTruthy();
     expect((await get(a, t.owner, `/api/malls/${t.id}`)).json().inviteCode).toBeUndefined();
