@@ -226,7 +226,7 @@ export class StageScene {
       // 第一次看這層，或店面格增減（擴建）：重排平面圖、重新生成人潮並熱身到穩態
       this.plan = layoutFloor(
         floor.lots.map((l) => l.slot),
-        { ground: floor.ground, links: floor.links },
+        { ground: floor.ground, links: floor.links, into: Object.fromEntries(floor.lots.filter((l) => l.into !== undefined).map((l) => [l.slot, l.into!])) },
       );
       this.crowd = new CrowdSim({ plan: this.plan, rng: makeRng(this.seed + floor.id.length * 7919), maxAgents: CROWD_CAP[this.perf.level] });
       this.crowds.set(floor.id, { crowd: this.crowd, plan: this.plan, key, leftAt: this.time });
@@ -375,27 +375,29 @@ export class StageScene {
       const shop = this.shops.get(room.slot) ?? null;
       const ox = room.x * TILE;
       const oy = room.y * TILE;
+      const units = room.units ?? 1;
+      const rw = ROOM_PX_W * units;
       if (!shop || shop.state === "empty" || shop.state === "building") {
-        const e = new Sprite(getEmptyLotTexture(room.row));
+        const e = new Sprite(getEmptyLotTexture(room.row, units));
         e.position.set(ox, oy);
         this.baseLayer.addChild(e);
-        if (this.floor.lockedLevel != null) {
+        if (this.floor.lockedLevel != null || room.dead) {
           const dim = new Graphics();
-          dim.rect(ox, oy, ROOM_PX_W, ROOM_PX_H).fill({ color: 0x080a18, alpha: 0.55 });
+          dim.rect(ox, oy, rw, ROOM_PX_H).fill({ color: 0x080a18, alpha: room.dead ? 0.8 : 0.55 });
           this.overlayLayer.addChild(dim);
         }
         if (shop?.state === "building") {
-          const sc = new Sprite(getScaffoldTexture());
+          const sc = new Sprite(getScaffoldTexture(units));
           sc.position.set(ox, oy);
           this.overlayLayer.addChild(sc);
           const bar = new Graphics();
-          bar.rect(ox + 20, oy + ROOM_PX_H - 12, ROOM_PX_W - 40, 5).fill(0x241f33);
-          bar.rect(ox + 21, oy + ROOM_PX_H - 11, (ROOM_PX_W - 42) * (shop.progress ?? 0), 3).fill(0xffc857);
+          bar.rect(ox + 20, oy + ROOM_PX_H - 12, rw - 40, 5).fill(0x241f33);
+          bar.rect(ox + 21, oy + ROOM_PX_H - 11, (rw - 42) * (shop.progress ?? 0), 3).fill(0xffc857);
           this.overlayLayer.addChild(bar);
         }
         continue;
       }
-      const tex = getRoomTextures(shop.archetype, shop.color, room.row);
+      const tex = getRoomTextures(shop.archetype, shop.color, room.row, units);
       const base = new Sprite(tex.base);
       base.position.set(ox, oy);
       this.baseLayer.addChild(base);
@@ -405,7 +407,7 @@ export class StageScene {
 
       if (shop.state === "closed") {
         const dim = new Graphics();
-        dim.rect(ox, oy, ROOM_PX_W, ROOM_PX_H).fill({ color: 0x080a18, alpha: 0.5 });
+        dim.rect(ox, oy, rw, ROOM_PX_H).fill({ color: 0x080a18, alpha: 0.5 });
         this.overlayLayer.addChild(dim);
       }
     }
@@ -431,16 +433,18 @@ export class StageScene {
       if (!isShopActive(shop)) continue;
       const spots = FURNITURE[shop.archetype].staff;
       const n = Math.min(spots.length, shop.level >= 2 ? 2 : 1);
-      for (let i = 0; i < n; i++) {
-        const spot = spots[i]!;
-        const sp = new Sprite(getPersonTexture(room.slot * 3 + i, "idle", true));
-        sp.anchor.set(0.5, 1);
-        const wy = room.y * TILE + spot.y;
-        sp.position.set(room.x * TILE + spot.x, wy);
-        sp.zIndex = wy;
-        this.peopleLayer.addChild(sp);
-        this.staffSprites.push({ s: sp, baseY: wy, phase: room.slot + i });
-      }
+      // 大店：每一格寬各有一組店員
+      for (let u = 0; u < (room.units ?? 1); u++)
+        for (let i = 0; i < n; i++) {
+          const spot = spots[i]!;
+          const sp = new Sprite(getPersonTexture(room.slot * 3 + i + u * 7, "idle", true));
+          sp.anchor.set(0.5, 1);
+          const wy = room.y * TILE + spot.y;
+          sp.position.set(room.x * TILE + u * ROOM_PX_W + spot.x, wy);
+          sp.zIndex = wy;
+          this.peopleLayer.addChild(sp);
+          this.staffSprites.push({ s: sp, baseY: wy, phase: room.slot + i + u });
+        }
     }
     // 氣泡
     for (const m of this.markerSprites) m.s.destroy();
@@ -458,7 +462,7 @@ export class StageScene {
         const sp = new Sprite(getBubbleTexture(ic.icon, ic.tone));
         sp.anchor.set(0.5, 1);
         const wy = room.y * TILE + 17;
-        sp.position.set(room.x * TILE + ROOM_PX_W - 22 - i * 16, wy);
+        sp.position.set(room.x * TILE + room.w * TILE - 22 - i * 16, wy);
         this.markerLayer.addChild(sp);
         this.markerSprites.push({ s: sp, baseY: wy, phase: room.slot * 0.7 + i });
       });
@@ -485,8 +489,9 @@ export class StageScene {
     };
     for (const room of this.plan.rooms) {
       const shop = this.shops.get(room.slot);
-      const cx = room.x * TILE + ROOM_PX_W / 2;
+      const cx = room.x * TILE + (room.w * TILE) / 2;
       const ry = room.y * TILE;
+      if (room.dead) continue;
       if (!shop || shop.state === "empty") {
         const lv = this.floor?.lockedLevel;
         if (lv != null) mk(`Lv.${lv} 解鎖`, cx, ry + 64, { size: 12, fill: 0x8a90b8 });
@@ -546,7 +551,7 @@ export class StageScene {
     for (const room of plan.rooms) {
       if (!isShopActive(this.shops.get(room.slot))) continue;
       const wash = new Graphics();
-      wash.rect(room.x * TILE + 2, room.y * TILE + 2, ROOM_PX_W - 4, ROOM_PX_H - 4).fill(0xffc980);
+      wash.rect(room.x * TILE + 2, room.y * TILE + 2, room.w * TILE - 4, ROOM_PX_H - 4).fill(0xffc980);
       wash.blendMode = "add";
       this.lightLayer.addChild(wash);
       this.lights.push({ s: wash, base: 0.13 });
@@ -574,6 +579,7 @@ export class StageScene {
     }
     this.selectSprite.visible = true;
     this.selectSprite.position.set(room.x * TILE, room.y * TILE);
+    this.selectSprite.scale.x = room.units ?? 1; // 大店：選取框拉寬
   }
 
   // ───────── 每幀 ─────────
@@ -790,7 +796,7 @@ export class StageScene {
         const wx = (p.x - this.ox) / this.zoom;
         const wy = (p.y - this.oy) / this.zoom;
         const hit = this.plan?.rooms.find((r: RoomRect) => wx >= r.x * TILE && wx < (r.x + r.w) * TILE && wy >= r.y * TILE && wy < (r.y + r.h) * TILE);
-        this.ev.onTap(hit ? hit.slot : null, e.clientX, e.clientY);
+        this.ev.onTap(hit && !hit.dead ? hit.slot : null, e.clientX, e.clientY);
       }
     };
     const cancel = (e: PointerEvent) => {

@@ -27,19 +27,47 @@ export const DEMOLISH_COOLDOWN_DAYS = 1;
 /** 擴建面積上限的硬上限（island 版型寬度與地圖捲動；預設維持 14） */
 export const MAX_AREA = 14;
 
-/** 每個業態可選的大小；缺＝只有 1 格。階段 C 開旗標之前，所有店一律 span 1 */
+/**
+ * 每個業態可選的大小；缺＝只有 1 格。階段 C 開旗標之前，所有店一律 span 1。
+ * 目前只開放 1／2 格：2 格＝左右相鄰的兩間併成一間寬房間；4 格（2×2）要背靠背房間合併，
+ * 而機器人模擬顯示 4 格的邊際營收近乎零（見 balance-report），暫不開放（型別與係數保留）。
+ */
 export const FOOTPRINT_BY_CATEGORY: Record<string, { options: Span[]; default: Span }> = {
-  grocery: { options: [1, 2, 4], default: 2 },
-  gym: { options: [1, 2, 4], default: 2 },
-  kids_play: { options: [1, 2, 4], default: 2 },
-  arcade_vr: { options: [1, 2, 4], default: 2 },
+  grocery: { options: [1, 2], default: 2 },
+  gym: { options: [1, 2], default: 2 },
+  kids_play: { options: [1, 2], default: 2 },
+  arcade_vr: { options: [1, 2], default: 2 },
   claw: { options: [1, 2], default: 1 },
-  karaoke: { options: [1, 2, 4], default: 2 },
-  observatory: { options: [1, 2, 4], default: 2 },
-  electronics: { options: [1, 2, 4], default: 2 },
+  karaoke: { options: [1, 2], default: 2 },
+  observatory: { options: [1, 2], default: 2 },
+  electronics: { options: [1, 2], default: 2 },
   camera: { options: [1, 2], default: 1 },
-  art_gallery: { options: [1, 2, 4], default: 2 },
+  art_gallery: { options: [1, 2], default: 2 },
 };
+
+/**
+ * 版面幾何（要和 client 的 floorplan.rowCounts 一致）：一區有 n 格時，最多能併出幾間「2 格寬」的店。
+ * ≤8 格＝2 排（走道上下各一排，每排上限各 4），9–14 格＝4 排（島型）。每排左右兩群（隔著中庭），
+ * 兩格併成一間要在同一群內左右相鄰，所以一群 k 格最多併 floor(k/2) 間。
+ * 畫面端的平面圖會把併店的格子重新安排到相鄰的位置（見 client/src/stage/floorplan.ts）。
+ */
+export const COMPACT_CELLS = 8;
+export function mergeCapacity(n: number): number {
+  const total = Math.min(Math.max(0, n), MAX_AREA);
+  let counts: number[];
+  if (total <= COMPACT_CELLS) {
+    const t = Math.ceil(total / 2);
+    counts = [t, total - t];
+  } else {
+    const base = Math.floor(total / 4);
+    const rem = total % 4;
+    counts = [0, 1, 2, 3].map((i) => base + (i < rem ? 1 : 0));
+  }
+  return counts.reduce((a, c) => a + Math.floor(Math.ceil(c / 2) / 2) + Math.floor(Math.floor(c / 2) / 2), 0);
+}
+
+/** 這一區已經併了幾間大店（墓碑格數） */
+export const mergedCount = (s: Pick<MallState, "slots">, zone: string): number => s.slots.filter((x) => x.zone === zone && x.span === 0).length;
 
 export function footprintOf(cat: Pick<CategoryDef, "id">): { options: Span[]; default: Span } {
   return FOOTPRINT_BY_CATEGORY[cat.id] ?? { options: [1], default: 1 };
@@ -101,28 +129,39 @@ export function planResize(s: Pick<MallState, "slots" | "builds">, slotId: numbe
   const cur = slotSpan(slot);
   if (span === cur) return { ok: true, ...none };
   if (span < cur) {
-    const tombs = s.slots.filter((x) => x.zone === slot.zone && x.span === 0).map((x) => x.id);
+    const mine = s.slots.filter((x) => x.zone === slot.zone && x.span === 0 && x.into === slot.id).map((x) => x.id);
+    const rest = s.slots.filter((x) => x.zone === slot.zone && x.span === 0 && x.into !== slot.id).map((x) => x.id);
     const need = cur - span;
+    const tombs = [...mine, ...rest]; // 舊資料沒有 into 時退回「同區任一墓碑」
     if (tombs.length < need) return { ok: false, error: "格子資料不一致，無法縮小", ...none };
     return { ok: true, absorb: [], revive: tombs.slice(0, need) };
   }
-  const need = span - cur;
+  if (span !== 2) return { ok: false, error: "這個大小目前不開放", ...none };
   const free = s.slots.filter((x) => x.zone === slot.zone && x.id !== slot.id && isLiveSlot(x) && slotSpan(x) === 1 && !slotBusy(s, x)).map((x) => x.id);
+  // 2 格＝併進 1 個同區空格；平面圖會把兩格排在一起，但同一區能併幾間受版面限制
+  const zoneCells = s.slots.filter((x) => x.zone === slot.zone).length;
+  if (mergedCount(s, slot.zone) + 1 > mergeCapacity(zoneCells)) return { ok: false, error: `這一區的版面最多併 ${mergeCapacity(zoneCells)} 間大店，空地不夠再併`, ...none };
   if (cells && cells.length > 0) {
-    if (cells.length !== need || new Set(cells).size !== need) return { ok: false, error: `要再選 ${need} 個空格`, ...none };
-    if (!cells.every((c) => free.includes(c))) return { ok: false, error: "選的格子不是同區的空格", ...none };
+    if (cells.length !== 1) return { ok: false, error: "要再選 1 個空格", ...none };
+    if (!free.includes(cells[0]!)) return { ok: false, error: "選的格子不是同區的空格", ...none };
     return { ok: true, absorb: cells, revive: [] };
   }
-  if (free.length < need) return { ok: false, error: `這個區域的空地不夠（要 ${span} 格，現在只有 ${free.length + cur} 格連同這格）`, ...none };
+  if (free.length < 1) return { ok: false, error: "這個區域的空地不夠，沒有空格可以併進來", ...none };
   const after = free.filter((id) => id > slot.id);
   const before = free.filter((id) => id < slot.id).reverse();
-  return { ok: true, absorb: [...after, ...before].slice(0, need), revive: [] };
+  return { ok: true, absorb: [([...after, ...before][0])!], revive: [] };
 }
 
 /** 套用 planResize 的結果（只動 slot 的 span） */
 export function applyResize(s: Pick<MallState, "slots">, slotId: number, span: Span, plan: ResizePlan): void {
-  for (const id of plan.absorb) s.slots[id]!.span = 0;
-  for (const id of plan.revive) delete s.slots[id]!.span;
+  for (const id of plan.absorb) {
+    s.slots[id]!.span = 0;
+    s.slots[id]!.into = slotId;
+  }
+  for (const id of plan.revive) {
+    delete s.slots[id]!.span;
+    delete s.slots[id]!.into;
+  }
   const slot = s.slots[slotId]!;
   if (span === 1) delete slot.span;
   else slot.span = span;

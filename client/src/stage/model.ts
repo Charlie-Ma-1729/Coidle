@@ -40,6 +40,8 @@ export interface StageShop {
 export interface StageLot {
   slot: number;
   shop: StageShop | null;
+  /** 墓碑：這格被哪個 slot（大店）吸收；畫面上併進那間店的寬房間，不能點、不是空地 */
+  into?: number;
 }
 
 export interface ExpandState {
@@ -134,7 +136,7 @@ export interface StageModel {
 
 /** 平面圖的版型鍵：店面格或出入口條件變了才需要重排平面圖 */
 export function planKey(floor: StageFloor): string {
-  return floor.lots.map((l) => l.slot).join(",") + "|" + (floor.ground ? "g" : "") + (floor.links ?? []).join("+");
+  return floor.lots.map((l) => (l.into === undefined ? l.slot : `${l.slot}>${l.into}`)).join(",") + "|" + (floor.ground ? "g" : "") + (floor.links ?? []).join("+");
 }
 
 /** 營業中才會有人潮與店員 */

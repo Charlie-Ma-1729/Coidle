@@ -10,6 +10,8 @@ import {
   footprintOf,
   freeCells,
   liveSlots,
+  mergeCapacity,
+  mergedCount,
   planResize,
   shopWagePerDay,
   slotSpan,
@@ -72,7 +74,7 @@ describe("big shops", () => {
     const s = mk();
     const area = floorArea(s, ZONE);
     const free0 = freeCells(s, ZONE);
-    const slot = emptyIn(s)[0]!;
+    const slot = emptyIn(s).find((x) => planResize(s, x.id, 2).ok)!;
     const cat = CATEGORY_BY_ID[CAT]!;
     expect(footprintOf(cat).options).toContain(2);
     const t = apply(s, { type: "buildShop", slot: slot.id, category: CAT, span: 2 });
@@ -100,22 +102,39 @@ describe("big shops", () => {
     const slot = emptyIn(s)[0]!;
     expect(fails(s, { type: "buildShop", slot: slot.id, category: "ramen", span: 2 })).toMatch(/不能開這個大小/);
     // 把同區空格用光，只剩這一格
+    // 把同區其他空格都蓋店，這一格就併不起來
     let t = s;
-    const others = emptyIn(t).filter((x) => x.id !== slot.id);
-    for (const o of others) t = apply(t, { type: "buildShop", slot: o.id, category: CAT });
+    for (const o of emptyIn(t).filter((x) => x.id !== slot.id)) t = apply(t, { type: "buildShop", slot: o.id, category: CAT });
     expect(planResize(t, slot.id, 2).ok).toBe(false);
     expect(fails(t, { type: "buildShop", slot: slot.id, category: CAT, span: 2 })).toMatch(/空地不夠/);
+    // 4 格（2×2）暫不開放
+    expect(planResize(s, slot.id, 4).ok).toBe(false);
   });
 
-  it("lets the player pick which empty cell to absorb, and rejects bad picks", () => {
+  it("can pick which empty cell to absorb, records which shop absorbed it, and is capped by the floor layout", () => {
     const s = mk();
     const [a, b, c] = emptyIn(s);
     const t = apply(s, { type: "buildShop", slot: a!.id, category: CAT, span: 2, cells: [c!.id] });
     expect(t.slots[c!.id]!.span).toBe(0);
+    expect(t.slots[c!.id]!.into).toBe(a!.id);
     expect(t.slots[b!.id]!.span).toBeUndefined();
     expect(fails(s, { type: "buildShop", slot: a!.id, category: CAT, span: 2, cells: [a!.id] })).toBeTruthy();
     expect(fails(s, { type: "buildShop", slot: a!.id, category: CAT, span: 2, cells: [b!.id, c!.id] })).toBeTruthy();
     expect(fails(s, { type: "buildShop", slot: a!.id, category: CAT, span: 2, cells: [9999] })).toBeTruthy();
+    // 版面上限：10 格的區最多併 mergeCapacity(10) 間
+    const cap = mergeCapacity(s.slots.filter((x) => x.zone === ZONE).length);
+    expect(cap).toBeGreaterThan(0);
+    let u = s;
+    let made = 0;
+    for (;;) {
+      const free = emptyIn(u);
+      const pick = free.find((x) => planResize(u, x.id, 2).ok);
+      if (!pick) break;
+      u = apply(u, { type: "buildShop", slot: pick.id, category: CAT, span: 2 });
+      made++;
+    }
+    expect(made).toBe(cap);
+    expect(mergedCount(u, ZONE)).toBe(cap);
   });
 });
 
@@ -123,7 +142,7 @@ describe("demolish", () => {
   it("returns the cells, charges 25% of the build cost, and has a per-zone cooldown", () => {
     let s = mk();
     const cat = CATEGORY_BY_ID[CAT]!;
-    const slot = emptyIn(s)[0]!;
+    const slot = emptyIn(s).find((x) => planResize(s, x.id, 2).ok)!;
     s = finish(apply(s, { type: "buildShop", slot: slot.id, category: CAT, span: 2 }));
     const shop = s.shops.find((x) => x.slot === slot.id)!;
     const area = floorArea(s, ZONE);
@@ -145,7 +164,7 @@ describe("demolish", () => {
 
   it("is deterministic and equals a split advance", () => {
     const base = mk();
-    const slot = emptyIn(base)[0]!;
+    const slot = emptyIn(base).find((x) => planResize(base, x.id, 2).ok)!;
     const built = apply(base, { type: "buildShop", slot: slot.id, category: CAT, span: 2 });
     const one = advanceTo(structuredClone(built), built.tick + 600);
     const two = advanceTo(advanceTo(structuredClone(built), built.tick + 250), built.tick + 600);

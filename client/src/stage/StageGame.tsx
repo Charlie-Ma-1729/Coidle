@@ -182,7 +182,7 @@ function StageGameInner() {
     : pickHint({
         s,
         attention: model.attention,
-        hasEmptyLot: floor.lockedLevel == null && floor.lots.some((l) => !l.shop),
+        hasEmptyLot: floor.lockedLevel == null && floor.lots.some((l) => !l.shop && l.into === undefined),
         seen: loadSeen(u?.id, mallId.value),
       });
 

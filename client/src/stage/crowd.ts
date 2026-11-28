@@ -5,7 +5,7 @@
  */
 import { TIME_SCALE, hourlyTraffic, isWet, weatherTrafficAverage, type Weather } from "@coidle/shared";
 import { FURNITURE } from "./furniture";
-import { TILE, patrolEnds, pickEntrance, routeTo, type FloorPlan, type RoomRect } from "./floorplan";
+import { ROOM_W, TILE, patrolEnds, pickEntrance, routeTo, type FloorPlan, type RoomRect } from "./floorplan";
 import { isShopActive, type StageShop } from "./model";
 
 export type Rng = () => number;
@@ -306,7 +306,9 @@ export class CrowdSim {
     const furn = FURNITURE[shop.archetype];
     const spot = furn.spots[Math.floor(rng() * furn.spots.length)]!;
     const doorX = room.door.x * TILE;
-    const spotX = room.x * TILE + spot.x + (rng() - 0.5) * 3;
+    // 大店：在任一格寬的陳列區挑一個位置（小店 units=1，不多抽亂數，決定性與舊版相同）
+    const unit = (room.units ?? 1) > 1 ? Math.floor(rng() * room.units!) : 0;
+    const spotX = room.x * TILE + unit * ROOM_W * TILE + spot.x + (rng() - 0.5) * 3;
     const spotY = room.y * TILE + spot.y;
     // 進出房間的內側點
     const gate: PxPt = room.row === "top" ? { x: doorX, y: (room.y + room.h) * TILE - 6 } : { x: doorX, y: (room.y + 2) * TILE + 8 };

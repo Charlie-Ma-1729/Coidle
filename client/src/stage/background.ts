@@ -3,7 +3,7 @@
  * 全部畫在一張離屏 canvas（一次生成、每個版型快取）。
  */
 import type { Texture } from "pixi.js";
-import { ROOM_W, SIDE, TILE, type EndKind, type FloorPlan, type ServiceBlock } from "./floorplan";
+import { SIDE, TILE, type EndKind, type FloorPlan, type ServiceBlock } from "./floorplan";
 import { darken, lighten, makeCanvas, mix, r, toTexture, type Ctx } from "./sprites";
 
 interface Theme {
@@ -334,7 +334,7 @@ export function getFloorBackground(plan: FloorPlan, key: string): Texture {
     const xs = new Set<number>();
     for (const room of plan.rooms) {
       if (room.corridor !== cor.index) continue;
-      if (plan.rooms.some((o) => o.corridor === cor.index && o.row === room.row && o.x + ROOM_W === room.x)) xs.add(room.x);
+      if (plan.rooms.some((o) => o.corridor === cor.index && o.row === room.row && o.x + o.w === room.x)) xs.add(room.x);
     }
     [...xs]
       .sort((a, b) => a - b)

@@ -45,6 +45,8 @@ export type FloorLinkKind = "rail" | "parking";
 export type EndKind = "street" | "rail" | "parking" | "wall";
 
 export interface FloorPlanOptions {
+  /** 墓碑格 → 吸收它的店（slot）。左右相鄰的兩格併成一間寬房間；排不成（版面換型後不再相鄰）的墓碑留成 dead 房間 */
+  into?: Record<number, number>;
   /** 地面層（1F）：兩端是對外街道門 */
   ground?: boolean;
   /** 非地面層連通的外部出入口（依序放左端、右端） */
@@ -73,6 +75,10 @@ export interface RoomRect {
   h: number;
   /** 門口在走道行走線上的點（格） */
   door: Pt;
+  /** 併了幾格寬（缺＝1）：大店的房間 w ＝ ROOM_W × units */
+  units?: number;
+  /** 墓碑但排不進任何店（版面換型）：不能點、不畫店 */
+  dead?: boolean;
 }
 
 export interface Corridor {
@@ -208,6 +214,50 @@ export function pickEntrance(plan: FloorPlan, r: number): Entrance {
   return plan.entrances[plan.entrances.length - 1]!;
 }
 
+/**
+ * 每排每個位置放哪個 slot。沒有大店時＝依序（slot 第 i 個 → 第 i % 排數 排、第 floor(i / 排數) 位）。
+ * 有大店時：先把「店＋被吸收的格」依序放進同一群（左／右，隔著中庭）內左右相鄰的位置對（位置差 2），
+ * 越靠中庭的位置對越先用；其餘 slot 照原順序補進剩下的位置。位置對用完（版面上限，見 shared 的 mergeCapacity）
+ * 的墓碑照原位置排，之後會被標成 dead。
+ */
+export function assignGrid(list: number[], rows: number, counts: number[], into: Record<number, number>): number[][] {
+  const grid: (number | undefined)[][] = counts.map((c) => Array.from({ length: c }, () => undefined));
+  const inList = new Set(list);
+  const merges = Object.entries(into)
+    .map(([t, o]) => ({ tomb: Number(t), owner: o }))
+    .filter((m) => inList.has(m.tomb) && inList.has(m.owner) && m.tomb !== m.owner)
+    .sort((a, b) => a.owner - b.owner || a.tomb - b.tomb);
+  const used = new Set<number>();
+  if (merges.length > 0) {
+    // 位置對：同一排、同一群（p 同奇偶）內相鄰（p 與 p+2），不重疊，離中庭近的先
+    const pairs: { ri: number; a: number; b: number }[] = [];
+    counts.forEach((c, ri) => {
+      for (const side of [0, 1]) {
+        const ps: number[] = [];
+        for (let p = side; p < c; p += 2) ps.push(p);
+        for (let k = 0; k + 1 < ps.length; k += 2) pairs.push({ ri, a: ps[k]!, b: ps[k + 1]! });
+      }
+    });
+    pairs.sort((x, y) => x.a - y.a || x.ri - y.ri);
+    merges.slice(0, pairs.length).forEach((m, k) => {
+      const pr = pairs[k]!;
+      grid[pr.ri]![pr.a] = m.owner;
+      grid[pr.ri]![pr.b] = m.tomb;
+      used.add(m.owner);
+      used.add(m.tomb);
+    });
+  }
+  const rest = list.filter((s) => !used.has(s));
+  let r = 0;
+  for (let i = 0; i < list.length; i++) {
+    const ri = i % rows;
+    const p = Math.floor(i / rows);
+    if (ri >= grid.length || p >= grid[ri]!.length || grid[ri]![p] !== undefined) continue;
+    grid[ri]![p] = rest[r++];
+  }
+  return grid.map((row) => row.map((v) => v as number));
+}
+
 export function layoutFloor(slots: number[], opts: FloorPlanOptions = {}): FloorPlan {
   const n = Math.min(slots.length, MAX_LOTS);
   const { layout, counts } = rowCounts(n);
@@ -237,10 +287,12 @@ export function layoutFloor(slots: number[], opts: FloorPlanOptions = {}): Floor
   // 第 i 個店面（依加蓋順序）固定落在「第 i % 排數 排、該排第 floor(i / 排數) 格」：
   // 每排內的順序是 左1（最靠中庭）、右1、左2、右2…。這樣擴建只會在尾端多出一格，
   // 已經蓋好的店面不會被換位置（排的數量與每排格數剛好和 rowCounts 一致）。
+  // 例外：有大店（墓碑併入）時，把「店＋它吸收的格」安排到同一群內左右相鄰的兩個位置（見 assignGrid）。
+  const grid = assignGrid(slots.slice(0, n), specs.length, counts, opts.into ?? {});
   specs.forEach((spec, ri) => {
     const sp = split[ri]!;
     const cor = corridors[spec.corridor]!;
-    const rowSlots = slots.slice(0, n).filter((_, i) => i % specs.length === ri);
+    const rowSlots = grid[ri]!;
     const place = (x: number, slot: number) => {
       rooms.push({ slot, row: spec.row, corridor: spec.corridor, x, y: spec.y, w: ROOM_W, h: ROOM_H, door: { x: x + ROOM_W / 2, y: cor.laneY } });
     };
@@ -258,6 +310,22 @@ export function layoutFloor(slots: number[], opts: FloorPlanOptions = {}): Floor
     }
   });
 
+  // 大店：把左右相鄰的墓碑格併進吸收它的店，成為一間寬房間
+  const into = opts.into ?? {};
+  const mergedSig: string[] = [];
+  for (const [tombStr, owner] of Object.entries(into)) {
+    const tomb = rooms.find((r) => r.slot === Number(tombStr));
+    if (!tomb) continue;
+    const own = rooms.find((r) => r.slot === owner);
+    if (own && own !== tomb && own.y === tomb.y && own.row === tomb.row && (tomb.x === own.x + own.w || tomb.x + tomb.w === own.x)) {
+      own.x = Math.min(own.x, tomb.x);
+      own.w += tomb.w;
+      own.units = (own.units ?? 1) + (tomb.units ?? 1);
+      rooms.splice(rooms.indexOf(tomb), 1);
+      mergedSig.push(`${owner}+${tomb.slot}`);
+    } else tomb.dead = true;
+  }
+
   const connectors: Connector[] = [
     { id: "left", x: SIDE / 2, y0: corridors[0]!.laneY, y1: corridors[mainCorridor]!.laneY },
     { id: "atrium", x: x0 + 3, y0: corridors[0]!.laneY, y1: corridors[mainCorridor]!.laneY },
@@ -274,7 +342,7 @@ export function layoutFloor(slots: number[], opts: FloorPlanOptions = {}): Floor
 
   const plan: FloorPlan = {
     layout,
-    sig: `${layout}-${cL}-${cR}-${counts.join(".")}-${ends.left[0]}${ends.right[0]}`,
+    sig: `${layout}-${cL}-${cR}-${counts.join(".")}-${ends.left[0]}${ends.right[0]}${mergedSig.length ? `-m${mergedSig.join(",")}` : ""}`,
     width,
     height,
     rooms,

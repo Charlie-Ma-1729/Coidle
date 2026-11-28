@@ -27,6 +27,9 @@ import {
   TERMINATE_PENALTY,
   leaseRemainingRent,
   spanFactor,
+  DEMOLISH_FEE_RATE,
+  openPlanEnabled,
+  spanCostFactor,
 } from "@coidle/shared";
 import { Btn, Card, Chip, Field, Meter, Sheet } from "../components/ui";
 import { gameDuration, money, num } from "../format";
@@ -318,6 +321,23 @@ export function ShopSheet({ shopId, onClose }: { shopId: string; onClose: () => 
             >
               歇業
             </Btn>
+            {openPlanEnabled(s) && (
+              <Btn
+                small
+                kind="danger"
+                onClick={() => {
+                  const fee = Math.round(cat.buildCost * spanCostFactor(shop.span) * DEMOLISH_FEE_RATE);
+                  confirmThen(
+                    `拆除「${shop.name}」？\n拆除費 ${money(fee)}（建造費的 ${Math.round(DEMOLISH_FEE_RATE * 100)}%，裝潢報廢不退款），現在就會扣款。${shop.span && shop.span > 1 ? "\n併進來的格子會還成空地，之後可以重新規劃大小。" : ""}\n同一層拆完要隔一個遊戲日才能再拆。`,
+                    async () => {
+                      if (await run({ type: "demolishShop", shopId: shop.id }, "已拆除")) onClose();
+                    },
+                  );
+                }}
+              >
+                拆除重建
+              </Btn>
+            )}
           </div>
         </Card>
       )}

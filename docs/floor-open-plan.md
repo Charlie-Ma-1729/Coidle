@@ -1,20 +1,23 @@
 # 樓層空地化與店面可變大小（階段 C 設計）
 
-## 實作狀態（2026-11-28，規則與伺服器已做、畫面排版未做）
+## 實作狀態（2026-11-28：規則、伺服器、畫面都已做；旗標預設關，尚未部署）
 
 **已做（旗標預設關，舊存檔與舊行為完全不變）**
-- **模型簡化（和下面 §1 的草案不同）**：**格＝slot**。大店開在一個 slot 上，並**吸收**同區 span−1 個空的 slot（變成 `span: 0` 的墓碑）；樓板面積 `floorArea` ＝ 同區 slot 的 span 總和，resize／拆除只在店與墓碑之間搬格子，**面積不變，只有擴建 +1**，所以**不需要 `floorExtra`、`expandZone` 不用改**（`expansionsOf` 改成面積差，舊存檔結果相同）。空的 slot 都是可流通的格子；`cell` 座標沒做，玩家用 `cells: [slotId]` 指定要吸收哪一格。
-- `shared/src/game/floor.ts`：`slotSpan`、`liveSlots`、`floorArea`／`usedCells`／`freeCells`、`planResize`／`applyResize`（client／server 共用的可放置判定）、`availableSpans`、`FOOTPRINT_BY_CATEGORY`（§6 的 10 個業態）、`SPAN_FACTOR`（1／1.8／3.2）、拆除費 25%、冷卻 1 遊戲日。
+- **模型簡化（和下面 §1 的草案不同）**：**格＝slot**。大店開在一個 slot 上，並**吸收**同區 1 個空的 slot（變成 `span: 0` 的墓碑，墓碑記 `into`＝吸收它的店）；樓板面積 `floorArea` ＝ 同區 slot 的 span 總和，resize／拆除只在店與墓碑之間搬格子，**面積不變，只有擴建 +1**，所以不需要 `floorExtra`、`expandZone` 不用改（`expansionsOf` 改成面積差，舊存檔結果相同）。
+- `shared/src/game/floor.ts`：`slotSpan`、`liveSlots`、`floorArea`／`usedCells`／`freeCells`、`planResize`／`applyResize`（client／server 共用的可放置判定）、`availableSpans`、`FOOTPRINT_BY_CATEGORY`、`SPAN_FACTOR`（1／1.8／3.2）、拆除費 25%、冷卻 1 遊戲日、`mergeCapacity`（版面上限）。
 - 指令：`buildShop` 可帶 `span`／`cells`（旗標關或業態不允許就拒絕）、新增 `demolishShop`；建造費與翻新費 ×格數、工期 ×√格數、人事與容量 ×`SPAN_FACTOR`、固定資產評價 ×格數；完工時店帶 `span`。
 - 旗標：`flags["feature:open_plan"]`（管理室「商場旗標」可對單一商場開，先 sandbox）；環境變數 `OPEN_PLAN_ENABLED=1` 對全服開。
-- client：墓碑不畫、不當招商空位；`BuildSheet` 旗標開時可選大小；`ShopSheet` 容量用共用係數。
-- 測試：`server/src/floor.test.ts`（舊存檔 span 缺＝1／遷移不寫新欄位、旗標關行為不變、吸收與面積守恆、指定格子、拒絕、拆除費與冷卻、決定性與分段推進等價）。
+- **只開放 1／2 格**。4 格（2×2）要背靠背房間合併，而機器人模擬顯示 4 格邊際營收近乎零（見 balance-report「大店」），暫不開放；型別與係數保留，`planResize` 對 4 回「目前不開放」。
+- **版面上限（`mergeCapacity(n)`）**：2 格店必須是平面圖上「同一排、同一群（隔著中庭的左／右）內左右相鄰」的兩個位置，所以一區能併幾間受版面限制（8 格以內的壓縮型最多 4 間；10 格島型 2 間；14 格 3 間…）。超過就拒絕（「這一區的版面最多併 N 間大店」）。擴建若會讓版面從壓縮型變島型、放不下現有大店，`expandInfo` 會擋下並提示先拆一間。
+- **平面圖（client）**：`layoutFloor(slots, { into })` 先用 `assignGrid` 把「店＋墓碑」安排到相鄰的位置對（離中庭近的先用；沒有大店時與原排法逐位相同，有測試），再併成一間寬房間（`RoomRect.units`＝2、`w`＝16）。墓碑排不進位置對（理論上不會，防呆）就標 `dead`，不能點。**注意：有大店時，同一區其他店的位置可能因此重排**（重排後客人與人潮會重新生成）。
+- **畫面**：寬房間貼圖由單格貼圖複製並蓋掉中間隔牆（`sprites.ts` 的 `widen`，空地、鷹架、店面都支援）；每格寬各有一組店員、客人在任一格寬的陳列區逛；選取框、燈光、氣泡、標籤、走道盆栽都跟著寬度；`BuildSheet` 旗標開時可選大小並提示併入相鄰空格；`ShopSheet`（直營）旗標開時有「拆除重建」（確認框列出拆除費與冷卻）。示範頁 `#stage-demo` 的 1F「電玩橫丁」是 2 格寬的大店。
+- **舊 client 不必另做握手**：既有的 `updater.ts`（比對 `/version.json` 的 BUILD_ID，分頁在背景立刻重載、前景倒數）已涵蓋。上線順序：先部署新版 → 等 client 都更新 → 再開旗標（舊 client 看到墓碑會畫成空地）。
+- 測試：`server/src/floor.test.ts`（舊存檔 span 缺＝1／遷移不寫新欄位、旗標關行為不變、吸收與面積守恆、指定格子與 `into`、版面上限、拒絕、拆除費與冷卻、決定性與分段推進等價）；`client/src/stage/floorplan.test.ts`（每個 n 都能併到 `mergeCapacity`、寬房間不重疊不蓋中庭有路線、沒有大店時排法不變、shared 與平面圖的位置對數一致）。
 
-**還沒做（需要人眼在瀏覽器驗證）**
-- `layoutFloor` 的面積排版與寬房間（§3、§4.1）：現在大店仍畫成 1 格房間、少一格空間，**所以不要在正式環境開旗標**。
-- 規劃模式 UI（點空地→選業態→選大小→預覽）、拆除按鈕、手機版抽屜。
-- 機器人平衡掃描（大店單位面積收益、擴建 ROI、×1.2 最佳倍率），結論要寫進 `docs/balance-report.md`。
-- 握手回報 `BUILD_ID`（舊 client 拒絕新指令的友善訊息）。
+**還沒做**
+- 規劃模式的「預覽哪一格會被併進來」與手機版抽屜：現在是在 `BuildSheet` 選業態＋大小，自動併最近的空格（或 `cells` 指定）。
+- 4 格（2×2）大店、跨區重排的過場動畫。
+- 實機（正式環境、sandbox 商場）的灰度驗證：先用管理室對一座 sandbox 商場開旗標，確認建造、完工、拆除、擴建擋下、舊 client 更新這幾條流程。
 
 > 狀態：**設計草案，尚未動工**。前置：階段 0（設施框架）、A（地下停車層）、B（跨兩層電影院）上線穩定後再做。
 > 來源：大型設施重做計畫的「階段 C」。本文件只定方向與介面，數字（成本、容量係數）一律用機器人模擬調，不在這裡拍板。

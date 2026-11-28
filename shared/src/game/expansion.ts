@@ -1,5 +1,5 @@
 import { ZONE_BY_ID } from "./data";
-import { floorArea } from "./floor";
+import { floorArea, mergeCapacity, mergedCount } from "./floor";
 import type { MallState } from "./types";
 
 // 擴建：在已開放的區域加蓋店面。越蓋越貴；同一區域能擴建的數量有上限；
@@ -39,5 +39,6 @@ export function expandInfo(s: Pick<MallState, "slots" | "level" | "flags" | "fun
   else if (n >= max) reason = "這個區域已經擴建到上限";
   else if (s.level < minLevel) reason = `商場達到 Lv.${minLevel} 才能再擴建`;
   else if (s.funds < cost) reason = "資金不足";
+  else if (mergedCount(s, zoneId) > mergeCapacity(s.slots.filter((x) => x.zone === zoneId).length + 1)) reason = "擴建後版面會變成島型，放不下現有的大店（先拆除一間大店）";
   return { n, cost, minLevel, max, canBuy: reason === null, reason };
 }

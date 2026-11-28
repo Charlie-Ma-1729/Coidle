@@ -352,8 +352,24 @@ export interface RoomTextures {
 
 const roomCache = new Map<string, RoomTextures>();
 
-export function getRoomTextures(a: Archetype, color: number, row: "top" | "bottom"): RoomTextures {
-  const key = `${a}_${color}_${row}`;
+/**
+ * 把單格房間的貼圖橫向併成 units 格寬（大店）：複製 units 份，再用房間內側 6px 寬的條紋蓋掉中間的兩道側牆，
+ * 看起來是一間連通的寬房間（門墊、陳列各有一份，像有兩個入口）。
+ */
+function widen(src: HTMLCanvasElement, units: number): HTMLCanvasElement {
+  if (units <= 1) return src;
+  const { c, x } = makeCanvas(ROOM_PX_W * units, ROOM_PX_H);
+  for (let i = 0; i < units; i++) x.drawImage(src, i * ROOM_PX_W, 0);
+  for (let i = 1; i < units; i++) {
+    const sx = i * ROOM_PX_W;
+    x.clearRect(sx - 3, 0, 6, ROOM_PX_H);
+    x.drawImage(src, 4, 0, 6, ROOM_PX_H, sx - 3, 0, 6, ROOM_PX_H);
+  }
+  return c;
+}
+
+export function getRoomTextures(a: Archetype, color: number, row: "top" | "bottom", units = 1): RoomTextures {
+  const key = `${a}_${color}_${row}_${units}`;
   const hit = roomCache.get(key);
   if (hit) return hit;
 
@@ -380,18 +396,19 @@ export function getRoomTextures(a: Archetype, color: number, row: "top" | "botto
     r(f.x, deep, 0, 95, ROOM_PX_W, 1);
   }
 
-  const out = { base: toTexture(b.c), front: toTexture(f.c) };
+  const out = { base: toTexture(widen(b.c, units)), front: toTexture(widen(f.c, units)) };
   roomCache.set(key, out);
   return out;
 }
 
 const emptyCache = new Map<string, Texture>();
 
-/** 空地：還沒蓋店。有「+」招商牌 */
-export function getEmptyLotTexture(row: "top" | "bottom"): Texture {
-  const hit = emptyCache.get(row);
+/** 空地：還沒蓋店。有「+」招商牌（units＞1：預留給大店的寬空地，併成一整塊） */
+export function getEmptyLotTexture(row: "top" | "bottom", units = 1): Texture {
+  const ck = `${row}_${units}`;
+  const hit = emptyCache.get(ck);
   if (hit) return hit;
-  const { c, x } = makeCanvas(ROOM_PX_W, ROOM_PX_H);
+  const { c: single, x } = makeCanvas(ROOM_PX_W, ROOM_PX_H);
   const wall = 0x2a2840;
   r(x, wall, 0, 0, ROOM_PX_W, 32);
   r(x, darken(wall, 0.4), 0, 0, ROOM_PX_W, 3);
@@ -418,16 +435,17 @@ export function getEmptyLotTexture(row: "top" | "bottom"): Texture {
     r(x, 0x201f35, 53, 8, 22, 24);
     r(x, 0xcfc7b6, 55, 10, 18, 22, 0.5);
   }
-  const t = toTexture(c);
-  emptyCache.set(row, t);
+  const t = toTexture(widen(single, units));
+  emptyCache.set(ck, t);
   return t;
 }
 
-let scaffoldTex: Texture | null = null;
+const scaffoldCache = new Map<number, Texture>();
 /** 施工中的鷹架（疊在空地上） */
-export function getScaffoldTexture(): Texture {
-  if (scaffoldTex) return scaffoldTex;
-  const { c, x } = makeCanvas(ROOM_PX_W, ROOM_PX_H);
+export function getScaffoldTexture(units = 1): Texture {
+  const hitS = scaffoldCache.get(units);
+  if (hitS) return hitS;
+  const { c: single, x } = makeCanvas(ROOM_PX_W, ROOM_PX_H);
   const beam = 0xc8903a;
   const dark = 0x7a5420;
   for (const bx of [10, 40, 86, 116]) {
@@ -449,8 +467,9 @@ export function getScaffoldTexture(): Texture {
     r(x, 0xffffff, cx + 1, 88, 6, 1);
     r(x, 0xff8a3a, cx - 1, 91, 10, 2);
   }
-  scaffoldTex = toTexture(c);
-  return scaffoldTex;
+  const tex = toTexture(widen(single, units));
+  scaffoldCache.set(units, tex);
+  return tex;
 }
 
 // ───────── 人物 ─────────

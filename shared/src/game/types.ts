@@ -154,6 +154,8 @@ export interface Slot {
   shopId: string | null;
   /** 佔幾格（缺＝1）；0＝墓碑（被旁邊的大店吸收的格子）。見 shared/src/game/floor.ts */
   span?: 0 | 1 | 2 | 4;
+  /** 墓碑（span 0）才有：被哪個 slot（大店）吸收；畫面據此把兩格併成一間寬房間 */
+  into?: number;
 }
 
 export interface BuildTask {

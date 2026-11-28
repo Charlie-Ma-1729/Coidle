@@ -1,4 +1,4 @@
-import type { Archetype, AttentionItem, ShopFlag, StageModel, StageShop } from "./model";
+import type { Archetype, AttentionItem, ShopFlag, StageLot, StageModel, StageShop } from "./model";
 
 let slotSeq = 0;
 
@@ -62,16 +62,17 @@ const b1 = [
   empty(),
 ];
 
-const f1 = [
+const f1: StageLot[] = [
   lot(shop({ name: "霓虹書房", category: "書店", archetype: "shelf", color: 0x4f8fe3, level: 2, price: 1480, stock: 40, freshness: 77, rev: 42800, groups: 22 })),
   lot(shop({ name: "梅花雜貨", category: "雜貨店", archetype: "shelf", color: 0x52b788, level: 1, price: 380, stock: 70, freshness: 60, rev: 18900, groups: 27, flags: ["complaint"] })),
   lot(shop({ name: "街角服飾", category: "服飾店", archetype: "rack", color: 0xe05fa2, level: 1, price: 2980, stock: 28, freshness: 55, rev: 36400, groups: 14 })),
   lot(shop({ name: "電玩橫丁", category: "遊戲中心", archetype: "arcade", color: 0x8a5ff0, level: 2, price: 300, stock: 99, freshness: 84, rev: 58100, groups: 52, mode: "lease" })),
   lot(shop({ name: "茶香堂", category: "茶舖", archetype: "cafe", color: 0x6fae5e, level: 1, price: 450, stock: 33, freshness: 70, rev: 15200, groups: 19 })),
   lot(shop({ name: "小熊玩具", category: "玩具店", archetype: "shelf", color: 0xf0c040, level: 1, price: 880, stock: 0, freshness: 48, rev: 9800, groups: 8, state: "closed", flags: ["broken"] })),
-  empty(),
+  empty(), // 下面改成被「電玩橫丁」吸收的墓碑（示範 2 格寬的大店）
   empty(),
 ];
+f1[6] = { slot: f1[6]!.slot, shop: null, into: f1[3]!.slot };
 
 const f2 = [
   lot(shop({ name: "百合花店", category: "花店", archetype: "shelf", color: 0xe8a0c0, level: 1, price: 1200, stock: 24, freshness: 69, rev: 12400, groups: 9 })),

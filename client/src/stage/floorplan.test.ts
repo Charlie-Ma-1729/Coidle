@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ATRIUM_W, MAX_LOTS, ROOM_H, ROOM_W, SIDE, layoutFloor, patrolEnds, pickEntrance, roomOfSlot, routeTo, rowCounts, type FloorPlan } from "./floorplan";
+import { mergeCapacity } from "@coidle/shared";
+import { ATRIUM_W, MAX_LOTS, ROOM_H, ROOM_W, SIDE, assignGrid, layoutFloor, patrolEnds, pickEntrance, roomOfSlot, routeTo, rowCounts, type FloorPlan } from "./floorplan";
 
 const slots = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 
@@ -57,6 +58,58 @@ describe("layoutFloor", () => {
         const overlap = a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
         expect(overlap).toBe(false);
       }
+  });
+
+  it.each(sizes)("n=%i：mergeCapacity 組大店都併得起來（寬房間、不重疊、不蓋中庭、有路線），多一間就留成 dead", (n) => {
+    const ids = Array.from({ length: n }, (_, i) => i);
+    const cap = mergeCapacity(n);
+    const into: Record<number, number> = {};
+    for (let k = 0; k < cap; k++) into[n - 1 - k] = k; // 店 0..cap-1 各吸收編號最大的幾格
+    const p = layoutFloor(ids, { ground: true, into });
+    expect(p.rooms.some((x) => x.dead)).toBe(false);
+    expect(p.rooms.filter((x) => x.units === 2)).toHaveLength(cap);
+    for (const [t, o] of Object.entries(into)) {
+      const r = roomOfSlot(p, o)!;
+      expect(r.units, `n=${n} ${o}+${t}`).toBe(2);
+      expect(r.w).toBe(ROOM_W * 2);
+      expect(roomOfSlot(p, Number(t))).toBeUndefined();
+      expect(r.x < p.atrium.x1 && r.x + r.w > p.atrium.x0).toBe(false);
+      expect(r.door.x).toBeGreaterThanOrEqual(r.x);
+      expect(r.door.x).toBeLessThanOrEqual(r.x + r.w);
+      expect(routeTo(p, "street-left", o)).not.toBeNull();
+    }
+    for (let i = 0; i < p.rooms.length; i++)
+      for (let j = i + 1; j < p.rooms.length; j++) {
+        const a = p.rooms[i]!;
+        const b = p.rooms[j]!;
+        expect(a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h).toBe(false);
+      }
+    // 剩下的店面都還在
+    expect(p.rooms.map((r) => r.slot).sort((a, b) => a - b)).toEqual(ids.filter((i) => !(i in into)));
+    // 超過版面上限的墓碑不亂併
+    if (n > cap * 2 + 1) {
+      const over = layoutFloor(ids, { into: { ...into, [n - 1 - cap]: cap } });
+      expect(over.rooms.filter((x) => x.dead)).toHaveLength(1);
+    }
+  });
+
+  it("沒有大店時，assignGrid 與原本的排法完全相同", () => {
+    for (let n = 1; n <= MAX_LOTS; n++) {
+      const { counts } = rowCounts(n);
+      const rows = counts.length;
+      const g = assignGrid(slots(n), rows, counts, {});
+      slots(n).forEach((s, i) => expect(g[i % rows]![Math.floor(i / rows)]).toBe(s));
+    }
+  });
+
+  it("shared 的 mergeCapacity 與平面圖的位置對數一致", () => {
+    for (let n = 1; n <= MAX_LOTS; n++) {
+      const ids = Array.from({ length: n }, (_, i) => i);
+      const into: Record<number, number> = {};
+      for (let k = 0; k < n >> 1; k++) into[n - 1 - k] = k; // 要求超多
+      const p = layoutFloor(ids, { into });
+      expect(p.rooms.filter((r) => r.units === 2).length, `n=${n}`).toBe(mergeCapacity(n));
+    }
   });
 
   it.each(sizes)("n=%i：房間不會蓋到中庭", (n) => {

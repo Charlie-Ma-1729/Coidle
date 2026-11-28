@@ -79,8 +79,10 @@ export function toStageModel(s: PublicMallState, userId?: string | number | null
 
   const floors: StageFloor[] = ZONES.map((z) => {
     const unlocked = isZoneUnlocked(s, z.id);
-    const slots = s.slots.filter((x) => x.zone === z.id && x.span !== 0); // 墓碑（被大店吸收的格子）不畫
+    // 墓碑（被大店吸收的格子）留在清單裡（版面位置依區內順序），標上被誰吸收；平面圖把它併進那間店的寬房間
+    const slots = s.slots.filter((x) => x.zone === z.id);
     const lots: StageLot[] = slots.map((slot) => {
+      if (slot.span === 0) return { slot: slot.id, shop: null, into: slot.into ?? -1 };
       if (!unlocked) return { slot: slot.id, shop: null };
       const shop = slot.shopId ? s.shops.find((x) => x.id === slot.shopId) : shopBySlot.get(slot.id);
       if (shop) return { slot: slot.id, shop: toStageShop(s, shop, flagMap.get(shop.id) ?? new Set()) };

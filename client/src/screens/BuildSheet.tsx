@@ -46,11 +46,12 @@ export function BuildSheet({ slotId, onClose }: { slotId: number; onClose: () =>
                   <span class="small dim">大小：</span>
                   {spans.map((sp) => (
                     <button key={sp} type="button" class={`chip ${sp === span ? "on" : ""}`} onClick={() => setPicked({ ...picked, [c.id]: sp })}>
-                      {sp} 格{sp > 1 ? `（容量 ×${spanFactor(sp)}）` : ""}
+                      {sp} 格{sp > 1 ? `（併入左右相鄰的空格，容量 ×${spanFactor(sp)}）` : ""}
                     </button>
                   ))}
                 </div>
               )}
+              {openPlanEnabled(s) && spans.length === 1 && footprintOf(c).options.length > 1 && <div class="small dim">這格左右沒有可併的空地，只能開 1 格。</div>}
               {lic && (
                 <div class="small dim">
                   📜 {lic.name}（{lic.law}）規費 {money(lic.fee)}
