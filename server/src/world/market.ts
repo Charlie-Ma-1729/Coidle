@@ -1,6 +1,7 @@
 import { randomInt } from "node:crypto";
 import {
   AM_OPEN,
+  PM_END,
   KIND_LABEL,
   TRADING_STEPS_PER_DAY,
   LEGACY_STOCK_COUNT,
@@ -176,6 +177,16 @@ export class MarketService {
     return b.engine.intradaySeries(key, t).map((s) => ({ at: s.at, price: Math.max(MARKET_MIN_PRICE, Math.round(s.price * f)) }));
   }
 
+  /** 第 j 個交易日的收盤（j 為負＝往回推算的日子）；超出範圍回傳 null */
+  private closeOfDay(key: string, j: number): number | null {
+    if (j >= 0) return this.v2().candle(key, j)?.close ?? null;
+    const b = this.backfill();
+    const t = b.n + j;
+    if (t < 0) return null;
+    const c = b.engine.candle(key, t);
+    return c ? Math.max(MARKET_MIN_PRICE, Math.round(c.close * Math.exp((b.adj.get(key) ?? 0) * ((t + 1) / b.n)))) : null;
+  }
+
   private dayOfJ(j: number): number {
     return j >= 0 ? this.v2().dayOfIdx(j) : this.backfill().engine.dayOfIdx(this.backfill().n + j);
   }
@@ -306,7 +317,6 @@ export class MarketService {
     const prices: number[] = [];
     const prevCloses: number[] = [];
     const sparks: number[][] = [];
-    const nowMs = this.now();
     const today = dayOfGstep(gstep);
     for (const g of STOCK_GROUPS) {
       const q = this.quote(g.key);
@@ -314,7 +324,6 @@ export class MarketService {
       let open = q.price;
       let high = q.price;
       let low = q.price;
-      let spark: number[] = [q.price];
       if (pos && q.listed) {
         prevClose = e.prevClose(g.key, pos.i)!;
         const pts = e.intradayPrices(g.key, pos.i)!;
@@ -324,15 +333,15 @@ export class MarketService {
           if (p > high || k === 0) high = p;
           if (p < low || k === 0) low = p;
         }
-        spark = [];
-        for (let d = Math.max(0, pos.i - SPARK_DAYS); d < pos.i; d++) spark.push(e.candle(g.key, d)!.close);
-        spark.push(q.price);
-        if (spark.length < 2) spark.unshift(prevClose);
-      } else if (STOCK_GROUPS.indexOf(g) < LEGACY_STOCK_COUNT) {
-        const h = hourOfMs(Math.min(nowMs, this.startMs()));
-        spark = this.v1().series(g.key, Math.max(0, h - 47), h);
-        prevClose = spark[Math.max(0, spark.length - 25)] ?? q.price;
+      } else {
+        // v2 還沒開始交易：「前日收盤」是往回推算的倒數第二天
+        prevClose = this.closeOfDay(g.key, -2) ?? q.price;
       }
+      // 迷你走勢：最近 SPARK_DAYS 個交易日的收盤（含往回推算的日子）接上現價
+      const spark: number[] = [];
+      const lastJ = pos && q.listed ? pos.i : -1;
+      for (let j = Math.max(-this.backfill().n, lastJ - SPARK_DAYS); j < lastJ; j++) spark.push(this.closeOfDay(g.key, j) ?? q.price);
+      spark.push(q.price);
       const latest = e.newsOf(g.key, today - 20, today).filter((n) => gstepOf(n.day, n.stepOfDay) <= gstep).at(-1) ?? null;
       prices.push(q.price);
       prevCloses.push(prevClose);
@@ -419,12 +428,7 @@ export class MarketService {
     const lastK = pos ? pos.k : TRADING_STEPS_PER_DAY - 1;
     const firstJ = -this.backfill().n;
     const series = (j: number) => this.dayPrices(key, j).slice(0, j === lastJ ? lastK + 1 : undefined);
-    const closeOf = (j: number): number | null => {
-      if (j < firstJ) return null;
-      if (j >= 0) return e.candle(key, j)?.close ?? null;
-      return this.dayPrices(key, j).at(-1)?.price ?? null;
-    };
-    const prevCloseOf = (j: number): number | null => (j === 0 ? e.prevClose(key, 0) : closeOf(j - 1));
+    const prevCloseOf = (j: number): number | null => (j === 0 ? e.prevClose(key, 0) : this.closeOfDay(key, j - 1));
 
     let points: Pt[] = [];
     let prevClose: number | null = null;
@@ -447,7 +451,7 @@ export class MarketService {
           hi = Math.max(hi, s.price);
           lo = Math.min(lo, s.price);
         }
-        const at = j === lastJ && pos ? Math.min(pts.at(-1)!.at, nowMs) : realMsOfGstep(gstepOf(this.dayOfJ(j), 154), clock);
+        const at = j === lastJ && pos ? Math.min(pts.at(-1)!.at, nowMs) : realMsOfGstep(gstepOf(this.dayOfJ(j), PM_END - 1), clock);
         points.push({ at, price: pts.at(-1)!.price, open: pts[0]!.price, high: hi, low: lo });
       }
       points.reverse();
@@ -460,7 +464,7 @@ export class MarketService {
       .newsOf(key, d0 - 1, dayOfGstep(gnow))
       .filter((n) => gstepOf(n.day, n.stepOfDay) <= gnow && this.newsAt(n) >= firstAt)
       .map((n) => ({ id: n.id, at: this.newsAt(n), pct: n.pct, text: n.headline, body: n.body, scope: n.scope }));
-    return { key, name: g.name, range, kind, points, prevClose, events };
+    return { key, name: g.name, range, kind, points, prevClose, clock, events };
   }
 
   // ───────── 持倉 ─────────

@@ -285,11 +285,13 @@ export interface MarketHistory {
   key: string;
   name: string;
   range: MarketRange;
-  /** intraday＝每個價格步一點（1 真實分鐘）；daily＝每個交易日一點（含 OHLC） */
+  /** intraday＝每個價格步一點（30 真實秒）；daily＝每個交易日一點（含 OHLC） */
   kind: "intraday" | "daily";
   points: { at: number; price: number; open?: number; high?: number; low?: number }[];
   /** 前日收盤（1d 的基準線） */
   prevClose: number | null;
+  /** 伺服器的遊戲時鐘：圖上的日期與時間用遊戲時間（JST）顯示，不是真實時間 */
+  clock?: ServerClock;
   events: { id: string; at: number; pct: number; text: string; body: string; scope: string }[];
 }
 
@@ -349,7 +351,7 @@ export interface TradeResult {
 
 export const MARKET_TEXT = {
   what: "這裡的集團是虛構的，和商場無關——玩家現在經營的是「百貨」，將來才會長成「集團」。你只是用個人錢包投資，試著賺一點。",
-  hours: "市場依東京證券交易所的時間開市（用遊戲內的日本時間）：平日 9:00–11:30、12:30–15:30，週末、國定假日、12/31–1/3 休市。遊戲時間每真實 1 分鐘走 6 分鐘，所以一個遊戲日（4 真實小時）裡只有約 55 分鐘開市。休市時價格不動，消息照常發生，到下次開盤用跳空反映；休市時可以下「預約單」，開盤用開盤價成交。",
-  price: "開市時每真實 1 分鐘更新一次價格，由隨機波動、偶發的消息，以及遊戲世界已經發生的日曆與天氣共同決定。單日漲跌幅有限制（±15%）。世界訊號只佔一小部分，不保證獲利；長期有微弱的回歸基準價的傾向，但這不是穩賺的套利。",
+  hours: "市場依東京證券交易所的時間開市（用遊戲內的日本時間）：平日 9:00–11:30、12:30–15:30，週末、國定假日、12/31–1/3 休市。遊戲時間每真實 1 分鐘走 6 分鐘，所以一個遊戲日（4 真實小時）裡只有約 55 分鐘開市（價格每 30 真實秒走一步）。休市時價格不動，消息照常發生，到下次開盤用跳空反映；休市時可以下「預約單」，開盤用開盤價成交。",
+  price: "開市時每真實 30 秒更新一次價格，由隨機波動、偶發的消息，以及遊戲世界已經發生的日曆與天氣共同決定。單日漲跌幅有限制（±15%）。世界訊號只佔一小部分，不保證獲利；長期有微弱的回歸基準價的傾向，但這不是穩賺的套利。",
   friction: `買、賣各收 ${MARKET_FEE_RATE * 100}% 手續費；賣出的獲利要課 ${(MARKET_TAX_RATE * 100).toFixed(3)}% 所得稅（虧損不退、不相抵）；有配息的標的在除權息日把配息入帳（同樣課稅）；每個遊戲日最多買進 ${MARKET_DAILY_BUY_LIMIT.toLocaleString()} 日圓，單一集團持股市值最多 ${MARKET_HOLD_CAP.toLocaleString()} 日圓；不能放空。`,
 } as const;

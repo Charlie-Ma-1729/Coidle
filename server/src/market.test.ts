@@ -279,9 +279,9 @@ describe("trading", () => {
     const h = (await get(a, u.cookie, `/api/market/${encodeURIComponent(KEY)}/history?range=1d`)).json();
     expect(h.kind).toBe("intraday");
     expect(h.points.length).toBeGreaterThan(25); // 前場 25 步＋後場已走的步
-    expect(h.points.length).toBeLessThanOrEqual(55);
+    expect(h.points.length).toBeLessThanOrEqual(110);
     expect(h.points.at(-1).price).toBe(priceNow(a));
-    expect(h.points[1].at - h.points[0].at).toBe(MIN);
+    expect(h.points[1].at - h.points[0].at).toBe(MIN / 2);
     expect(h.prevClose).toBeGreaterThan(0);
     const d = (await get(a, u.cookie, `/api/market/${encodeURIComponent(KEY)}/history?range=1m`)).json();
     expect(d.kind).toBe("daily");
@@ -394,14 +394,21 @@ describe("trading", () => {
         expect(x.points.every((p, i) => i === 0 || p.at >= x.points[i - 1]!.at)).toBe(true);
       }
       const n = ranges.map((x) => x.points.length);
-      expect(n[0]).toBe(55); // 今日：往回推算的最後一個完整交易日
-      expect(n[1]).toBe(5 * 55);
+      expect(n[0]).toBe(110); // 今日：往回推算的最後一個完整交易日
+      expect(n[1]).toBe(5 * 110);
       expect(n[3]).toBeGreaterThan(n[2]!);
       expect(n[4]).toBeGreaterThan(n[3]!);
       for (const x of ranges.slice(2)) expect(x.points.every((p) => p.open !== undefined && p.high! >= p.low! && p.high! >= p.price && p.low! <= p.price)).toBe(true);
       // 接得起來：往回推算的最後一天收盤＝v2 起點價格（開盤前的價格）
       expect(ranges[4]!.points.at(-1)!.price).toBe(a.service.market.price(key));
     }
+    // 股價表的迷你走勢：有一整個月的點，不是一條直線
+    const rows = a.service.market.list(0).rows;
+    expect(rows.every((r) => r.spark.length >= 20 && new Set(r.spark).size > 3)).toBe(true);
+    // 開市後（v2 第一個交易日）也一樣：不會只剩「前日收盤→現價」兩個點的直線
+    clock.t = REAL0 + 240 * MIN + 100 * MIN;
+    expect(a.service.market.list(0).rows.every((r) => r.spark.length >= 20 && new Set(r.spark).size > 3)).toBe(true);
+    clock.t = OPEN_T + 12 * MIN;
     // 決定性：同樣的時間再問一次，結果一樣
     expect(JSON.stringify(h("3m"))).toBe(JSON.stringify(h("3m")));
   });

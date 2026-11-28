@@ -7,6 +7,7 @@
 //    （傳聞時先反映 q·R，證實機率 q 時再補 (1−q)·R，否認時回吐 q·R），看標題買賣沒有期望獲利。
 import { calendarDay } from "../calendar";
 import { dayWeather } from "../weather";
+import { STEPS_PER_DAY } from "./exchange";
 import { rnd, strHash } from "./rng";
 import { STOCK_GROUPS, type StockGroup } from "./stocks";
 
@@ -157,6 +158,8 @@ const MAG_WEIGHTS: [1 | 2 | 3, number][] = [
 ];
 const MAG_BAND: Record<number, [number, number]> = { 1: [1.2, 3], 2: [3, 6], 3: [6, 12] };
 
+/** 消息的發生時刻用 6 遊戲分鐘為單位（一天 240）挑，輸出時換成價格步（目前一步 3 分鐘）：內容與先後順序不受價格步長影響 */
+const NEWS_STEP_SCALE = STEPS_PER_DAY / 240;
 const SALT = { stock: 110, sign: 111, mag: 112, size: 113, time: 114, pick: 115, rumor: 120, delay: 126, confirm: 127, analyst: 130, sector: 140, macro: 150, earn: 160 };
 
 function pickMag(r: number, scale = 1): 1 | 2 | 3 {
@@ -274,7 +277,7 @@ export class NewsEngine {
         scope: opts.scope,
         target: opts.target,
         day: opts.day,
-        stepOfDay: opts.stepOfDay,
+        stepOfDay: opts.stepOfDay * NEWS_STEP_SCALE,
         pct: sign * opts.pctAbs,
         headline: this.fill(item.headline, opts.g, opts.sector, peerSeed),
         body: this.fill(item.body, opts.g, opts.sector, peerSeed),
@@ -292,7 +295,7 @@ export class NewsEngine {
       scope: opts.scope,
       target: opts.target,
       day: opts.day,
-      stepOfDay: opts.stepOfDay,
+      stepOfDay: opts.stepOfDay * NEWS_STEP_SCALE,
       pct: sign * opts.pctAbs,
       headline: opts.scope === "macro" ? phrase : opts.scope === "sector" ? `${subject}${phrase.replace(/^業界/, "")}` : `${subject}${phrase}`,
       body: "",

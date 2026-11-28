@@ -40,7 +40,7 @@ describe("交易所時間", () => {
     expect(isTradingDay(day(2027, 5, 6))).toBe(true);
   });
 
-  it("時段邊界與步數：9:00–11:30、12:30–15:30 共 55 步", () => {
+  it("時段邊界與步數：9:00–11:30、12:30–15:30 共 110 步", () => {
     expect(sessionOfStep(AM_OPEN - 1)).toBe("pre");
     expect(sessionOfStep(AM_OPEN)).toBe("am");
     expect(sessionOfStep(AM_END - 1)).toBe("am");
@@ -49,16 +49,16 @@ describe("交易所時間", () => {
     expect(sessionOfStep(PM_OPEN)).toBe("pm");
     expect(sessionOfStep(PM_END - 1)).toBe("pm");
     expect(sessionOfStep(PM_END)).toBe("after");
-    expect(AM_OPEN * 6).toBe(9 * 60);
-    expect(AM_END * 6).toBe(11 * 60 + 30);
-    expect(PM_OPEN * 6).toBe(12 * 60 + 30);
-    expect(PM_END * 6).toBe(15 * 60 + 30);
-    expect(TRADING_STEPS_PER_DAY).toBe(55);
+    expect(AM_OPEN * 3).toBe(9 * 60);
+    expect(AM_END * 3).toBe(11 * 60 + 30);
+    expect(PM_OPEN * 3).toBe(12 * 60 + 30);
+    expect(PM_END * 3).toBe(15 * 60 + 30);
+    expect(TRADING_STEPS_PER_DAY).toBe(110);
     for (let k = 0; k < TRADING_STEPS_PER_DAY; k++) expect(openOrdinal(stepOfOrdinal(k))).toBe(k);
     expect(openOrdinal(AM_END)).toBe(-1);
   });
 
-  it("真實時間換成市場狀態（1 真實分鐘＝6 遊戲分鐘）", () => {
+  it("真實時間換成市場狀態（1 真實分鐘＝6 遊戲分鐘；價格步 30 真實秒）", () => {
     const at = (min: number) => marketStatus(REAL0 + min * 60_000, DEFAULT_SERVER_CLOCK);
     // 遊戲 9:00＝真實第 90 分鐘
     expect(at(89).session).toBe("pre");
@@ -157,9 +157,9 @@ describe("股價引擎 v2", () => {
       for (let i = 0; i < 80; i++) {
         const c = e.candle(g.key, i)!;
         const pts = e.intradayPrices(g.key, i)!;
-        expect(pts.length).toBe(55);
+        expect(pts.length).toBe(TRADING_STEPS_PER_DAY);
         expect(c.open).toBe(pts[0]);
-        expect(c.close).toBe(pts[54]);
+        expect(c.close).toBe(pts[TRADING_STEPS_PER_DAY - 1]);
         expect(c.high).toBe(Math.max(...pts));
         expect(c.low).toBe(Math.min(...pts));
         expect(c.low).toBeGreaterThanOrEqual(10);
@@ -232,7 +232,7 @@ describe("消息", () => {
         n++;
         expect(x.news.headline.length).toBeGreaterThan(3);
         expect(x.news.stepOfDay).toBeGreaterThanOrEqual(0);
-        expect(x.news.stepOfDay).toBeLessThan(240);
+        expect(x.news.stepOfDay).toBeLessThan(480);
         expect(Math.abs(x.pct)).toBeLessThan(25);
       }
     }

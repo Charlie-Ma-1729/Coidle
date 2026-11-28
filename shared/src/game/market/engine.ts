@@ -1,5 +1,5 @@
 // 股價引擎 v2：只在開市步計算，結果只取決於 (種子, 伺服器時鐘, 切換時間)，純函式、決定性。
-//  - 一個交易日＝開盤跳空（含休市期間累積的消息與配息除權）→ 55 個價格步（6 遊戲分鐘＝1 真實分鐘）→ 收盤；
+//  - 一個交易日＝開盤跳空（含休市期間累積的消息與配息除權）→ 110 個價格步（3 遊戲分鐘＝30 真實秒）→ 收盤；
 //  - 每遊戲日總變異與 v1 相當：盤中 80%、開盤跳空 20%（休市越久跳空越大）；
 //  - 制限值幅：相對前日收盤 ±15%（ストップ高／安）；
 //  - 優化：不存每個點。每個交易日只存 OHLC 與收盤的隨機遊走偏離（xClose），盤中價格用小型 LRU 快取、
@@ -170,7 +170,7 @@ export class PriceEngineV2 {
     if (isExDividendDay(g, D)) x += Math.log(Math.max(0.5, 1 - dividendPerShare(g) / Math.max(1, prevClose)));
     for (let k = 0; k < TRADING_STEPS_PER_DAY; k++) {
       if (k > 0) {
-        x = x * (1 - KAPPA_STEP) + g.beta * mktStep * gauss(this.seed, 0, gi * 64 + k, 10) + sigStep * gauss(this.seed, s.gh, gi * 64 + k, 20) + jumps[k]!;
+        x = x * (1 - KAPPA_STEP) + g.beta * mktStep * gauss(this.seed, 0, gi * 128 + k, 10) + sigStep * gauss(this.seed, s.gh, gi * 128 + k, 20) + jumps[k]!;
       } else {
         x = x * (1 - KAPPA_STEP);
       }
@@ -231,7 +231,7 @@ export class PriceEngineV2 {
     return this.computed;
   }
 
-  /** 第 i 個交易日這一檔的盤中價格（55 點） */
+  /** 第 i 個交易日這一檔的盤中價格（110 點） */
   intradayPrices(key: string, i: number): Int32Array | null {
     const s = this.st.get(key);
     if (!s || i < 0) return null;

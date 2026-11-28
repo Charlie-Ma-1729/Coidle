@@ -1,4 +1,4 @@
-import type { MarketHistory } from "@coidle/shared";
+import { DEFAULT_SERVER_CLOCK, localGameMs, type MarketHistory, type ServerClock } from "@coidle/shared";
 import { useState } from "preact/hooks";
 import { moneyShort } from "../format";
 
@@ -7,12 +7,12 @@ const H = 220;
 const PAD = { l: 8, r: 8, t: 14, b: 22 };
 
 const p2 = (n: number) => String(n).padStart(2, "0");
-/** 圖上的時間標籤：盤中用「時:分」（跨日加日期）、日 K 用「月/日」 */
-const stamp = (ms: number, kind: "intraday" | "daily", withDate: boolean) => {
-  const d = new Date(ms);
-  if (kind === "daily") return `${d.getMonth() + 1}/${d.getDate()}`;
-  const t = `${p2(d.getHours())}:${p2(d.getMinutes())}`;
-  return withDate ? `${d.getMonth() + 1}/${d.getDate()} ${t}` : t;
+/** 圖上的時間標籤（遊戲時間 JST）：盤中用「時:分」（跨日加日期）、日 K 用「月/日」 */
+const stampWith = (clock: ServerClock) => (ms: number, kind: "intraday" | "daily", withDate: boolean) => {
+  const d = new Date(localGameMs(ms, clock)); // 已經是 JST 的「本地」毫秒，所以用 UTC 欄位讀
+  if (kind === "daily") return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+  const t = `${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`;
+  return withDate ? `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${t}` : t;
 };
 const pct = (a: number, b: number) => (b > 0 ? ((a - b) / b) * 100 : 0);
 const pctText = (n: number) => `${n > 0 ? "+" : ""}${n.toFixed(2)}%`;
@@ -46,16 +46,51 @@ const movingAverage = (values: number[], n: number): (number | null)[] => {
   return out;
 };
 
+type Pt = MarketHistory["points"][number];
+
+/** 盤中的每步價格合成 K 線：同一天內每 size 步一根（開＝第一步、收＝最後一步） */
+const aggregate = (pts: Pt[], size: number, dayOf: (ms: number) => number): Pt[] => {
+  const out: Pt[] = [];
+  let day = -1;
+  let n = 0;
+  let cur: Pt | null = null;
+  for (const p of pts) {
+    const d = dayOf(p.at);
+    if (!cur || d !== day || n >= size) {
+      day = d;
+      n = 1;
+      cur = { at: p.at, price: p.price, open: p.price, high: p.price, low: p.price };
+      out.push(cur);
+    } else {
+      n++;
+      cur.at = p.at;
+      cur.price = p.price;
+      cur.high = Math.max(cur.high!, p.price);
+      cur.low = Math.min(cur.low!, p.price);
+    }
+  }
+  return out;
+};
+
+/** 盤中點數夠多才值得畫成 K 線 */
+export const canCandle = (h: MarketHistory): boolean => (h.kind === "daily" ? h.points.filter((p) => p.open !== undefined).length >= 2 : h.points.length >= 6);
+
 /**
  * 一檔股票的走勢圖：折線（盤中）或 K 線（日線，mode="candle"），區間高低點、前日收盤的虛線，
  * 「消息」的標記，以及手指／滑鼠移到哪就顯示那一點的價格（K 線另外畫 5 日、20 日均線）。
  */
 export function PriceChart(props: { history: MarketHistory; mode?: "line" | "candle"; loading?: boolean }) {
-  const { points, events, kind, prevClose } = props.history;
+  const { points: raw, events, kind, prevClose } = props.history;
   const [hover, setHover] = useState<number | null>(null);
-  if (points.length < 2) return <p class="st-hint">資料還不夠，等開盤走幾步再來看。</p>;
+  const clock = props.history.clock ?? DEFAULT_SERVER_CLOCK;
+  const stamp = stampWith(clock);
+  const gday = (ms: number) => Math.floor(localGameMs(ms, clock) / 86_400_000);
+  if (raw.length < 2) return <p class="st-hint">資料還不夠，等開盤走幾步再來看。</p>;
+  // 盤中（今日、5 日）的 K 線由每步價格合成：今日每 6 步（3 真實分鐘）一根、5 日每 10 步一根
+  const bars = props.mode === "candle" && kind === "intraday" && raw.length >= 6 ? aggregate(raw, raw.length > 160 ? 10 : 6, gday) : null;
+  const points = bars ?? raw;
   // 日 K：有 OHLC 的點畫成蠟燭；沒有 OHLC 的點當成一條橫線的小蠟燭
-  const candle = props.mode === "candle" && kind === "daily" && points.filter((p) => p.open !== undefined).length >= 2 && points.length <= 260;
+  const candle = props.mode === "candle" && (bars !== null || (kind === "daily" && points.filter((p) => p.open !== undefined).length >= 2 && points.length <= 260));
   const op = (p: (typeof points)[number]) => p.open ?? p.price;
   const hi_ = (p: (typeof points)[number]) => p.high ?? p.price;
   const lo_ = (p: (typeof points)[number]) => p.low ?? p.price;
@@ -77,7 +112,7 @@ export function PriceChart(props: { history: MarketHistory; mode?: "line" | "can
   const line = points.map((p, i) => `${x(i).toFixed(1)},${y(p.price).toFixed(1)}`).join(" ");
   const area = `${PAD.l},${H - PAD.b} ${line} ${x(points.length - 1).toFixed(1)},${H - PAD.b}`;
   const idxOf = (at: number) => points.findIndex((p) => p.at >= at);
-  const multiDay = new Date(points[0]!.at).toDateString() !== new Date(points[points.length - 1]!.at).toDateString();
+  const multiDay = gday(points[0]!.at) !== gday(points[points.length - 1]!.at);
   const bw = Math.max(1.5, Math.min(9, ((W - PAD.l - PAD.r) / points.length) * 0.65));
   const closes = points.map((p) => p.price);
   const mas = candle

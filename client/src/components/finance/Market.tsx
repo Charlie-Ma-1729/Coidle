@@ -1,10 +1,12 @@
 import {
+  DEFAULT_SERVER_CLOCK,
   MARKET_FEE_RATE,
   MARKET_TEXT,
   SESSION_LABEL,
   WEEKDAY_NAMES,
   buyQuote,
   corporateCap,
+  localGameMs,
   sellQuote,
   stockGroupOf,
   ymdOfDay,
@@ -22,16 +24,23 @@ import {
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { api } from "../../api";
 import { money, moneyShort, moneySigned, timeText } from "../../format";
-import { PriceChart, Spark } from "../PriceChart";
+import { PriceChart, Spark, canCandle } from "../PriceChart";
 import { useAction } from "./useAction";
+import { confirmThen } from "../ConfirmHost";
 
-const RANGES: { id: MarketRange; label: string }[] = [
-  { id: "1d", label: "今日" },
-  { id: "5d", label: "5 日" },
-  { id: "1m", label: "1 個月" },
-  { id: "3m", label: "3 個月" },
-  { id: "all", label: "全部" },
+/** 區間都是「遊戲時間」：1 遊戲日＝4 真實小時，所以 1 個月（30 遊戲日）約 5 個真實日 */
+const RANGES: { id: MarketRange; label: string; note: string }[] = [
+  { id: "1d", label: "今日", note: "最近一個交易日（每 30 真實秒一點）" },
+  { id: "5d", label: "5 日", note: "最近 5 個交易日（約 7 遊戲日、1 個多真實日）" },
+  { id: "1m", label: "1 個月", note: "最近 30 遊戲日（約 5 真實日）" },
+  { id: "3m", label: "3 個月", note: "最近 90 遊戲日（約 15 真實日）" },
+  { id: "all", label: "全部", note: "往回推算的半年（130 個交易日）加上之後的全部" },
 ];
+/** 遊戲時間（JST）的「月/日 時:分」；股市的日期一律跟著遊戲內日期走 */
+const gameTime = (ms: number, clock = DEFAULT_SERVER_CLOCK) => {
+  const d = new Date(localGameMs(ms, clock));
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+};
 const pctText = (n: number) => `${n > 0 ? "+" : ""}${n.toFixed(2)}%`;
 const tone = (n: number) => (n > 0 ? "up" : n < 0 ? "down" : "");
 type Sort = "default" | "change" | "price" | "cap";
@@ -107,7 +116,7 @@ export function Market(props: { onChanged: () => Promise<unknown> | unknown }) {
   useEffect(() => {
     void reload();
     void api.stockSummary().then(setSum).catch(() => undefined);
-    // 開市中每 15 秒更新一次（價格每真實 1 分鐘走一步）；休市時 60 秒
+    // 開市中每 15 秒更新一次（價格每真實 30 秒走一步）；休市時 60 秒
     const t = setInterval(() => void reload(), 15_000);
     const clockTimer = setInterval(() => setNow(Date.now()), 1000);
     return () => {
@@ -411,25 +420,26 @@ function Detail(props: { row: MarketRow; view: MarketView; pf: PortfolioView; co
             </button>
           </p>
         )}
-        {hist && !histErr && <PriceChart history={hist} mode={hist.kind === "daily" ? mode : "line"} loading={loading} />}
+        {hist && !histErr && <PriceChart history={hist} mode={mode} loading={loading} />}
         <div class="st-row" role="group" aria-label="時間範圍">
           {RANGES.map((r) => (
             <button key={r.id} class={`st-btn${range === r.id ? " on" : ""}`} aria-pressed={range === r.id} onClick={() => setRange(r.id)}>
               {r.label}
             </button>
           ))}
-          {hist?.kind === "daily" && hist.points.filter((p) => p.open !== undefined).length >= 2 && (
+          {hist && canCandle(hist) && (
             <button class={`st-btn${mode === "candle" ? " on" : ""}`} aria-pressed={mode === "candle"} onClick={() => setMode(mode === "candle" ? "line" : "candle")}>
               K 線
             </button>
           )}
         </div>
+        <p class="st-hint">圖上的日期是遊戲時間。{RANGES.find((r) => r.id === range)?.note}</p>
         {row.news && (
           <div class="st-tip">
             <b>
               {row.news.pct >= 0 ? "📈" : "📉"} {row.news.text}（{pctText(row.news.pct)}）
             </b>
-            <span class="st-hint">{timeText(row.news.at)}</span>
+            <span class="st-hint">遊戲時間 {gameTime(row.news.at, hist?.clock)}</span>
           </div>
         )}
         {hist && hist.events.length > 0 && (
@@ -439,7 +449,7 @@ function Detail(props: { row: MarketRow; view: MarketView; pf: PortfolioView; co
               <div key={e.id} class="st-li">
                 <span class="grow">
                   <b>{e.text}</b>
-                  <small>{timeText(e.at)}</small>
+                  <small>遊戲時間 {gameTime(e.at, hist?.clock)}</small>
                   {e.body && <p class="st-hint">{e.body}</p>}
                 </span>
                 <span class={`st-amt ${tone(e.pct)}`}>{pctText(e.pct)}</span>
@@ -576,7 +586,7 @@ function Detail(props: { row: MarketRow; view: MarketView; pf: PortfolioView; co
               <button
                 class="st-btn"
                 disabled={busy || !valid || shares > held}
-                onClick={() => confirm(`賣出 ${shares.toLocaleString()} 股「${row.name}」？`) && run(async () => void (await api.sellStock(row.key, shares)), `已賣出 ${shares.toLocaleString()} 股`).then((ok) => ok && setQty(""))}
+                onClick={() => confirmThen(`賣出 ${shares.toLocaleString()} 股「${row.name}」？`, () => run(async () => void (await api.sellStock(row.key, shares)), `已賣出 ${shares.toLocaleString()} 股`).then((ok) => ok && setQty("")))}
               >
                 賣出
               </button>
@@ -686,7 +696,7 @@ function CorporatePanel(props: { row: MarketRow; view: MarketView; corp: Corpora
         <button
           class="st-btn"
           disabled={busy || !can || !valid || !held || shares > (held?.shares ?? 0)}
-          onClick={() => confirm(`用「${a.mallName}」的名義賣出 ${shares.toLocaleString()} 股「${row.name}」？`) && run(async () => void (await api.corporateTrade(a.mallId, row.key, "sell", shares)), `「${a.mallName}」已賣出 ${shares.toLocaleString()} 股`).then((ok) => ok && setQty(""))}
+          onClick={() => confirmThen(`用「${a.mallName}」的名義賣出 ${shares.toLocaleString()} 股「${row.name}」？`, () => run(async () => void (await api.corporateTrade(a.mallId, row.key, "sell", shares)), `「${a.mallName}」已賣出 ${shares.toLocaleString()} 股`).then((ok) => ok && setQty("")))}
         >
           公司賣出
         </button>

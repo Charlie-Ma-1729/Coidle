@@ -1,7 +1,7 @@
 // 交易所的時間：仿東證（用遊戲內時間，JST）。
 //  - 交易日＝平日、非國定假日（不是 offDay：黃金週、盂蘭盆是公司放假，東證照開）、非 12/31–1/3；
 //  - 前場 9:00–11:30、午休、後場 12:30–15:30（2024 年 11 月起的現行時間）；
-//  - 一個價格步＝6 遊戲分鐘＝1 真實分鐘（TIME_SCALE=6），一天 240 步，開市 55 步（前場 25、後場 30）。
+//  - 一個價格步＝3 遊戲分鐘＝30 真實秒（TIME_SCALE=6），一天 480 步，開市 110 步（前場 50、後場 60）。
 // 所有函式都是純函式，只看遊戲日序與伺服器時鐘。
 import { dayOfYmd, holidayOf, ymdOfDay } from "../calendar";
 import { GAME_UTC_OFFSET_HOURS, TICK_MINUTES, TIME_SCALE } from "../data";
@@ -10,20 +10,20 @@ import { DEFAULT_SERVER_CLOCK, type ServerClock } from "../time";
 const TICK_MS = TICK_MINUTES * 60_000;
 const OFFSET_MS = GAME_UTC_OFFSET_HOURS * 3_600_000;
 
-/** 一個價格步的真實長度（1 分鐘）與遊戲長度（6 分鐘） */
-export const STEP_REAL_MS = 60_000;
+/** 一個價格步的真實長度（30 秒）與遊戲長度（3 分鐘） */
+export const STEP_REAL_MS = 30_000;
 export const STEP_GAME_MS = STEP_REAL_MS * TIME_SCALE;
-export const STEPS_PER_DAY = 86_400_000 / STEP_GAME_MS; // 240
+export const STEPS_PER_DAY = 86_400_000 / STEP_GAME_MS; // 480
 
-/** 前場 9:00–11:30（步 90..114）、後場 12:30–15:30（步 125..154） */
-export const AM_OPEN = 90;
-export const AM_END = 115;
-export const PM_OPEN = 125;
-export const PM_END = 155;
-export const AM_STEPS = AM_END - AM_OPEN; // 25
-export const PM_STEPS = PM_END - PM_OPEN; // 30
+/** 前場 9:00–11:30（步 180..229）、後場 12:30–15:30（步 250..309） */
+export const AM_OPEN = 180;
+export const AM_END = 230;
+export const PM_OPEN = 250;
+export const PM_END = 310;
+export const AM_STEPS = AM_END - AM_OPEN; // 50
+export const PM_STEPS = PM_END - PM_OPEN; // 60
 /** 每個交易日有幾個價格步 */
-export const TRADING_STEPS_PER_DAY = AM_STEPS + PM_STEPS; // 55
+export const TRADING_STEPS_PER_DAY = AM_STEPS + PM_STEPS; // 110
 
 export type SessionId = "pre" | "am" | "lunch" | "pm" | "after" | "closed";
 
@@ -103,7 +103,7 @@ export function realMsOfLocal(localMs: number, clock: ServerClock = DEFAULT_SERV
   return clock.anchorRealMs + (localMs - OFFSET_MS - clock.anchorTick * TICK_MS) / TIME_SCALE;
 }
 
-/** 全域價格步序號（自 1970 起每 6 遊戲分鐘一步） */
+/** 全域價格步序號（自 1970 起每 3 遊戲分鐘一步） */
 export const gstepOfLocal = (localMs: number): number => Math.floor(localMs / STEP_GAME_MS);
 export const gstepAt = (realMs: number, clock: ServerClock = DEFAULT_SERVER_CLOCK): number => gstepOfLocal(localGameMs(realMs, clock));
 export const dayOfGstep = (g: number): number => Math.floor(g / STEPS_PER_DAY);
@@ -133,7 +133,7 @@ export function sessionOfStep(stepOfDay: number): Exclude<SessionId, "closed"> {
 
 /** 一天中的步 → 遊戲時間字串 "HH:MM" */
 export function clockOfStep(stepOfDay: number): string {
-  const min = stepOfDay * 6;
+  const min = stepOfDay * (STEP_GAME_MS / 60_000);
   return `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
 }
 
