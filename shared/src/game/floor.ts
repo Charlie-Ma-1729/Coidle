@@ -11,14 +11,33 @@ import type { CategoryDef, MallState, Shop, Slot } from "./types";
 export type Span = 1 | 2 | 4;
 export const SPANS: readonly Span[] = [1, 2, 4];
 
-/** 容量與人事隨 span 放大的係數（略低於線性，避免「全部做大店」變成最優解；數字待機器人調） */
-export const SPAN_FACTOR: Record<Span, number> = { 1: 1, 2: 1.8, 4: 3.2 };
-/** 建造費、翻新費、固定資產評價按格數線性放大 */
-export const spanCostFactor = (span: Span | undefined): number => span ?? 1;
+/**
+ * 大店的經濟（2026-11-28 重調，見 balance-report「大店」）：
+ * - 容量線性放大（2 格＝2 倍）；
+ * - 吸客力 `spanDraw`：大店在客人挑店時的權重。體驗型（KTV、健身房、親子樂園…）是「目的地」，2 格超過 2 倍；
+ *   零售型 2 格約 2 倍（另有 `spanBasket`：每組買得更多）；
+ * - 成本有規模經濟：建造費／翻新費 ×1.7、人事 ×1.5（小店 ×1）。
+ * 所以同樣面積，大店吸客與容量不輸兩間小店、成本較低；但仍受「同一區空間有限、2 格要併相鄰空格、版面上限」限制，不是無腦最優。
+ */
+export const SPAN_FACTOR: Record<Span, number> = { 1: 1, 2: 2, 4: 3.6 };
+const SPAN_COST: Record<Span, number> = { 1: 1, 2: 1.7, 4: 2.9 };
+const SPAN_WAGE: Record<Span, number> = { 1: 1, 2: 1.5, 4: 2.6 };
+/** 建造費、翻新費、拆除費按這個係數放大（有規模經濟）；固定資產評價仍按格數線性 */
+export const spanCostFactor = (span: Span | undefined): number => SPAN_COST[span ?? 1] ?? 1;
 /** 工期 ×√span（避免大店等太久） */
 export const spanTicksFactor = (span: Span | undefined): number => Math.sqrt(span ?? 1);
+export const spanWageFactor = (span: Span | undefined): number => SPAN_WAGE[span ?? 1] ?? 1;
 
 export const spanFactor = (span: Span | undefined): number => SPAN_FACTOR[span ?? 1] ?? 1;
+
+/** 目的地型業態：大小直接決定能吸多少客（包廂數、器材數、展區） */
+export const DESTINATION_CATEGORIES: readonly string[] = ["karaoke", "gym", "kids_play", "arcade_vr", "observatory", "art_gallery", "claw"];
+const DRAW_DESTINATION: Record<Span, number> = { 1: 1, 2: 2.3, 4: 4.4 };
+const DRAW_RETAIL: Record<Span, number> = { 1: 1, 2: 1.8, 4: 3.2 };
+/** 吸客力：客人挑店的權重倍數（小店＝1） */
+export const spanDraw = (span: Span | undefined, category: string): number => (DESTINATION_CATEGORIES.includes(category) ? DRAW_DESTINATION : DRAW_RETAIL)[span ?? 1] ?? 1;
+/** 零售（有庫存）業態：品項更齊，每組客人買得更多 */
+export const spanBasket = (span: Span | undefined): number => ({ 1: 1, 2: 1.15, 4: 1.3 })[span ?? 1] ?? 1;
 
 /** 拆除費：建造費 × span × 這個比例（含裝潢報廢，不退款） */
 export const DEMOLISH_FEE_RATE = 0.25;

@@ -4,7 +4,7 @@
 
 **已做（旗標預設關，舊存檔與舊行為完全不變）**
 - **模型簡化（和下面 §1 的草案不同）**：**格＝slot**。大店開在一個 slot 上，並**吸收**同區 1 個空的 slot（變成 `span: 0` 的墓碑，墓碑記 `into`＝吸收它的店）；樓板面積 `floorArea` ＝ 同區 slot 的 span 總和，resize／拆除只在店與墓碑之間搬格子，**面積不變，只有擴建 +1**，所以不需要 `floorExtra`、`expandZone` 不用改（`expansionsOf` 改成面積差，舊存檔結果相同）。
-- `shared/src/game/floor.ts`：`slotSpan`、`liveSlots`、`floorArea`／`usedCells`／`freeCells`、`planResize`／`applyResize`（client／server 共用的可放置判定）、`availableSpans`、`FOOTPRINT_BY_CATEGORY`、`SPAN_FACTOR`（1／1.8／3.2）、拆除費 25%、冷卻 1 遊戲日、`mergeCapacity`（版面上限）。
+- `shared/src/game/floor.ts`：`slotSpan`、`liveSlots`、`floorArea`／`usedCells`／`freeCells`、`planResize`／`applyResize`（client／server 共用的可放置判定）、`availableSpans`、`FOOTPRINT_BY_CATEGORY`、`SPAN_FACTOR`（容量 1／2／3.6）、`spanDraw`／`spanBasket`／`spanCostFactor`／`spanWageFactor`（大店經濟，見 balance-report「大店」第二版）、拆除費 25%、冷卻 1 遊戲日、`mergeCapacity`（版面上限）。
 - 指令：`buildShop` 可帶 `span`／`cells`（旗標關或業態不允許就拒絕）、新增 `demolishShop`；建造費與翻新費 ×格數、工期 ×√格數、人事與容量 ×`SPAN_FACTOR`、固定資產評價 ×格數；完工時店帶 `span`。
 - 旗標：`flags["feature:open_plan"]`（管理室「商場旗標」可對單一商場開，先 sandbox）；環境變數 `OPEN_PLAN_ENABLED=1` 對全服開。
 - **只開放 1／2 格**。4 格（2×2）要背靠背房間合併，而機器人模擬顯示 4 格邊際營收近乎零（見 balance-report「大店」），暫不開放；型別與係數保留，`planResize` 對 4 回「目前不開放」。

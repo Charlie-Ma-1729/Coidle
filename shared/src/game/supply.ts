@@ -384,8 +384,8 @@ export function supplierQualityFactor(s: Pick<MallState, "supply">, category: st
 /** 倉庫容量：店越大放越多。進貨（含在途）不能超過容量 */
 export const STORAGE_BASE = 800;
 export const STORAGE_PER_LEVEL = 300;
-export function storageCap(shop: Pick<Shop, "level">): number {
-  return STORAGE_BASE + STORAGE_PER_LEVEL * (Math.max(1, shop.level) - 1);
+export function storageCap(shop: Pick<Shop, "level" | "span">): number {
+  return (STORAGE_BASE + STORAGE_PER_LEVEL * (Math.max(1, shop.level) - 1)) * (shop.span ?? 1); // 大店倉庫也大
 }
 
 /** 每天會壞掉的比例（只算「超過一天銷量」的那部分庫存：正常周轉不受影響，囤貨才會損耗） */

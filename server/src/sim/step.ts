@@ -60,7 +60,7 @@ import {
   type PersonaDef,
   type Shop,
 } from "@coidle/shared";
-import { mallBookValue, parkingTrafficMult, slotSpan } from "@coidle/shared";
+import { mallBookValue, parkingTrafficMult, slotSpan, spanBasket, spanDraw } from "@coidle/shared";
 import { facilityDaily, runCinema, runParking, runVenues, stepFacilities } from "./facilities";
 import { expireModifiers, maybeSpawnEvent, resolveDeadlines } from "./events";
 import { generateDailyReviews, noteGrievance, resolveInboxDeadlines } from "./guests";
@@ -191,7 +191,15 @@ function completeBuilds(s: MallState): void {
         const n = s.shops.filter((x) => x.category === b.category).length + 1;
         const shop = makeShop(s, b.category, n > 1 ? `${cat.name}・${n}號店` : `${cat.name}`, slot.id);
         if (b.name && !b.tenant) shop.name = b.name;
-        if (slotSpan(slot) > 1) shop.span = slotSpan(slot) as 2 | 4; // 大店：容量、人事與評價隨格數放大
+        if (slotSpan(slot) > 1) {
+          shop.span = slotSpan(slot) as 2 | 4; // 大店：容量、人事與評價隨格數放大
+          // 補貨規則與起始庫存也隨格數放大（否則大店賣得快、貨補不上，一直缺貨）
+          const k = shop.span;
+          shop.stock *= k;
+          shop.restock.min *= k;
+          shop.restock.target *= k;
+          shop.restock.dailyBudget *= k;
+        }
         slot.shopId = shop.id;
         if (b.tenant) applyTenantToShop(shop, b.tenant);
         s.shops.push(shop);
@@ -382,7 +390,7 @@ function pickShop(s: MallState, rng: Rng, p: PersonaDef, shops: Shop[], withOuts
     const qualityF = 0.6 + 0.8 * shopQuality(shop) * supplierQualityFactor(s, shop.category);
     const queueF = 1 - 0.5 * Math.min(1, shop.served / shopCapacity(shop, s));
     const fameF = shop.tenant ? 1 + 0.004 * shop.tenant.fame : 1;
-    return d * priceF * qualityF * queueF * (1 + MENU_APPEAL_WEIGHT * menuAppeal(shop, p.id)) * fameF;
+    return d * priceF * qualityF * queueF * (1 + MENU_APPEAL_WEIGHT * menuAppeal(shop, p.id)) * fameF * (shop.span ? spanDraw(shop.span, shop.category) : 1);
   });
   if (withOutside) weights.push(OUTSIDE_WEIGHT);
   const idx = rng.weighted(weights);
@@ -435,7 +443,7 @@ function serveGroup(s: MallState, rng: Rng, p: PersonaDef, open: Shop[]): number
   // 消費習慣：食物與零售每組實際買的份數不一定等於人數（省的合買、愛買的多帶）；隨機進位讓平均不失真
   let want = size;
   if (p.spend && categoryHasStock(cat)) {
-    const x = Math.max(0.4, Math.min(2.2, p.spend.mean + p.spend.sd * rng.gauss())) * size;
+    const x = Math.max(0.4, Math.min(2.2, p.spend.mean + p.spend.sd * rng.gauss())) * size * (shop.span ? spanBasket(shop.span) : 1);
     want = Math.max(1, Math.floor(x) + (rng.next() < x - Math.floor(x) ? 1 : 0));
   }
   const qty = Math.min(want, cap - shop.served, hasStock ? shop.stock : want);

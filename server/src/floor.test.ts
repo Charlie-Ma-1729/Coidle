@@ -15,6 +15,7 @@ import {
   planResize,
   shopWagePerDay,
   slotSpan,
+  spanCostFactor,
   usedCells,
   type MallState,
 } from "@coidle/shared";
@@ -78,7 +79,7 @@ describe("big shops", () => {
     const cat = CATEGORY_BY_ID[CAT]!;
     expect(footprintOf(cat).options).toContain(2);
     const t = apply(s, { type: "buildShop", slot: slot.id, category: CAT, span: 2 });
-    expect(s.funds - t.funds).toBeGreaterThanOrEqual(cat.buildCost * 2); // 建造費 ×2（再加許認可規費）
+    expect(s.funds - t.funds).toBeGreaterThanOrEqual(cat.buildCost * spanCostFactor(2)); // 建造費 ×規模係數（再加許認可規費）
     expect(t.slots[slot.id]!.span).toBe(2);
     expect(t.slots.filter((x) => x.zone === ZONE && x.span === 0)).toHaveLength(1);
     expect(floorArea(t, ZONE)).toBe(area); // 面積不變
@@ -148,7 +149,7 @@ describe("demolish", () => {
     const area = floorArea(s, ZONE);
     const before = s.funds;
     const t = apply(s, { type: "demolishShop", shopId: shop.id });
-    expect(before - t.funds).toBe(Math.round(cat.buildCost * 2 * DEMOLISH_FEE_RATE));
+    expect(before - t.funds).toBe(Math.round(cat.buildCost * spanCostFactor(2) * DEMOLISH_FEE_RATE));
     expect(t.shops.some((x) => x.id === shop.id)).toBe(false);
     expect(t.slots[slot.id]!.shopId).toBeNull();
     expect(slotSpan(t.slots[slot.id]!)).toBe(1);
