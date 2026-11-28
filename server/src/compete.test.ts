@@ -238,8 +238,8 @@ describe("counter-attack support", () => {
 
 describe("economic impact stays bounded (balance regression)", () => {
   const START = (Date.UTC(2027, 3, 1) - 9 * 3_600_000) / 300_000;
-  const base = (): MallState => {
-    const s = createInitialState(21, START, 0);
+  const base = (seed = 21): MallState => {
+    const s = createInitialState(seed, START, 0);
     s.level = 3;
     s.funds = 100_000_000;
     for (const q of STARTER_QUESTS) s.meta.achievements[q.id] = 0;
@@ -264,13 +264,18 @@ describe("economic impact stays bounded (balance regression)", () => {
 
   it("a poaching campaign pays back at least some of its cost but never more than a few times over", async () => {
     const { advanceTo } = await import("./sim");
-    const calm = advanceTo(base(), START + 6 * 288);
-    let boosted = base();
-    for (let d = 0; d < 3; d++) {
-      applyMail(boosted, { id: d, kind: "poach_gain", payload: { persona: "tourist", mult: COMPETE_SELF_MULT, ticks: 288, who: "對手" } });
-      boosted = advanceTo(boosted, boosted.tick + 2 * 288);
+    // 每日隨機（客群雜訊、錢包、購買量）讓單一種子的差額被雜訊淹沒，所以取多個種子的平均
+    const seeds = [21, 22, 23, 24, 25, 26];
+    let gain = 0;
+    for (const seed of seeds) {
+      const calm = advanceTo(base(seed), START + 6 * 288);
+      let boosted = base(seed);
+      for (let d = 0; d < 3; d++) {
+        applyMail(boosted, { id: d, kind: "poach_gain", payload: { persona: "tourist", mult: COMPETE_SELF_MULT, ticks: 288, who: "對手" } });
+        boosted = advanceTo(boosted, boosted.tick + 2 * 288);
+      }
+      gain += (revenue(boosted) - revenue(calm)) / seeds.length;
     }
-    const gain = revenue(boosted) - revenue(calm);
     const spent = 3 * competeCost(3);
     expect(gain).toBeGreaterThan(0);
     expect(gain).toBeLessThan(spent * 6); // 不是無本生意

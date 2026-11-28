@@ -1,6 +1,9 @@
 import {
   PRICE_REJECT_RATE,
   PRICE_TOLERANCE,
+  WALLET_SD,
+  TRAFFIC_COMPENSATION,
+  affordability,
   CATEGORY_BY_ID,
   CLEANING_COST_PER_DAY,
   CONSUMPTION_STANDARD,
@@ -78,6 +81,7 @@ import { dailyOverhead, dailyWages, taxDaily } from "./tax";
 import { techAutoInspection, techDaily, techTick } from "./tech";
 import { syncWorkshop, workshopDaily, workshopTick } from "./workshop";
 import { rngForTick, type Rng } from "./rng";
+import { categoryNoise, effectStrength, personaNoise } from "./dayNoise";
 import {
   addLog,
   demandMult,
@@ -343,7 +347,8 @@ function runCustomers(s: MallState, time: TimeInfo, rng: Rng): number {
     const share = (time.offDay ? p.weekendHourShare : p.hourShare)[time.hour] ?? 0;
     const daily = p.dailyBase * (time.offDay ? p.weekendMult : 1);
     const lambda =
-      ((daily * share) / TICKS_PER_HOUR) * indexFactor(s, p) * divMult * trafficMult(s, p.id, s.tick) * promoTraffic(s, p.id) * rivalMult(s, p.id) * techTrafficMult(s.tech.done, p.id) * parkingTrafficMult(s, p.id);
+      TRAFFIC_COMPENSATION *
+      ((daily * share) / TICKS_PER_HOUR) * indexFactor(s, p) * divMult * trafficMult(s, p.id, s.tick) * personaNoise(s, p.id, s.tick) * promoTraffic(s, p.id) * rivalMult(s, p.id) * techTrafficMult(s.tech.done, p.id) * parkingTrafficMult(s, p.id);
     const n = rng.poisson(lambda);
     for (let i = 0; i < n; i++) units += serveGroup(s, rng, p, open);
   }
@@ -362,12 +367,15 @@ function zoneOfSlot(s: MallState, slot: number): string | undefined {
   return c.map.get(slot);
 }
 
-function pickShop(s: MallState, rng: Rng, p: PersonaDef, shops: Shop[], withOutside: boolean): Shop | null {
+function pickShop(s: MallState, rng: Rng, p: PersonaDef, shops: Shop[], withOutside: boolean, wallet = 1): Shop | null {
   const weather = weatherNow(s);
+  const wealth = (p.wealth ?? 1) * wallet;
   const weights = shops.map((shop) => {
     const cat = CATEGORY_BY_ID[shop.category];
     if (!cat) return 0;
-    const d = (cat.demand[p.id] ?? 0) * demandMult(s, cat.id, s.tick) * weatherZoneFactor(weather, zoneOfSlot(s, shop.slot) ?? "");
+    // 天氣／節慶／事件的影響每天強弱不同（指數抖動），再加上每日業態雜訊；經濟能力決定「付不付得起」
+    const situation = Math.pow(demandMult(s, cat.id, s.tick), effectStrength(s, cat.id, s.tick)) * categoryNoise(s, cat.id, s.tick);
+    const d = (cat.demand[p.id] ?? 0) * situation * affordability(wealth, 1, cat) * weatherZoneFactor(weather, zoneOfSlot(s, shop.slot) ?? "");
     if (d <= 0) return 0;
     const priceF = clamp(Math.exp(p.sensitivity * (1 - effectivePrice(s, shop) / cat.refPrice)), 0.15, 1.6);
     const qualityF = 0.6 + 0.8 * shopQuality(shop) * supplierQualityFactor(s, shop.category);
@@ -384,7 +392,8 @@ function pickShop(s: MallState, rng: Rng, p: PersonaDef, shops: Shop[], withOuts
 /** 回傳這組客人買走的份數 */
 function serveGroup(s: MallState, rng: Rng, p: PersonaDef, open: Shop[]): number {
   const size = rng.int(p.party[0], p.party[1]);
-  let shop = pickShop(s, rng, p, open, true);
+  const wallet = Math.exp(WALLET_SD * rng.gauss() - (WALLET_SD * WALLET_SD) / 2); // 這組客人今天手頭鬆緊
+  let shop = pickShop(s, rng, p, open, true, wallet);
   if (!shop) return 0;
   let cat = CATEGORY_BY_ID[shop.category];
   if (!cat) return 0;
@@ -396,7 +405,7 @@ function serveGroup(s: MallState, rng: Rng, p: PersonaDef, open: Shop[]): number
     recordSample(s, p, 0.2);
     noteGrievance(s, rng, shop, p.id, "stockout");
     // 一半的客人會改去別家
-    const alt = rng.chance(0.5) ? pickShop(s, rng, p, open.filter((x) => x !== shop && (x.mode === "lease" || !categoryHasStock(CATEGORY_BY_ID[x.category]!) || x.stock > 0)), false) : null;
+    const alt = rng.chance(0.5) ? pickShop(s, rng, p, open.filter((x) => x !== shop && (x.mode === "lease" || !categoryHasStock(CATEGORY_BY_ID[x.category]!) || x.stock > 0)), false, wallet) : null;
     if (!alt) return 0;
     shop = alt;
     cat = CATEGORY_BY_ID[shop.category];
@@ -422,7 +431,13 @@ function serveGroup(s: MallState, rng: Rng, p: PersonaDef, open: Shop[]): number
     noteGrievance(s, rng, shop, p.id, "wait");
     return 0;
   }
-  const qty = Math.min(size, cap - shop.served, hasStock ? shop.stock : size);
+  // 消費習慣：食物與零售每組實際買的份數不一定等於人數（省的合買、愛買的多帶）；隨機進位讓平均不失真
+  let want = size;
+  if (p.spend && categoryHasStock(cat)) {
+    const x = Math.max(0.4, Math.min(2.2, p.spend.mean + p.spend.sd * rng.gauss())) * size;
+    want = Math.max(1, Math.floor(x) + (rng.next() < x - Math.floor(x) ? 1 : 0));
+  }
+  const qty = Math.min(want, cap - shop.served, hasStock ? shop.stock : want);
   if (qty < 1) return 0;
   return recordSale(s, rng, p, shop, cat, qty);
 }

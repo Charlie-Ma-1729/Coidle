@@ -97,6 +97,8 @@ export const PERSONAS: PersonaDef[] = [
     sensitivity: 0.8,
     party: [1, 3],
     index: "touristHeat",
+    wealth: 1.5,
+    spend: { mean: 1.15, sd: 0.3 }, // 愛買伴手禮
   },
   {
     id: "local",
@@ -108,6 +110,8 @@ export const PERSONAS: PersonaDef[] = [
     sensitivity: 2.2,
     party: [1, 2],
     index: "localRep",
+    wealth: 0.95,
+    spend: { mean: 0.95, sd: 0.2 },
   },
   {
     id: "commuter",
@@ -119,6 +123,8 @@ export const PERSONAS: PersonaDef[] = [
     sensitivity: 1.2,
     party: [1, 1],
     index: "both",
+    wealth: 1.1,
+    spend: { mean: 1.0, sd: 0.25 },
   },
   {
     id: "family",
@@ -130,6 +136,8 @@ export const PERSONAS: PersonaDef[] = [
     sensitivity: 1.5,
     party: [2, 4],
     index: "both",
+    wealth: 1.0,
+    spend: { mean: 1.0, sd: 0.2 },
   },
   {
     id: "student",
@@ -141,6 +149,8 @@ export const PERSONAS: PersonaDef[] = [
     sensitivity: 2.0,
     party: [1, 3],
     index: "both",
+    wealth: 0.7,
+    spend: { mean: 0.85, sd: 0.25 }, // 省錢、常合買
   },
   {
     id: "couple",
@@ -152,6 +162,8 @@ export const PERSONAS: PersonaDef[] = [
     sensitivity: 0.9,
     party: [2, 2],
     index: "both",
+    wealth: 1.3,
+    spend: { mean: 1.05, sd: 0.2 },
   },
 ];
 
@@ -209,15 +221,15 @@ export const CATEGORIES: CategoryDef[] = [
   // ── B1 美食街
   cat("ramen", "拉麵", "food", "b1", 950, 0.33, 3, { local: 0.8, commuter: 0.9, student: 0.8, tourist: 0.7, couple: 0.3, family: 0.3 }),
   cat("takoyaki", "章魚燒／大阪燒", "food", "b1", 650, 0.3, 4, { tourist: 0.9, local: 0.7, student: 0.9, family: 0.7, couple: 0.5, commuter: 0.3 }),
-  cat("kushikatsu", "串炸", "food", "b1", 1500, 0.35, 4, { tourist: 1, local: 0.8, couple: 0.6, commuter: 0.5, family: 0.5, student: 0.3 }),
+  cat("kushikatsu", "串炸", "food", "b1", 1100, 0.35, 4, { tourist: 1, local: 0.8, couple: 0.6, commuter: 0.5, family: 0.5, student: 0.3 }),
   cat("kissaten", "喫茶咖啡", "food", "b1", 800, 0.28, 3, { local: 0.9, commuter: 0.7, couple: 0.7, tourist: 0.4, student: 0.5, family: 0.3 }),
-  cat("grocery", "超市", "food", "b1", 600, 0.72, 6, { local: 1, family: 0.8, commuter: 0.6, tourist: 0.2, student: 0.4 }, { wage: 35_000, buildCost: 800_000 }),
+  cat("grocery", "超市", "food", "b1", 650, 0.64, 6, { local: 1, family: 0.8, commuter: 0.6, tourist: 0.2, student: 0.4 }, { wage: 35_000, buildCost: 800_000 }),
   cat("udon", "烏龍麵", "food", "b1", 750, 0.3, 3, { local: 0.8, commuter: 0.8, family: 0.6, tourist: 0.5, student: 0.5 }),
   cat("bubble_tea", "手搖飲", "food", "b1", 550, 0.25, 5, { student: 1, couple: 0.7, tourist: 0.6, family: 0.4, commuter: 0.4, local: 0.3 }),
   cat("sweets", "和菓子／甜點", "food", "b1", 700, 0.3, 3, { tourist: 0.8, couple: 0.8, family: 0.6, local: 0.5, student: 0.5 }),
   cat("curry", "咖哩飯", "food", "b1", 900, 0.32, 3, { commuter: 0.8, student: 0.8, local: 0.7, family: 0.5, tourist: 0.4 }),
   cat("gyoza", "餃子・中華小吃", "food", "b1", 800, 0.3, 4, { commuter: 0.8, student: 0.8, local: 0.7, family: 0.5, tourist: 0.5, couple: 0.3 }),
-  cat("onigiri", "飯糰・便當", "food", "b1", 500, 0.35, 5, { commuter: 1, student: 0.7, local: 0.7, tourist: 0.4, family: 0.4 }),
+  cat("onigiri", "飯糰・便當", "food", "b1", 550, 0.35, 5, { commuter: 1, student: 0.7, local: 0.7, tourist: 0.4, family: 0.4 }),
   cat("taiyaki", "鯛魚燒・點心屋", "food", "b1", 450, 0.28, 5, { student: 0.9, tourist: 0.8, couple: 0.7, family: 0.7, local: 0.4 }),
   cat("oden", "關東煮", "food", "b1", 700, 0.3, 4, { commuter: 0.8, local: 0.8, couple: 0.5, tourist: 0.5, student: 0.4 }, { minLevel: 2 }),
   cat("soba", "蕎麥麵", "food", "b1", 850, 0.3, 3, { commuter: 0.8, local: 0.7, tourist: 0.6, couple: 0.4 }, { minLevel: 2 }),
@@ -226,13 +238,13 @@ export const CATEGORIES: CategoryDef[] = [
   cat("juice_bar", "鮮榨果汁", "food", "b1", 600, 0.3, 4, { couple: 0.7, tourist: 0.7, student: 0.6, commuter: 0.5, family: 0.5 }, { minLevel: 3 }),
   // ── 1F 時尚與生活
   cat("fashion", "服飾", "retail", "f1", 5500, 0.55, 2, { student: 0.8, couple: 0.8, tourist: 0.7, family: 0.4, local: 0.3, commuter: 0.3 }),
-  cat("drugstore", "藥妝", "retail", "f1", 1500, 0.7, 4, { tourist: 1, local: 0.7, commuter: 0.6, family: 0.6, student: 0.5, couple: 0.4 }),
+  cat("drugstore", "藥妝", "retail", "f1", 1500, 0.64, 4, { tourist: 1, local: 0.7, commuter: 0.6, family: 0.6, student: 0.5, couple: 0.4 }),
   cat("select_shop", "生活選物", "retail", "f1", 3000, 0.55, 2, { couple: 0.7, tourist: 0.7, local: 0.4, student: 0.5, family: 0.4 }),
   cat("parking", "停車場", "service", "f1", 600, 0.02, 8, { family: 0.7, couple: 0.4, local: 0.3, commuter: 0.3, tourist: 0.1 }, { wage: 15_000, buildCost: 1_000_000, buildTicks: 216, facility: true }),
   cat("brunch", "早午餐", "food", "f1", 1300, 0.32, 3, { couple: 0.9, local: 0.6, family: 0.6, tourist: 0.5, student: 0.4 }),
   cat("italian", "義式餐廳", "food", "f1", 1600, 0.33, 3, { couple: 0.9, family: 0.7, local: 0.5, tourist: 0.5, student: 0.4 }),
   cat("fastfood", "速食連鎖", "food", "f1", 650, 0.32, 6, { student: 0.9, family: 0.8, commuter: 0.7, local: 0.5, tourist: 0.4 }),
-  cat("convenience", "便利商店", "retail", "f1", 550, 0.7, 6, { commuter: 1, student: 0.9, local: 0.8, tourist: 0.6, family: 0.5, couple: 0.4 }, { wage: 30_000, minLevel: 2 }),
+  cat("convenience", "便利商店", "retail", "f1", 600, 0.62, 6, { commuter: 1, student: 0.9, local: 0.8, tourist: 0.6, family: 0.5, couple: 0.4 }, { wage: 30_000, minLevel: 2 }),
   cat("cosmetics", "美妝", "retail", "f1", 3500, 0.55, 3, { couple: 0.8, tourist: 0.9, student: 0.7, local: 0.4, commuter: 0.4 }, { minLevel: 2 }),
   cat("shoes", "鞋履", "retail", "f1", 7000, 0.55, 2, { student: 0.8, couple: 0.7, tourist: 0.6, commuter: 0.5, family: 0.4 }, { minLevel: 2 }),
   cat("accessory", "飾品", "retail", "f1", 2500, 0.5, 3, { couple: 0.9, student: 0.8, tourist: 0.7, local: 0.3 }, { minLevel: 3 }),
@@ -249,11 +261,11 @@ export const CATEGORIES: CategoryDef[] = [
   cat("live_house", "展演空間", "entertainment", "ent", 3500, 0.2, 4, { student: 0.8, couple: 0.7, local: 0.5, tourist: 0.5 }, { minLevel: 4 }),
   cat("craft_studio", "手作體驗工房", "entertainment", "ent", 2800, 0.3, 3, { family: 0.8, couple: 0.8, tourist: 0.8, student: 0.5 }, { minLevel: 4 }),
   // ── 3C 與文創
-  cat("electronics", "3C 旗艦店", "retail", "cul", 18_000, 0.78, 2, { tourist: 0.7, student: 0.6, local: 0.5, commuter: 0.5, couple: 0.3, family: 0.3 }, { buildCost: 1_500_000 }),
-  cat("bookstore", "書店", "retail", "cul", 1600, 0.65, 3, { local: 0.7, student: 0.7, commuter: 0.5, couple: 0.5, family: 0.4, tourist: 0.3 }),
-  cat("stationery", "文具選物", "retail", "cul", 1200, 0.6, 3, { student: 0.8, tourist: 0.6, local: 0.5, couple: 0.4 }),
+  cat("electronics", "3C 旗艦店", "retail", "cul", 18_000, 0.76, 2, { tourist: 0.7, student: 0.6, local: 0.5, commuter: 0.5, couple: 0.3, family: 0.3 }, { buildCost: 1_500_000 }),
+  cat("bookstore", "書店", "retail", "cul", 1900, 0.6, 3, { local: 0.7, student: 0.7, commuter: 0.5, couple: 0.5, family: 0.4, tourist: 0.3 }),
+  cat("stationery", "文具選物", "retail", "cul", 1500, 0.55, 3, { student: 0.8, tourist: 0.6, local: 0.5, couple: 0.4 }),
   cat("popup", "快閃市集", "retail", "cul", 2000, 0.5, 3, { tourist: 0.8, student: 0.7, couple: 0.7, family: 0.5, local: 0.4 }),
-  cat("camera", "相機器材", "retail", "cul", 25_000, 0.8, 2, { tourist: 0.8, student: 0.5, local: 0.5, couple: 0.4 }, { buildCost: 1_500_000 }),
+  cat("camera", "相機器材", "retail", "cul", 25_000, 0.78, 2, { tourist: 0.8, student: 0.5, local: 0.5, couple: 0.4 }, { buildCost: 1_500_000 }),
   cat("anime_goods", "動漫周邊", "retail", "cul", 2500, 0.6, 4, { student: 1, tourist: 0.9, couple: 0.4, local: 0.4 }),
   cat("gamestore", "遊戲專賣", "retail", "cul", 6000, 0.75, 3, { student: 0.9, commuter: 0.5, family: 0.5, local: 0.4, tourist: 0.4 }, { minLevel: 5 }),
   cat("vinyl", "唱片・黑膠行", "retail", "cul", 3500, 0.6, 2, { local: 0.7, couple: 0.6, tourist: 0.7, student: 0.5 }, { minLevel: 5 }),
@@ -264,7 +276,7 @@ export const CATEGORIES: CategoryDef[] = [
   cat("clinic", "診所", "service", "life", 3000, 0.25, 2, { local: 0.9, family: 0.7, commuter: 0.5, tourist: 0.2 }),
   cat("salon", "美容美髮", "service", "life", 5000, 0.2, 1, { couple: 0.7, local: 0.6, commuter: 0.5, student: 0.5, tourist: 0.3 }),
   cat("daycare", "托育中心", "service", "life", 2500, 0.25, 3, { family: 0.9, local: 0.3 }),
-  cat("laundry", "共享洗衣", "service", "life", 800, 0.2, 3, { tourist: 0.7, student: 0.6, local: 0.6, commuter: 0.4 }),
+  cat("laundry", "共享洗衣", "service", "life", 1000, 0.2, 3, { tourist: 0.7, student: 0.6, local: 0.6, commuter: 0.4 }),
   cat("nail", "美甲", "service", "life", 6000, 0.2, 1, { couple: 0.8, student: 0.5, local: 0.5, tourist: 0.5, commuter: 0.4 }),
   cat("yoga", "瑜伽教室", "service", "life", 2500, 0.1, 4, { commuter: 0.7, local: 0.6, couple: 0.4, tourist: 0.3 }),
   cat("dental", "牙科診所", "service", "life", 6000, 0.25, 2, { local: 0.8, family: 0.7, commuter: 0.6, tourist: 0.1 }, { minLevel: 6 }),
@@ -297,9 +309,45 @@ export const CATEGORIES: CategoryDef[] = [
   cat("capsule_hotel", "膠囊旅館", "service", "biz", 4500, 0.25, 2, { tourist: 0.9, commuter: 0.6 }, { buildCost: 2_000_000, buildTicks: 360, facility: true }),
   cat("travel_agency", "旅行社", "service", "biz", 3000, 0.2, 2, { tourist: 0.5, commuter: 0.6, local: 0.5, family: 0.5 }),
   cat("luggage", "行李寄放", "service", "biz", 800, 0.05, 10, { tourist: 1, commuter: 0.4 }, { wage: 15_000, buildCost: 800_000, buildTicks: 144 }),
-  cat("print_shop", "影印・郵務", "service", "biz", 500, 0.2, 6, { commuter: 0.8, student: 0.7, local: 0.5 }, { wage: 20_000, buildCost: 900_000 }),
+  cat("print_shop", "影印・郵務", "service", "biz", 600, 0.2, 6, { commuter: 0.8, student: 0.7, local: 0.5 }, { wage: 20_000, buildCost: 900_000 }),
 ];
 export const CATEGORY_BY_ID = Object.fromEntries(CATEGORIES.map((c) => [c.id, c])) as Record<string, CategoryDef>;
+
+// ───────── 客人的經濟能力 ─────────
+/** 付得起的程度對選店權重的影響力（指數）。0 ＝ 不看單價；越大越偏向「買得起的店」 */
+export const AFFORD_EXPONENT = 0.5;
+export const AFFORD_MIN = 0.25;
+export const AFFORD_MAX = 1.4;
+/**
+ * 到訪量補償：貴的店客流被壓低後，整座商場的營收會掉約 15%（客群改去便宜店，單價較低）。
+ * 把各客群的到訪量整體乘上這個倍數，讓勤勞玩家的營收與升級節奏回到調整前的水準（見 docs/balance-report.md）。
+ */
+export const TRAFFIC_COMPENSATION = 1.18;
+/** 每組客人的錢包係數（對數常態）標準差：同一客群有人今天手頭鬆、有人緊 */
+export const WALLET_SD = 0.35;
+
+/** 各區域的典型單價（參考價中位數）；設施型業態不走一般客流，不列入 */
+export const ZONE_MEDIAN_PRICE: Record<string, number> = (() => {
+  const by: Record<string, number[]> = {};
+  for (const c of CATEGORIES) if (!c.facility) (by[c.zone] ??= []).push(c.refPrice);
+  const out: Record<string, number> = {};
+  for (const [z, list] of Object.entries(by)) {
+    list.sort((a, b) => a - b);
+    const m = list.length >> 1;
+    out[z] = list.length % 2 ? list[m]! : (list[m - 1]! + list[m]!) / 2;
+  }
+  return out;
+})();
+
+/**
+ * 這組客人（經濟能力 wealth × 錢包係數 wallet）對這個業態的「付得起」係數，乘在選店權重上。
+ * 以所在區域的典型單價為基準，所以不改變區域之間的收益階梯，只拉近同一區域內貴店與便宜店的客流。
+ */
+export function affordability(wealth: number, wallet: number, cat: Pick<CategoryDef, "zone" | "refPrice">): number {
+  const median = ZONE_MEDIAN_PRICE[cat.zone] ?? cat.refPrice;
+  const f = Math.pow((wealth * wallet * median) / cat.refPrice, AFFORD_EXPONENT);
+  return Math.min(AFFORD_MAX, Math.max(AFFORD_MIN, f));
+}
 
 /** 這個業態的店是否需要庫存（食物與零售需要；娛樂與服務以容量為限） */
 export function categoryHasStock(c: CategoryDef): boolean {

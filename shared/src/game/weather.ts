@@ -203,15 +203,31 @@ export function weatherDemand(w: Weather, category: string): number {
   return m;
 }
 
-const HOT_DEMAND: Record<string, number> = { bubble_tea: 1.5, juice_bar: 1.4, sweets: 1.25, beer_garden: 1.2, ramen: 0.85, udon: 0.9, hotpot: 0.7, oden: 0.7 };
-const COLD_DEMAND: Record<string, number> = { ramen: 1.4, udon: 1.4, hotpot: 1.5, oden: 1.5, curry: 1.15, taiyaki: 1.2, bubble_tea: 0.75, juice_bar: 0.7, beer_garden: 0.5, observatory: 0.7 };
+const HOT_DEMAND: Record<string, number> = {
+  bubble_tea: 1.5, juice_bar: 1.4, sweets: 1.25, beer_garden: 1.2, ramen: 0.85, udon: 0.9, hotpot: 0.7, oden: 0.7,
+  // 避暑：冷氣空間熱門，出汗的衣物多、需要洗；健身與戶外感的店冷清
+  cinema: 1.1, bookstore: 1.1, electronics: 1.05, laundry: 1.12, spa: 1.08, coworking: 1.05, gym: 0.9, fashion: 0.95, flea_market: 0.8,
+};
+const COLD_DEMAND: Record<string, number> = {
+  ramen: 1.4, udon: 1.4, hotpot: 1.5, oden: 1.5, curry: 1.15, taiyaki: 1.2, bubble_tea: 0.75, juice_bar: 0.7, beer_garden: 0.5, observatory: 0.7,
+  // 寒流：冬衣、泡湯、感冒
+  fashion: 1.06, shoes: 1.05, spa: 1.15, drugstore: 1.15, clinic: 1.12, convenience: 1.08, laundry: 0.95,
+};
 const RAIN_DEMAND: Record<string, number> = {
   kissaten: 1.15, ramen: 1.1, convenience: 1.12, drugstore: 1.05,
   cinema: 1.12, karaoke: 1.1, arcade_vr: 1.1, bowling: 1.08, escape_room: 1.08,
   observatory: 0.5, beer_garden: 0.4, food_truck: 0.4, flea_market: 0.4,
+  // 雨天宅在室內：逛書店、3C、遊戲與按摩；街頭逛街的衣飾、花與寫真變少
+  bookstore: 1.12, electronics: 1.08, camera: 0.95, gamestore: 1.1, vinyl: 1.1, art_gallery: 1.1, spa: 1.1, coworking: 1.08, clinic: 1.08, nail: 1.05, salon: 1.05,
+  fashion: 0.92, accessory: 0.95, florist: 0.95, photo_studio: 0.9, laundry: 0.9,
 };
 const STORM_DEMAND: Record<string, number> = { ...RAIN_DEMAND, observatory: 0.1, beer_garden: 0.1, food_truck: 0.1, flea_market: 0.1 };
-const CLEAR_DEMAND: Record<string, number> = { observatory: 1.25, beer_garden: 1.15, food_truck: 1.15, flea_market: 1.2 };
+const CLEAR_DEMAND: Record<string, number> = {
+  observatory: 1.25, beer_garden: 1.15, food_truck: 1.15, flea_market: 1.2,
+  // 晴天出門逛街、拍照、約會；宅在家玩的業態略少
+  fashion: 1.08, shoes: 1.08, accessory: 1.06, nail: 1.05, photo_studio: 1.1, camera: 1.08, florist: 1.05, popup: 1.06,
+  bookstore: 0.95, gamestore: 0.95, cinema: 0.95, arcade_vr: 0.95,
+};
 
 /**
  * 樓層的相對人潮：B1 連通車站、淋不到雨；1F 有街道門，風雨最直接。

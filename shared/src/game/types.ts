@@ -27,6 +27,13 @@ export interface PersonaDef {
   party: [number, number];
   /** 偏好哪個人氣指標：local／tourist／both */
   index: IndexId | "both";
+  /**
+   * 經濟能力：能輕鬆負擔的單價，相對「該區域典型單價」的倍數（>1 付得起貴的店、<1 偏好便宜的店）。
+   * 每組客人再乘上一個隨機錢包係數。沒填視為 1。
+   */
+  wealth?: number;
+  /** 消費習慣：每組實際購買量相對團體人數的倍數（平均與標準差；只套用在食物與零售）。沒填視為固定 1 */
+  spend?: { mean: number; sd: number };
 }
 
 export type CategoryGroup = "food" | "retail" | "entertainment" | "service";

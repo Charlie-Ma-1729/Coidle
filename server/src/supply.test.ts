@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CATEGORIES,
+  CATEGORY_BY_ID,
   CAMPAIGNS,
   CONTRACT_CANCEL_FEE,
   CONTRACT_MIN_REL,
@@ -120,7 +121,7 @@ describe("ordering from suppliers", () => {
   it("starting prices match the old flat cost model (no surprise inflation)", () => {
     const s = createInitialState(1, START);
     const q = quoteOrder(s, shopOf(s, "kushikatsu"), 1)!;
-    expect(q.unit).toBe(Math.ceil(1500 * 0.35)); // 525
+    expect(q.unit).toBe(Math.ceil(CATEGORY_BY_ID.kushikatsu!.refPrice * 0.35));
     expect(q.pick.spot).toBe(false);
   });
 
@@ -188,9 +189,9 @@ describe("ordering from suppliers", () => {
     const q = quoteOrder(s, shop, 1)!;
     expect(q.pick.spot).toBe(true);
     expect(q.pick.def.id).not.toBe("meat_maru");
-    const normalUnit = Math.ceil(1500 * 0.35 * q.pick.def.price);
+    const normalUnit = Math.ceil(CATEGORY_BY_ID.kushikatsu!.refPrice * 0.35 * q.pick.def.price);
     expect(q.unit).toBeGreaterThanOrEqual(normalUnit); // 加了現貨溢價
-    expect(q.unit).toBe(Math.ceil(1500 * 0.35 * q.pick.def.price * SPOT_PREMIUM));
+    expect(q.unit).toBe(Math.ceil(CATEGORY_BY_ID.kushikatsu!.refPrice * 0.35 * q.pick.def.price * SPOT_PREMIUM));
     expect(placeOrder(s, shop, 50)).toBe(true);
 
     s = apply(s, { type: "setSupplyPrefs", autoFallback: false });

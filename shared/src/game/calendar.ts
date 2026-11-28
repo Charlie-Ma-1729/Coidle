@@ -152,19 +152,19 @@ export const OBSERVANCES: ObservanceDef[] = [
     id: "year_end", name: "年末", icon: "🎍", note: "大掃除與年菜採買、回鄉前的最後衝刺；上班族休假。", season: true, offDay: true, tags: ["year_end"],
     test: (c) => between(c, 12, 29, 12, 31),
     traffic: { commuter: 0.4, local: 1.3, family: 1.25, tourist: 1.1, couple: 1.1 },
-    demand: { grocery: 1.35, bakery: 1.2, sushi: 1.3, florist: 1.25, sweets: 1.2, izakaya: 1.15, hotpot: 1.2 },
+    demand: { grocery: 1.35, bakery: 1.2, sushi: 1.3, florist: 1.25, sweets: 1.2, izakaya: 1.15, hotpot: 1.2, laundry: 1.2, repair: 1.15, stationery: 1.1, print_shop: 1.3, clinic: 1.1, dental: 1.1, drugstore: 1.1, electronics: 1.08 },
   },
   {
     id: "new_year", name: "新年", icon: "🎌", note: "初詣與福袋，一家老小出來逛；上班族幾乎不出現。", season: true, offDay: true, tags: ["new_year"],
     test: (c) => between(c, 1, 1, 1, 3),
     traffic: { commuter: 0.3, local: 1.35, family: 1.45, couple: 1.25, tourist: 1.25, student: 1.15 },
-    demand: { sweets: 1.3, kaiseki: 1.4, fashion: 1.35, shoes: 1.25, toy_store: 1.3, accessory: 1.2, cosmetics: 1.25, kids_play: 1.2, photo_studio: 1.3 },
+    demand: { sweets: 1.3, kaiseki: 1.4, fashion: 1.35, shoes: 1.25, toy_store: 1.3, accessory: 1.2, cosmetics: 1.25, kids_play: 1.2, photo_studio: 1.3, electronics: 1.15, camera: 1.1, gamestore: 1.15, anime_goods: 1.15, bookstore: 1.1, vinyl: 1.1, stationery: 1.1 },
   },
   {
     id: "golden_week", name: "黃金週", icon: "🎏", note: "一年最長的連假：全家出遊、旅客最多，上班族休息。", season: true, offDay: true, tags: ["golden_week"],
     test: (c) => between(c, 4, 29, 5, 6),
     traffic: { family: 1.45, tourist: 1.3, couple: 1.2, student: 1.15, commuter: 0.6 },
-    demand: { kids_play: 1.4, cinema: 1.2, observatory: 1.25, craft_studio: 1.2, food_truck: 1.2, beer_garden: 1.2, hotel: 1.2, luggage: 1.3, travel_agency: 1.3, parking: 1.25 },
+    demand: { kids_play: 1.4, cinema: 1.2, observatory: 1.25, craft_studio: 1.2, food_truck: 1.2, beer_garden: 1.2, hotel: 1.2, luggage: 1.3, travel_agency: 1.3, parking: 1.25, camera: 1.1, photo_studio: 1.2, spa: 1.1, capsule_hotel: 1.15, art_gallery: 1.1 },
   },
   {
     id: "obon", name: "盂蘭盆節", icon: "🏮", note: "很多人回鄉探親，在地客與上班族變少；返鄉旅客與家族出遊增加，花與供品好賣。", season: true, offDay: true, tags: ["obon"],
@@ -177,7 +177,7 @@ export const OBSERVANCES: ObservanceDef[] = [
     id: "summer_break", name: "暑假", icon: "🌻", note: "孩子放假：親子、學生與遊樂類的業態變熱門。", tags: ["school_break"],
     test: (c) => between(c, 7, 21, 8, 31),
     traffic: { family: 1.15, student: 1.2, couple: 1.05, commuter: 0.95 },
-    demand: { kids_play: 1.3, arcade_vr: 1.2, claw: 1.15, cinema: 1.1, craft_studio: 1.2, bubble_tea: 1.1, cram_school: 1.35, juice_bar: 1.1 },
+    demand: { kids_play: 1.3, arcade_vr: 1.2, claw: 1.15, cinema: 1.1, craft_studio: 1.2, bubble_tea: 1.1, cram_school: 1.35, juice_bar: 1.1, gamestore: 1.15, anime_goods: 1.1, toy_store: 1.1, stationery: 1.1, laundry: 1.1, daycare: 1.15, bookstore: 1.05 },
   },
   {
     id: "spring_break", name: "春假", icon: "🌱", note: "學年交替的短假。", tags: ["school_break"],
@@ -278,7 +278,7 @@ export const OBSERVANCES: ObservanceDef[] = [
     id: "payday", name: "發薪日", icon: "💴", note: "每月 25 日（遇假日提前到週五）：上班族口袋有錢，聚餐與購物變多。", tags: ["payday"],
     test: (c) => (c.d === 25 && c.dow >= 1 && c.dow <= 5) || (c.dow === 5 && (c.d === 23 || c.d === 24)),
     traffic: { commuter: 1.08, local: 1.06, couple: 1.05 },
-    demand: { izakaya: 1.15, yakiniku: 1.12, fashion: 1.08, cosmetics: 1.05 },
+    demand: { izakaya: 1.15, yakiniku: 1.12, fashion: 1.08, cosmetics: 1.05, electronics: 1.1, camera: 1.1, gamestore: 1.08, shoes: 1.06, spa: 1.1, nail: 1.08, salon: 1.06, select_shop: 1.06, bookstore: 1.05 },
   },
   // ── 特定國定假日的專屬效果
   {
