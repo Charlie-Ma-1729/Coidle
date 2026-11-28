@@ -1,4 +1,5 @@
 import {
+  corporateSellQuote,
   DEFAULT_SERVER_CLOCK,
   MARKET_FEE_RATE,
   MARKET_TEXT,
@@ -621,7 +622,7 @@ function CorporatePanel(props: { row: MarketRow; view: MarketView; corp: Corpora
   const shares = Math.floor(Number(qty));
   const valid = Number.isInteger(shares) && shares >= 1;
   const bq = valid ? buyQuote(row.price, shares) : null;
-  const sq = valid && held ? sellQuote(row.price, Math.min(shares, held.shares), { shares: held.shares, costTotal: held.cost }) : null;
+  const sq = valid && held ? corporateSellQuote(row.price, Math.min(shares, held.shares), { shares: held.shares, costTotal: held.cost }) : null;
   const can = props.open && a.canTrade;
   const why = !a.canTrade ? a.blocked : !props.open ? "市場休市中，法人投資不能預約，開盤後再來。" : null;
   return (
@@ -648,7 +649,7 @@ function CorporatePanel(props: { row: MarketRow; view: MarketView; corp: Corpora
         </div>
       </div>
       <p class="st-hint">
-        限制：單一集團最多流通股的 {corp.singleCap * 100}%、全部投資市值最多公司現金的 {corp.totalCap * 100}%；持股超過 {corp.disclosurePct * 100}% 會公開「大量持有報告」（不影響股價）；落後伺服器超過 1 遊戲日不能下單。手續費 {corp.feeRate * 100}%，賣出獲利課 {(corp.taxRate * 100).toFixed(3)}%，配息入公司資金（同樣扣稅）。
+        限制：單一集團最多流通股的 {corp.singleCap * 100}%、全部投資市值最多公司現金的 {corp.totalCap * 100}%；持股超過 {corp.disclosurePct * 100}% 會公開「大量持有報告」（不影響股價）；落後伺服器超過 1 遊戲日不能下單。手續費 {corp.feeRate * 100}%。公司不適用個人的 {(corp.taxRate * 100).toFixed(3)}% 分離課稅：賣出損益與配息都併入年度所得，4 月決算按法人稅課（虧損可結轉），配息適用益金不算入（持股 5% 以下 20%、超過 5% 為 50% 不課稅）。
       </p>
       {why && <p class="st-hint">{why}</p>}
       <div class="st-row">
@@ -679,7 +680,7 @@ function CorporatePanel(props: { row: MarketRow; view: MarketView; corp: Corpora
             <div class="st-li">
               <span class="grow">
                 賣出 {Math.min(shares, held.shares).toLocaleString()} 股：進公司資金 <b>{money(sq.net)}</b>
-                <small>{sq.gain >= 0 ? `獲利 ${money(sq.gain)}，稅 ${money(sq.tax)}` : `虧損 ${money(-sq.gain)}（不退稅）`}</small>
+                <small>{sq.gain >= 0 ? `獲利 ${money(sq.gain)}（併入年度所得決算課稅）` : `虧損 ${money(-sq.gain)}（併入年度所得，可抵減並結轉）`}</small>
               </span>
             </div>
           )}

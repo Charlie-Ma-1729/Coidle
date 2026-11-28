@@ -15,7 +15,7 @@ function pickBlurb(s: MallState, profit: number, complaints: number, events: num
 /** 把「剛結束的這一天」結算成日報。呼叫時 s.today 仍是該日資料。 */
 export function buildReport(s: MallState): DailyReport {
   const d = s.today;
-  const profit = d.revenue + d.rentIncome - d.purchases - d.fixed - d.repairs;
+  const profit = d.revenue + d.rentIncome - d.purchases - d.fixed - d.repairs + (d.invest ?? 0);
   const avgSat = Object.fromEntries(
     PERSONA_IDS.map((p) => [p, d.satN[p] > 0 ? d.satSum[p] / d.satN[p] : null]),
   ) as Record<PersonaId, number | null>;
@@ -57,6 +57,7 @@ export function buildReport(s: MallState): DailyReport {
   if (s.equipment < 40) notes.push("設備老舊，再不維護恐怕會出狀況。");
   if (s.funds < 0) notes.push("帳上資金為負，自動補貨只剩供應商賒帳的額度，快想辦法周轉！可以到「財務 → 融資與保險」看能向哪家金融機構借款。");
   if (s.finance?.restructure) notes.push("🏦 重整中：擴建與大額支出凍結，貸款還清後解除。");
+  if ((d.invest ?? 0) !== 0) notes.push(`📈 今天的投資損益 ${(d.invest ?? 0) >= 0 ? "+" : "−"}${fmt(Math.abs(d.invest ?? 0))}（賣股損益與配息，年度決算時併入所得課稅）。`);
   if ((d.interestCost ?? 0) > 0) notes.push(`🏦 今天付了貸款利息 ${fmt(d.interestCost ?? 0)}。`);
   for (const n of d.systemNotes.slice(0, 4)) notes.push(n);
   const blurb = pickBlurb(s, profit, d.complaints, d.events.length);
@@ -92,6 +93,7 @@ export function buildReport(s: MallState): DailyReport {
     fixed: d.fixed,
     repairs: d.repairs,
     profit,
+    ...(d.invest ? { invest: d.invest } : {}),
     stockBought: d.stockBought ?? 0,
     stockCost: d.stockCost ?? 0,
     groups: d.groups,

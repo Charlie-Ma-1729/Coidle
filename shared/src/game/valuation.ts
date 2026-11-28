@@ -1,11 +1,12 @@
 /**
  * 商場股權估值（商場內部換股用：注資換股、回購、出價）。
  * 以前只看現金，會被進貨／貸款／囤現金左右。現在：
- *   淨資產 ＝ 現金 ＋ 庫存（含在途）成本 ＋ 店面與設備折舊價值 − 貸款餘額
+ *   淨資產 ＝ 現金 ＋ 庫存（含在途）成本 ＋ 店面與設備折舊價值 ＋ 法人持股市價淨值（`holdMark`，扣一次賣出手續費）− 貸款餘額
  *   獲利價值 ＝ 近幾個遊戲日的平均每日利潤 × 倍數
  *   估值 ＝ 淨資產 ＋ 獲利溢價（只加不減：賺錢的商場值得比帳面多，沒賺錢也不低於資產）
  * 單日價格變動再由 `clampToAnchor` 夾在前一個遊戲日收盤估值的 ±PRICE_DAILY_BAND 內（防操作）。
- * 不含：商場持股市價、REIT、IPO 上市價（等做 IPO 時再接，見 docs/group-ma.md §5.5）。
+ * 商場持股市價已併入（所以「用現金買股」只會讓估值少一次手續費，不再能靠買股壓低估值去稀釋）。
+ * 不含：REIT、IPO 上市價（等做 IPO 時再接，見 docs/group-ma.md §5.5）。
  */
 
 import { CATEGORY_BY_ID } from "./data";
@@ -26,7 +27,7 @@ export const PROFIT_PREMIUM_CAP = 1;
 /** 每遊戲日價格最多從前一日收盤估值上下浮動這個比例 */
 export const PRICE_DAILY_BAND = 0.1;
 
-export type ValuationInput = Pick<MallState, "funds" | "shops" | "reports" | "equipment"> & Partial<Pick<MallState, "finance">>;
+export type ValuationInput = Pick<MallState, "funds" | "shops" | "reports" | "equipment"> & Partial<Pick<MallState, "finance" | "holdMark">>;
 
 /** 庫存（含在途）按進貨成本計 */
 export function inventoryValue(s: Pick<ValuationInput, "shops">): number {
@@ -54,7 +55,7 @@ export function fixedAssetValue(s: Pick<ValuationInput, "shops" | "equipment">):
 
 /** 淨資產（可為負） */
 export function netAssets(s: ValuationInput): number {
-  return s.funds + inventoryValue(s) + fixedAssetValue(s) - debtOf(s.finance);
+  return s.funds + inventoryValue(s) + fixedAssetValue(s) + Math.max(0, s.holdMark ?? 0) - debtOf(s.finance);
 }
 
 /** 近 PROFIT_WINDOW_DAYS 日平均每日利潤 × 倍數（不為負；沒有日報＝0）。日報不足時照滿窗口平均，新商場的獲利溢價是逐日爬升，不會第一天就跳 */

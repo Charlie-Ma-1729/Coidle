@@ -55,7 +55,8 @@ export function Overview(props: { wealth: WealthView | null; equity: PersonalEqu
     };
   }, [w?.totalValue]);
   if (!w) return <p class="st-hint">讀取中…</p>;
-  const stakes = w.stakes.reduce((a, s) => a + s.value, 0);
+  // 商場估值已含法人持股的市價；這裡把它拆出來單獨顯示，加總不變
+  const stakes = Math.max(0, w.stakes.reduce((a, s) => a + s.value, 0) - w.corporate);
   const parts = [
     { id: "cash", label: "個人錢包", value: w.cash, tone: "" },
     { id: "stakes", label: "商場持股（估值）", value: stakes, tone: "amber" },

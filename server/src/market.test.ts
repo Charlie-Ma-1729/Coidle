@@ -270,6 +270,39 @@ describe("trading", () => {
     expect((await post(a, o.cookie, `/api/market/${encodeURIComponent(KEY)}/buy`, { shares: 1 })).statusCode).toBe(403);
   });
 
+  it("lets an Overseer halt trading and adjust limits, audited; players cannot", async () => {
+    const a = make();
+    const u = await reg(a, "alice");
+    fund(a, u.id, 1_000_000);
+    const buy = () => post(a, u.cookie, `/api/market/${encodeURIComponent(KEY)}/buy`, { shares: 1 });
+    // 玩家不能碰管理 API
+    expect((await post(a, u.cookie, "/api/admin/market/halt", { on: true })).statusCode).toBeGreaterThanOrEqual(401);
+    expect((await buy()).statusCode).toBe(200);
+    const o = await overseerLogin(a, clock.t, "overseer");
+    const before = priceNow(a);
+    expect((await post(a, o.cookie, "/api/admin/market/halt", { on: true, reason: "測試" })).json().halt.reason).toBe("測試");
+    expect(priceNow(a)).toBe(before); // 價格不受影響
+    const st = (await get(a, u.cookie, "/api/market/status")).json();
+    expect(st).toMatchObject({ open: false, halted: true });
+    expect((await buy()).statusCode).toBe(409);
+    // 暫停中下的預約單不成交
+    const ord = await post(a, u.cookie, `/api/market/${encodeURIComponent(KEY)}/order`, { side: "buy", shares: 1 });
+    expect(ord.statusCode).toBe(200);
+    clock.t = REAL0 + 240 * MIN + 100 * MIN; // 隔天開盤
+    a.service.market.settle();
+    expect(a.repo.openOrders().length).toBe(1);
+    // 恢復後預約單成交，買賣可用
+    await post(a, o.cookie, "/api/admin/market/halt", { on: false });
+    a.service.market.settle();
+    expect(a.repo.openOrders().length).toBe(0);
+    expect((await buy()).statusCode).toBe(200);
+    // 調整上限
+    expect((await post(a, o.cookie, "/api/admin/market/limits", { dailyBuyLimit: 1, holdCap: 1 })).json().limits).toEqual({ dailyBuyLimit: 1, holdCap: 1 });
+    expect((await buy()).statusCode).toBe(409);
+    expect((await post(a, o.cookie, "/api/admin/market/limits", { dailyBuyLimit: -5 })).statusCode).toBe(400);
+    expect((await post(a, o.cookie, "/api/admin/market/limits", {})).json().limits).toEqual({ dailyBuyLimit: MARKET_DAILY_BUY_LIMIT, holdCap: MARKET_HOLD_CAP });
+  });
+
   it("returns intraday and daily history with prev close, and rejects an unknown company", async () => {
     const a = make();
     const u = await reg(a, "alice");

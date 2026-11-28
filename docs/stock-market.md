@@ -71,10 +71,11 @@
 ## 法人投資（商場用公司資金入股）
 `equity.md` 原則 4 的第五條資金路徑，規格與不變量見 `docs/group-ma.md`，常數與函式在 `shared/src/game/ma.ts`、畫面型別在 `corporate.ts`：
 - 只有**管事的人**（`authorityOf`）能下單，測試（sandbox）商場不能；落後伺服器超過 **1 遊戲日**（`financeBlocker`）不能下單；只能在開市中買賣、不能預約。
-- 單一標的最多流通股的 **10%**、全部投資市值最多商場現金的 **40%**（`corporateCap`）；手續費與賣出獲利稅同個人；配息入公司資金（扣稅）。
+- 單一標的最多流通股的 **10%**、全部投資市值最多商場現金的 **40%**（`corporateCap`）；手續費 0.5% 離開遊戲。**稅：法人沒有證券分離課稅**——賣出的已實現損益與配息**不當場扣稅**，全額進公司資金，記進當天的 `DayStats.invest`（日報利潤與日報備註都含投資損益），年度決算（4 月）併入所得按法人稅課、虧損可結轉；配息適用**受取配当益金不算入**（`DayStats.investExempt`；持股 ≤ 5% 算入 20% 不課稅、> 5% 到 10% 為 50%，`dividendExemptRatio`）。個人的 20.315% 分離課稅不變。
 - 持股變動跨過 **5%**（`disclosureCrossing`）→ 公開一則「大量持有報告」（`stock_disclosures`，無價格效果，避免炒作）。
 - 狀態：`mall_positions(mall_id, company, shares, cost_total)`（DB 表，不放進商場存檔，所以配息與估值不必掃全部商場）。資金變動走 `MallService.mutate`，和 DB 持倉包在同一個 `repo.tx`。
-- 估值：`WealthView.corporate` ＝ 我的持股比例 × 商場持有的股票市值；`stakes[].value` 現在是商場估值（淨資產＋獲利溢價，見 `docs/equity.md`「估值」），但**不含**商場持有的股票市價，所以這部分仍另列在 `corporate`。
+- 估值：商場估值（`mallBookValue`，見 `docs/equity.md`「估值」）**已含**法人持股的市價淨值（扣一次賣出手續費，存在 `MallState.holdMark`，伺服器在同步時——變動超過 2% 才寫入——與每次法人買賣後更新），所以用現金買股只讓估值少一次手續費，不能靠壓低估值去稀釋。`WealthView.corporate` 只是「其中屬於法人持股的部分」，給畫面拆開顯示，**不重複加進 `totalValue`**。
+- 管理室「股市」頁（`client/src/admin/MarketTab.tsx`、`/api/admin/market*`）：**臨時暫停交易**（個人買賣與法人下單被拒、預約單不成交，價格不受影響；`meta.market_halt`）與**調整每日買進／持股上限**（`meta.market_limits`，預設是常數、天花板 1 億）。每個操作寫稽核（`market.halt`／`market.resume`／`market.limits`）。**沒有**消息覆寫：消息與價格是（種子, 時間）的純函式，不開後門。
 - API：`GET /api/me/corporate`、`POST /api/malls/:id/portfolio/:key/buy|sell`（稽核 `portfolio.buy|sell`）。畫面：股市詳情頁「交易帳戶」切換到「〈商場〉（公司資金）」。
 
 ## API

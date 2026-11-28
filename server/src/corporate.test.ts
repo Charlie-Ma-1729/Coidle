@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { CORPORATE_STAKE_CAP_PCT, CORPORATE_TOTAL_CAP_PCT, STOCK_GROUPS, buyQuote, sellQuote, stockGroupOf, type MallState } from "@coidle/shared";
+import { CORPORATE_STAKE_CAP_PCT, CORPORATE_TOTAL_CAP_PCT, DIVIDEND_EXEMPT_LOW, DIVIDEND_EXEMPT_MID, STOCK_GROUPS, buyQuote, corporateSellQuote, dividendExemptRatio, stockGroupOf, type MallState } from "@coidle/shared";
 import { buildApp } from "./app";
+import { createInitialState } from "./sim/state";
+import { taxDaily } from "./sim/tax";
 import { calm } from "./testutil";
 
 // 法人投資：商場用公司資金買賣上市股票。只有管事的人、開市中、受上限約束；手續費與稅離開遊戲；配息入公司資金。
@@ -67,8 +69,10 @@ describe("法人投資", () => {
     // 賣回：獲利才課稅，錢回到公司資金
     const s = await post(a, alice.cookie, url(A.mallId, "sell"), { shares: 100 });
     expect(s.statusCode).toBe(200);
-    const back = sellQuote(price, 100, { shares: 100, costTotal: q.total });
+    const back = corporateSellQuote(price, 100, { shares: 100, costTotal: q.total });
+    expect(back.tax).toBe(0); // 法人沒有當場扣稅，併入年度所得
     expect(fundsOf(a, A.mallId)).toBe(before - q.total + back.net);
+    expect(a.service.sync(A.mallId).today.invest).toBe(back.gain);
     expect(a.repo.mallPositionOf(A.mallId, KEY)).toEqual({ shares: 0, costTotal: 0 });
     expect((await post(a, alice.cookie, url(A.mallId, "sell"), { shares: 1 })).statusCode).toBe(409);
   });
@@ -111,14 +115,16 @@ describe("法人投資", () => {
     expect(d!.pct).toBe(0);
     const w = (await get(a, alice.cookie, "/api/me/wealth")).json();
     expect(w.corporate).toBeGreaterThan(0);
-    expect(w.totalValue).toBe(w.stakes.reduce((x: number, s: { value: number }) => x + s.value, 0) + w.portfolio + w.corporate + w.cash);
+    // 商場估值已含法人持股（holdMark），corporate 只是拆開顯示，不重複加總
+    expect(w.totalValue).toBe(w.stakes.reduce((x: number, s: { value: number }) => x + s.value, 0) + w.portfolio + w.cash);
+    expect(a.service.sync(A.mallId).holdMark).toBeGreaterThan(0);
     // 賣回 5% 以下 → 「不再大量持有」
     expect((await post(a, alice.cookie, url(A.mallId, "sell"), { shares: 10 })).statusCode).toBe(200);
     const feed2 = (await get(a, alice.cookie, "/api/market/news?limit=20")).json().items as { headline: string }[];
     expect(feed2.some((n) => n.headline.includes("降至 5% 以下"))).toBe(true);
   });
 
-  it("pays dividends to the mall's funds on the ex-dividend day, taxed", async () => {
+  it("pays dividends in full to the mall's funds, counted as investment income with a 20% exemption (holding ≤ 5%)", async () => {
     const { a, A } = await setup();
     const key = "g:hokurei_rail";
     a.repo.setMallPosition(A.mallId, key, 1000, 2_400_000);
@@ -126,9 +132,25 @@ describe("法人投資", () => {
     a.service.market.tick(); // 4/1 是北嶺鉄道的除權息日
     const per = Math.round((stockGroupOf(key)!.base * stockGroupOf(key)!.divYield) / 2);
     const gross = 1000 * per;
-    expect(fundsOf(a, A.mallId) - before).toBeCloseTo(gross - Math.floor(gross * 0.20315), 0);
+    expect(fundsOf(a, A.mallId) - before).toBeCloseTo(gross, 0); // 不當場扣稅
+    const t = a.service.sync(A.mallId).today;
+    expect(t.invest).toBe(gross);
+    expect(t.investExempt).toBe(Math.floor(gross * DIVIDEND_EXEMPT_LOW));
     a.service.market.tick();
-    expect(fundsOf(a, A.mallId) - before).toBeCloseTo(gross - Math.floor(gross * 0.20315), 0); // 冪等
+    expect(fundsOf(a, A.mallId) - before).toBeCloseTo(gross, 0); // 冪等
+  });
+
+  it("applies the 50% exemption above 5% and rolls investment income into the fiscal-year taxable profit", () => {
+    expect(dividendExemptRatio(50, 1000)).toBe(DIVIDEND_EXEMPT_LOW); // 剛好 5%
+    expect(dividendExemptRatio(51, 1000)).toBe(DIVIDEND_EXEMPT_MID);
+    const s = createInitialState(1, 1);
+    taxDaily(s, { date: "2027-05-10", month: 5 } as never, { ...s.today, invest: 1_000_000, investExempt: 200_000 });
+    const none = createInitialState(1, 1);
+    taxDaily(none, { date: "2027-05-10", month: 5 } as never, { ...none.today });
+    expect(s.tax.fy.profit - none.tax.fy.profit).toBe(800_000); // 只計入未豁免的部分
+    const loss = createInitialState(1, 1);
+    taxDaily(loss, { date: "2027-05-10", month: 5 } as never, { ...loss.today, invest: -300_000 });
+    expect(loss.tax.fy.profit - none.tax.fy.profit).toBe(-300_000); // 賣股虧損抵減所得
   });
 
   it("keeps the 40-stock list consistent with the corporate caps", () => {

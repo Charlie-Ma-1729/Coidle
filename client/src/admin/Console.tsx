@@ -8,13 +8,14 @@ import { BalanceTab } from "./BalanceTab";
 import { EventsTab } from "./EventsTab";
 import { LiveTab } from "./LiveTab";
 import { MallsTab } from "./MallsTab";
+import { MarketTab } from "./MarketTab";
 import { NpcTab } from "./NpcTab";
 import { UsersTab } from "./UsersTab";
 import { DialogHost, Ico, type IconName } from "./kit";
 import { errMsg, logout, myMalls, openMall, toast, user } from "../store";
 import "./admin.css";
 
-type Tab = "live" | "balance" | "malls" | "users" | "npc" | "events" | "ai" | "audit";
+type Tab = "live" | "balance" | "malls" | "users" | "npc" | "events" | "market" | "ai" | "audit";
 interface TabDef {
   id: Tab;
   label: string;
@@ -38,6 +39,7 @@ const GROUPS: { title: string; tabs: TabDef[] }[] = [
       { id: "users", label: "使用者", icon: "users", title: "使用者", desc: "搜尋帳號、重設密碼、登出裝置、刪除帳號。" },
       { id: "npc", label: "NPC 商場", icon: "npc", title: "NPC 商場", desc: "玩家分不出誰是 NPC；在這裡調整、操控它們出手。" },
       { id: "events", label: "事件與天氣", icon: "event", title: "事件與天氣", desc: "寫隨機事件、立刻觸發、改天氣。" },
+      { id: "market", label: "股市", icon: "market", title: "股市", desc: "臨時暫停交易、調整每日買進與持股上限（不動價格）。" },
     ],
   },
   {
@@ -158,6 +160,7 @@ export function Console() {
           {tab === "users" && (ov ? <UsersTab ov={ov} reload={reload} /> : loading)}
           {tab === "npc" && (ov ? <NpcTab ov={ov} reload={reload} /> : loading)}
           {tab === "events" && (ov ? <EventsTab ov={ov} /> : loading)}
+          {tab === "market" && <MarketTab />}
           {tab === "ai" && <AiTab />}
           {tab === "balance" && <BalanceTab />}
           {tab === "audit" && <AuditTab />}

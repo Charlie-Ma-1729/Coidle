@@ -278,6 +278,10 @@ export interface DayStats {
   interestCost?: number;
   /** 今天領到的營業中斷險理賠（已從 repairs 扣掉；舊存檔沒有） */
   insuranceClaim?: number;
+  /** 今天的投資損益（法人投資：賣出的已實現損益＋配息，稅前；併入日報利潤與年度所得。舊存檔沒有） */
+  invest?: number;
+  /** 其中配息的「益金不算入」部分（算在日報利潤裡，但決算時不課稅；舊存檔沒有） */
+  investExempt?: number;
   groups: number;
   units: number;
   walkouts: number;
@@ -322,6 +326,8 @@ export interface DailyReport {
   fixed: number;
   repairs: number;
   profit: number;
+  /** 其中的投資損益（法人投資的賣出損益與配息，已含在 profit；舊日報沒有） */
+  invest?: number;
   /** 進貨花費與賣出商品的成本（舊日報沒有） */
   stockBought?: number;
   stockCost?: number;
@@ -1028,6 +1034,8 @@ export interface MallState {
   finance?: FinanceState;
   /** 股權估值的錨點：前一個遊戲日收盤時的估值（見 valuation.ts）；舊存檔沒有 */
   valuationAnchor?: number;
+  /** 法人持股的市價淨值（扣一次賣出手續費；由伺服器在同步與交易時寫入，併入股權估值。沒有持股＝沒有這個欄位） */
+  holdMark?: number;
   /** 巡店：隱藏問題與行動點（舊存檔沒有） */
   patrol?: PatrolState;
   /** 大型設施（地下停車場…；舊存檔沒有）。見 facilities.ts */

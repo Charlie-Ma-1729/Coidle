@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { FastifyInstance } from "fastify";
-import { EVENTS, NPC_BY_ID, NPC_MALLS, ROLE_IDS, SHOCK_KINDS, SUPPLIER_BY_ID, SUPPLY_FAMILIES, TICKS_PER_DAY, WEATHER_NAMES, publicKey, shocksStartingOnDay, speedPreset, type MeResponse, type RoleId, type ShockKind } from "@coidle/shared";
+import { EVENTS, MARKET_DAILY_BUY_LIMIT, MARKET_HOLD_CAP, NPC_BY_ID, NPC_MALLS, ROLE_IDS, SHOCK_KINDS, SUPPLIER_BY_ID, SUPPLY_FAMILIES, TICKS_PER_DAY, WEATHER_NAMES, publicKey, shocksStartingOnDay, speedPreset, type MeResponse, type RoleId, type ShockKind } from "@coidle/shared";
 import type { ContentService, ContentKind } from "../ai/service";
 import { hashPassword, hashToken, newInviteCode, newSessionToken, verifyPassword } from "../auth/password";
 import type { Config } from "../config";
@@ -893,6 +893,29 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const malls = targetsOf(b.malls);
     note(req, "event.trigger", eventId, { malls });
     return { sent: service.adminBroadcast(malls, "admin_event", { eventId }) };
+  });
+
+  // ── 股市：臨時暫停交易、調整每日買進與持股上限（不動價格；價格是種子與時間的純函式）
+  const marketAdminView = () => {
+    const m = service.market;
+    return { status: m.status(), halt: m.haltInfo(), limits: m.limits(), defaults: { dailyBuyLimit: MARKET_DAILY_BUY_LIMIT, holdCap: MARKET_HOLD_CAP } };
+  };
+  app.get("/api/admin/market", async () => marketAdminView());
+  app.post("/api/admin/market/halt", async (req) => {
+    const b = body(req);
+    const on = b.on === true;
+    const reason = typeof b.reason === "string" ? b.reason.trim().slice(0, 80) : "";
+    note(req, on ? "market.halt" : "market.resume", "market", { reason });
+    service.market.setHalt(on, reason);
+    return marketAdminView();
+  });
+  app.post("/api/admin/market/limits", async (req) => {
+    const b = body(req);
+    const pick = (v: unknown) => (v === null || v === undefined ? null : typeof v === "number" ? v : Number.NaN);
+    const patch = { dailyBuyLimit: pick(b.dailyBuyLimit), holdCap: pick(b.holdCap) };
+    note(req, "market.limits", "market", patch);
+    service.market.setLimits(patch);
+    return marketAdminView();
   });
 
   // ── 全服供應衝擊：看排程（純函式，伺服器 tick 決定）、手動對指定供應商加一段衝擊

@@ -47,6 +47,15 @@ describe("net assets", () => {
     expect(mallBookValue(input({ funds: 100_000, finance: loan(400_000) }))).toBe(0);
   });
 
+  it("counts the corporate holdings' market value, so buying stock with cash does not lower the valuation", () => {
+    const before = mallBookValue(input({ funds: 1_000_000 }));
+    // 拿 40% 現金買股：持股市價淨值只比花掉的錢少一次手續費
+    const after = mallBookValue(input({ funds: 600_000, holdMark: 398_000 }));
+    expect(after).toBe(before - 2_000);
+    expect(netAssets(input({ funds: 0, holdMark: 500_000 }))).toBe(500_000);
+    expect(netAssets(input({ funds: 0, holdMark: -5 }))).toBe(0); // 負值不算
+  });
+
   it("borrowing cash does not raise the value", () => {
     const base = mallBookValue(input({ funds: 1_000_000 }));
     const borrowed = mallBookValue(input({ funds: 3_000_000, finance: loan(2_000_000) }));

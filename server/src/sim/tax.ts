@@ -62,7 +62,7 @@ function addBill(s: MallState, kind: ObligationKind, label: string, amount: numb
 export function taxDaily(s: MallState, time: TimeInfo, closed: DayStats): void {
   const t = s.tax;
   const wages = dailyWages(s);
-  const pretax = closed.revenue + closed.rentIncome - closed.outTax - (closed.purchases - closed.inTax) - (closed.fixed - closed.fixedCredit) - closed.repairs;
+  const pretax = closed.revenue + closed.rentIncome - closed.outTax - (closed.purchases - closed.inTax) - (closed.fixed - closed.fixedCredit) - closed.repairs + (closed.invest ?? 0) - (closed.investExempt ?? 0);
   t.fy.profit += pretax;
   t.quarter.outputTax += closed.outTax;
   t.quarter.inputTax += closed.inTax + closed.fixedCredit;

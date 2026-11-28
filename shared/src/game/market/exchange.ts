@@ -152,6 +152,8 @@ export interface MarketStatus {
   nextCloseAt: number | null;
   /** 休市的原因（假日名稱、週末…）；開市日為 null */
   reason: string | null;
+  /** 管理室臨時暫停交易中（價格照常由種子與時間決定，只是不能成交） */
+  halted?: boolean;
 }
 
 /** 下一個開盤步（全域步序號）：目前之後（含目前這一步若剛好是開盤第一步）的第一個開市時段起點 */

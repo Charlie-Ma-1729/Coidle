@@ -17,6 +17,7 @@ import {
   STOCK_GROUPS,
   buyQuote,
   dayOfGstep,
+  dividendExemptRatio,
   dividendPerShare,
   dw40,
   dwpix,
@@ -60,6 +61,8 @@ const MAX_SHARES_PER_ORDER = 1_000_000;
 /** 每人同時最多幾張預約單 */
 const MAX_OPEN_ORDERS = 10;
 const SPARK_DAYS = 30;
+/** 管理室可調的每日買進／持股上限的天花板（防手滑） */
+const LIMIT_CEILING = 100_000_000;
 /** 5d＝最近 5 個交易日的盤中走勢；1m／3m＝最近 30／90 個遊戲日的日 K */
 const RANGE_DAYS = { "5d": 5 } as const;
 const RANGE_GAME_DAYS: Record<"1m" | "3m", number> = { "1m": 30, "3m": 90 };
@@ -85,7 +88,7 @@ export class MarketService {
   private readonly feedCache = new Map<number, MarketNews[]>();
   private lastDivDay: number | null = null;
   /** 法人投資（商場持股）的配息出口：由 MallService 設定 */
-  private corpSink: ((mallId: number, net: number, note: string) => void) | null = null;
+  private corpSink: ((mallId: number, gross: number, exempt: number, note: string) => void) | null = null;
 
   constructor(
     private readonly repo: Repo,
@@ -95,7 +98,7 @@ export class MarketService {
   ) {}
 
   /** 設定商場收配息的出口（商場用公司資金持有股票時，配息入商場資金） */
-  setCorporateSink(fn: (mallId: number, net: number, note: string) => void): void {
+  setCorporateSink(fn: (mallId: number, gross: number, exempt: number, note: string) => void): void {
     this.corpSink = fn;
   }
 
@@ -192,7 +195,64 @@ export class MarketService {
   }
 
   status(): MarketStatus {
-    return marketStatus(this.now(), this.clock());
+    const st = marketStatus(this.now(), this.clock());
+    const h = this.haltInfo();
+    // 臨時暫停交易：只是不能成交，價格仍是（種子, 時間）的純函式，不受影響
+    if (h) return { ...st, open: false, session: "closed", reason: h.reason ? `臨時暫停交易：${h.reason}` : "臨時暫停交易", halted: true };
+    return st;
+  }
+
+  // ───────── 管理室：暫停交易與上限調整（只動「能不能成交」與限額，不動價格） ─────────
+
+  /** 目前的臨時暫停交易；沒有暫停就回傳 null */
+  haltInfo(): { reason: string; at: number } | null {
+    const raw = this.repo.getMeta("market_halt");
+    if (!raw) return null;
+    try {
+      const v = JSON.parse(raw) as { reason?: unknown; at?: unknown };
+      return { reason: typeof v.reason === "string" ? v.reason : "", at: typeof v.at === "number" ? v.at : 0 };
+    } catch {
+      return null;
+    }
+  }
+
+  /** 開始或解除臨時暫停交易。暫停期間：買賣與法人下單被拒絕、預約單不成交；解除後預約單依原規則在「下單後第一次開盤」成交 */
+  setHalt(on: boolean, reason = ""): { halted: boolean } {
+    if (on) this.repo.setMeta("market_halt", JSON.stringify({ reason: reason.slice(0, 80), at: this.now() }));
+    else this.repo.setMeta("market_halt", "");
+    return { halted: on };
+  }
+
+  /** 每日買進上限與單一集團持股上限：預設是常數，管理室可以調整（0 以上、有天花板） */
+  limits(): { dailyBuyLimit: number; holdCap: number } {
+    let dailyBuyLimit = MARKET_DAILY_BUY_LIMIT;
+    let holdCap = MARKET_HOLD_CAP;
+    const raw = this.repo.getMeta("market_limits");
+    if (raw) {
+      try {
+        const v = JSON.parse(raw) as { dailyBuyLimit?: unknown; holdCap?: unknown };
+        if (typeof v.dailyBuyLimit === "number" && Number.isFinite(v.dailyBuyLimit)) dailyBuyLimit = Math.min(LIMIT_CEILING, Math.max(0, Math.floor(v.dailyBuyLimit)));
+        if (typeof v.holdCap === "number" && Number.isFinite(v.holdCap)) holdCap = Math.min(LIMIT_CEILING, Math.max(0, Math.floor(v.holdCap)));
+      } catch {
+        /* 壞掉的設定就用預設 */
+      }
+    }
+    return { dailyBuyLimit, holdCap };
+  }
+
+  /** 調整上限；欄位傳 null 或不傳＝恢復預設 */
+  setLimits(patch: { dailyBuyLimit?: number | null; holdCap?: number | null }): { dailyBuyLimit: number; holdCap: number } {
+    for (const k of ["dailyBuyLimit", "holdCap"] as const) {
+      const v = patch[k];
+      if (v !== undefined && v !== null && (typeof v !== "number" || !Number.isFinite(v) || v < 0 || v > LIMIT_CEILING)) {
+        throw new ServiceError(400, `上限必須是 0 到 ${LIMIT_CEILING.toLocaleString()} 之間的整數`);
+      }
+    }
+    const out: Record<string, number> = {};
+    if (typeof patch.dailyBuyLimit === "number") out.dailyBuyLimit = Math.floor(patch.dailyBuyLimit);
+    if (typeof patch.holdCap === "number") out.holdCap = Math.floor(patch.holdCap);
+    this.repo.setMeta("market_limits", Object.keys(out).length ? JSON.stringify(out) : "");
+    return this.limits();
   }
 
   /** 現在是第幾個遊戲日（每日買進上限用） */
@@ -405,8 +465,8 @@ export class MarketService {
       orders: this.orders(userId),
       wallet: this.repo.walletOf(userId),
       boughtToday: this.repo.boughtOnDay(userId, this.gameDay()),
-      dailyBuyLimit: MARKET_DAILY_BUY_LIMIT,
-      holdCap: MARKET_HOLD_CAP,
+      dailyBuyLimit: this.limits().dailyBuyLimit,
+      holdCap: this.limits().holdCap,
       feeRate: MARKET_FEE_RATE,
       taxRate: MARKET_TAX_RATE,
     };
@@ -523,13 +583,14 @@ export class MarketService {
 
   private execBuy(userId: number, key: string, shares: number, price: number, day: number, at: number): TradeResult {
     const q = buyQuote(price, shares);
+    const lim = this.limits();
     const bought = this.repo.boughtOnDay(userId, day);
-    if (bought + q.cost > MARKET_DAILY_BUY_LIMIT) {
-      throw new ServiceError(409, `每個遊戲日最多買進 ${MARKET_DAILY_BUY_LIMIT.toLocaleString()}（今天已買 ${bought.toLocaleString()}），明天（約 4 個真實小時內換日）再來`);
+    if (bought + q.cost > lim.dailyBuyLimit) {
+      throw new ServiceError(409, `每個遊戲日最多買進 ${lim.dailyBuyLimit.toLocaleString()}（今天已買 ${bought.toLocaleString()}），明天（約 4 個真實小時內換日）再來`);
     }
     const pos = this.repo.positionOf(userId, key);
-    if ((pos.shares + shares) * price > MARKET_HOLD_CAP) {
-      throw new ServiceError(409, `單一集團的持股市值最多 ${MARKET_HOLD_CAP.toLocaleString()}，這筆買下去會超過`);
+    if ((pos.shares + shares) * price > lim.holdCap) {
+      throw new ServiceError(409, `單一集團的持股市值最多 ${lim.holdCap.toLocaleString()}，這筆買下去會超過`);
     }
     const wallet = this.repo.walletOf(userId);
     if (wallet < q.total) throw new ServiceError(402, `你的錢包只有 ${wallet.toLocaleString()}，買進要 ${q.total.toLocaleString()}（含手續費 ${q.fee.toLocaleString()}）`);
@@ -608,6 +669,7 @@ export class MarketService {
 
   /** 處理到期的預約單：在「下單之後的第一次開盤」的開盤價成交；成交時才檢查錢包與限制，失敗就標記拒絕 */
   private processOrders(): void {
+    if (this.haltInfo()) return; // 暫停交易期間不成交，解除後依原規則處理
     const sc = this.clock();
     const gnow = gstepAt(this.now(), sc);
     const e = this.v2();
@@ -662,11 +724,11 @@ export class MarketService {
             this.repo.addCash(h.userId, amount - t, { kind: "stock_dividend", note: `${g.name} 配息 ${per.toLocaleString()}／股 × ${h.shares.toLocaleString()} 股（稅 ${t.toLocaleString()}）`, at });
           }
           for (const h of mallHolders) {
+            // 法人：配息全額入公司資金，不當場扣稅；併入決算所得，並適用受取配当益金不算入（持股 ≤5% 不算入 20%、>5% 不算入 50%）
             const amount = h.shares * per;
-            const t = Math.floor(amount * MARKET_TAX_RATE);
+            const ratio = dividendExemptRatio(h.shares, g.shares);
             gross += amount;
-            tax += t;
-            this.corpSink?.(h.mallId, amount - t, `${g.name} 配息 ${per.toLocaleString()}／股 × ${h.shares.toLocaleString()} 股（稅 ${t.toLocaleString()}）`);
+            this.corpSink?.(h.mallId, amount, Math.floor(amount * ratio), `${g.name} 配息 ${per.toLocaleString()}／股 × ${h.shares.toLocaleString()} 股（併入年度所得，其中 ${ratio * 100}% 益金不算入）`);
           }
           this.repo.recordDividend({ company: g.key, exDay: day, perShare: per, holders: holders.length + mallHolders.length, gross, tax, paidAt: at });
         });
