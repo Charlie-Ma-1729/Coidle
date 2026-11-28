@@ -1136,6 +1136,8 @@ export interface RndJob {
   sig: string;
   /** 小遊戲的結果（驗證過的；舊存檔與沒玩的研發沒有） */
   play?: { score: number; bonus: number; tweak: Record<string, number> };
+  /** 等待期中途事件（進度過半才出現；舊存檔與沒觸發的研發沒有）。pick＝已選的選項；skill＝對有效廚藝經驗的調整 */
+  mid?: { kind: string; pick?: string; skill: number; auto?: boolean };
 }
 
 /** signature＝命中隱藏配方；original＝普通創作；flop＝搭配失衡；burnt＝手滑失敗；almost＝配方對了但火候差一點 */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CATEGORY_BY_ID, FACILITY_BY_KIND, facilityAmount, facilityFloors, facilityUnits, isCategoryAvailable, parkingTrafficMult, type MallState } from "@coidle/shared";
+import { CATEGORY_BY_ID, FACILITY_BY_KIND, facilityAmount, facilityFloors, facilityUnits, isCategoryAvailable, parkingLinkMult, parkingTrafficMult, type MallState } from "@coidle/shared";
 import { advanceTo, applyCommand, createInitialState, type Command } from "./sim";
 import { makeShop } from "./sim/state";
 
@@ -165,5 +165,30 @@ describe("旅館大廳層", () => {
     expect(fl.filter((f) => f.part === "lobby").map((f) => f.label)).toEqual(["旅廳", "膠廳"]);
     expect(fl.filter((f) => f.kind === "bowling")).toHaveLength(1);
     expect(fl.filter((f) => f.kind === "hotel")).toHaveLength(1); // 只有大廳（標準客房層先封存）
+  });
+});
+
+describe("設施連動", () => {
+  const DAY = 288;
+  it("愛看電影的常客有影城就會上門（沒有影城不會出現），票房進設施帳", () => {
+    const base = mk(8);
+    const none = advanceTo(structuredClone(base), base.tick + 12 * DAY);
+    expect(none.regulars.find((r) => r.id === "sakura")?.met).toBe(false);
+    const s = structuredClone(base);
+    s.facilities = [{ kind: "cinema", units: 3 }];
+    const done = advanceTo(s, s.tick + 12 * DAY);
+    const r = done.regulars.find((x) => x.id === "sakura")!;
+    expect(r.met).toBe(true);
+    expect(r.visits).toBeGreaterThan(0);
+    expect(done.log.some((l) => l.text.includes("新常客登場") && l.text.includes("小櫻"))).toBe(true);
+  });
+
+  it("停車需求跟著活動日、旅館住客增加，有上限，沒設施時是 1", () => {
+    expect(parkingLinkMult({}, 5)).toBe(1);
+    const withEvents = parkingLinkMult({ facilities: [{ kind: "event_space", units: 2, ops: { bookings: [1, 2, 3].map((slot) => ({ day: 5, unit: 0, slot, kind: "rent" as const, client: "x", fee: 1 })) } }] }, 5);
+    expect(withEvents).toBeGreaterThan(1);
+    expect(parkingLinkMult({ facilities: [{ kind: "event_space", units: 2, ops: { bookings: [1, 2, 3].map((slot) => ({ day: 6, unit: 0, slot, kind: "rent" as const, client: "x", fee: 1 })) } }] }, 5)).toBe(1); // 別天不算
+    const huge = parkingLinkMult({ facilities: [{ kind: "hotel", units: 6 }, { kind: "capsule_hotel", units: 3 }, { kind: "event_space", units: 4, ops: { bookings: Array.from({ length: 12 }, (_, slot) => ({ day: 5, unit: 0, slot, kind: "rent" as const, client: "x", fee: 1 })) } }] }, 5);
+    expect(huge).toBeLessThanOrEqual(1.35 + 1e-9);
   });
 });

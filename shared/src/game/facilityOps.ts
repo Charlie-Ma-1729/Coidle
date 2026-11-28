@@ -63,6 +63,18 @@ export function parkingDailyIncome(s: Pick<MallState, "facilities">): number {
   return visits * demand * share * PARKING_FEE * priceMultOf(f) * conditionFactor(conditionOf(f));
 }
 
+/**
+ * 設施共用客流：活動日（活動場地、會議中心當天有場次）與旅館住客會讓停車需求變高。
+ * 加成有上限（最多 +35%），而且只放大「停車收入」，不改自駕客對商場的來客加成（那條有自己的上限）。
+ * 只看狀態（預約與單位數），不抽亂數。
+ */
+export const PARKING_LINK_MAX = 0.35;
+export function parkingLinkMult(s: Pick<MallState, "facilities">, day: number): number {
+  const today = (kind: string) => (facilityOf(s, kind)?.ops?.bookings ?? []).filter((b) => b.day === day).length;
+  const stay = (facilityOf(s, "hotel")?.units ?? 0) * 0.015 + (facilityOf(s, "capsule_hotel")?.units ?? 0) * 0.01;
+  return 1 + Math.min(PARKING_LINK_MAX, today("event_space") * 0.08 + today("conference") * 0.03 + stay);
+}
+
 // ───────── 影城：院線片 ─────────
 
 export interface Film {

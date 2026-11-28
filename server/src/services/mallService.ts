@@ -285,6 +285,8 @@ export function describeCommand(s: MallState, cmd: Command, actor: string): stri
       return `${actor} 讓「${shopName(cmd.shopId)}」開始研發新作品`;
     case "cancelRnd":
       return `${actor} 取消了「${shopName(cmd.shopId)}」的研發`;
+    case "resolveRndEvent":
+      return `${actor} 處理了「${shopName(cmd.shopId)}」研發途中的狀況`;
     case "tastingAction":
       return `${actor} 處理了一份試吃結果`;
     case "listDish":

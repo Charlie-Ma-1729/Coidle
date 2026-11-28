@@ -65,7 +65,7 @@ import { rngForTick } from "./rng";
 import { bump, checkStarters, contribute, guessPlace, trackActor, type Actor } from "./meta";
 import { counterTenant, declineTenant, resolveRenewal, signTenant, terminateLease, vacate } from "./leasing";
 import { cancelTech, startTech, techExperiment } from "./tech";
-import { cancelRnd, discardDish, listDish, startRnd, syncWorkshop, tastingAction, unlistDish } from "./workshop";
+import { cancelRnd, resolveRndEvent, discardDish, listDish, startRnd, syncWorkshop, tastingAction, unlistDish } from "./workshop";
 import { addLog, isFeatureEnabled, isZoneUnlocked, nextId } from "./state";
 import { completeBuilds, isOpen, placeOrder } from "./step";
 
@@ -601,6 +601,12 @@ export function applyCommand(state: MallState, cmd: Command, actor?: Actor): Com
 
     case "cancelRnd": {
       const r = cancelRnd(s, cmd.shopId);
+      if (!r.ok) return err(r.error);
+      break;
+    }
+
+    case "resolveRndEvent": {
+      const r = resolveRndEvent(s, cmd.shopId, cmd.optionId);
       if (!r.ok) return err(r.error);
       break;
     }

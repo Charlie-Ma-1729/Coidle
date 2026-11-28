@@ -31,5 +31,12 @@
 ## 測試
 `server/src/play.test.ts`（計分決定性／偽造輸入夾限／重放等價／舊存檔）、`client/src/ui.test.tsx`（PlayFlow、Tech 立項與實驗）。
 
+## 等待期中途事件（2026-11-29）
+研發進度過半（`MID_AT`）時，工坊會出一件狀況（設備不穩、素材品質參差、突然有靈感、同事試味道有意見；資料在 `shared/src/game/workshopMid.ts`，4 件、各 2 個選項）。
+- **不暫停時間、不用小遊戲**：玩家看到事件卡可以處理（`resolveRndEvent { shopId, optionId }`），沒處理到研發結束時自動採預設選項（不花錢；有風險的預設照風險結算），所以「不玩也能玩」。
+- 影響只有這次研發的有效廚藝經驗 ±1（`RndJob.mid.skill`，進 `resolveJob` 的 `chefLevel + play.bonus + mid.skill`），不改效果本身。花錢的選項要研發費的 10–30%，資金不足不能選。
+- 決定性：哪件事件由 `hash(seed, job.uid)` 決定；風險用 `(seed, startTick, option)` 的雜湊，不抽引擎亂數流，重放結果相同。
+- 新欄位 `RndJob.mid?` 是可選，舊存檔與沒觸發的研發沒有；畫面在「研發進行中」卡片裡顯示。測試在 `server/src/workshop.test.ts` 的 “research mid-wait event”。
+
 ## 未做
-工坊等待期中途事件、租賃協商小決策（非必要，留待之後）。
+租賃協商小決策（非必要，留待之後）。

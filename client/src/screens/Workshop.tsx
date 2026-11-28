@@ -13,6 +13,7 @@ import {
   comboKey,
   dishFitsShop,
   ingredientFitsCategory,
+  MID_BY_ID,
   menuSlots,
   rndCostOf,
   type Dish,
@@ -197,6 +198,28 @@ function Research({ s, shop }: { s: PublicMallState; shop: Shop }) {
               🎮 手藝 {Math.round(job.play.score * 100)} 分（廚藝經驗 ＋{job.play.bonus}）
               {Object.keys(job.play.tweak).length > 0 ? `；微調 ${Object.entries(job.play.tweak).map(([k, v]) => `${TAG_BY_ID[cat.group][k]?.name ?? k}${v > 0 ? "＋" : "－"}1`).join("、")}` : ""}
             </p>
+          )}
+          {job.mid && MID_BY_ID[job.mid.kind] && (
+            <div class="stack">
+              <b>
+                {MID_BY_ID[job.mid.kind]!.icon} {MID_BY_ID[job.mid.kind]!.title}
+              </b>
+              <p class="small dim">{MID_BY_ID[job.mid.kind]!.text}</p>
+              {job.mid.pick ? (
+                <p class="small">
+                  {job.mid.auto ? "沒人處理，自動採預設：" : "已處理："}
+                  {MID_BY_ID[job.mid.kind]!.options.find((o) => o.id === job.mid!.pick)?.label}
+                </p>
+              ) : (
+                <div class="stack">
+                  {MID_BY_ID[job.mid.kind]!.options.map((o) => (
+                    <Btn key={o.id} small kind={o.id === MID_BY_ID[job.mid!.kind]!.defaultOption ? "ghost" : "primary"} onClick={() => run({ type: "resolveRndEvent", shopId: shop.id, optionId: o.id }, "已處理")}>
+                      {o.label}　<span class="small dim">{o.hint}{o.id === MID_BY_ID[job.mid!.kind]!.defaultOption ? "（預設）" : ""}</span>
+                    </Btn>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
           <div class="row">
             <Btn small kind="danger" onClick={() => run({ type: "cancelRnd", shopId: shop.id }, "已取消，退回一半費用")}>

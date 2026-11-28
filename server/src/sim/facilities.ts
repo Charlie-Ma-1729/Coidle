@@ -54,6 +54,7 @@ import {
   nextFacilityUnit,
   operatorFactor,
   parkingDailyIncome,
+  parkingLinkMult,
   parkingPolicy,
   priceFactor,
   priceMultOf,
@@ -155,6 +156,29 @@ function settleOwn(s: MallState, f: Facility, category: string, revenue: number,
     f.today.viewers += visitors;
     f.today.revenue += revenue;
   }
+}
+
+/**
+ * 常客上門（影城、保齡球館、旅館…這類設施業態沒有店面，常客愛去的就是設施）：一次 want 位。
+ * 回傳實際接待人數（0＝沒有這種設施、還沒蓋好或打烊）。自營：照目前票價／定價收費並付變動成本；
+ * 招商：只收抽成。這是在一天人次模型之外的小額加成（最多 45 位常客、每人一天少於一次）。
+ */
+export function facilityWalkIn(s: MallState, category: string, want: number): number {
+  const def = FACILITY_DEFS.find((d) => d.legacyCategory === category && d.kind !== "parking");
+  if (!def) return 0;
+  const f = facilityOf(s, def.kind);
+  if (!f || f.units <= 0) return 0;
+  const unitPrice = def.kind === "cinema" ? CINEMA_TICKET : (def.econ?.price ?? 0);
+  if (unitPrice <= 0) return 0;
+  if (isLeased(f)) {
+    settleLeased(s, f, want * unitPrice, want);
+    return want;
+  }
+  const mult = priceMultOf(f);
+  const revenue = want * unitPrice * mult * conditionFactor(conditionOf(f));
+  const varCost = revenue * (def.kind === "cinema" ? CINEMA_VAR_COST : (def.econ?.varCost ?? 0.3));
+  settleOwn(s, f, category, revenue, varCost, want);
+  return want;
 }
 
 /** 招商：營運商賺的營收不進我們的帳，只收抽成（比照出租店）；今日營收只記在設施上給畫面看 */
@@ -287,11 +311,12 @@ export function runParking(s: MallState, time: TimeInfo, open: boolean): void {
   if (isLeased(f)) {
     const op = f.ops!.operator!;
     const def = FACILITY_BY_KIND.parking!;
-    const base = facilityBaselineRevenue(s, def) * operatorFactor(op.quality, op.fame);
+    const base = facilityBaselineRevenue(s, def) * operatorFactor(op.quality, op.fame) * demandMult(s, "parking", s.tick) * parkingLinkMult(s, time.day);
     settleLeased(s, f, base / hours / TICKS_PER_HOUR, 0);
     return;
   }
-  const income = parkingDailyIncome(s) / hours / TICKS_PER_HOUR;
+  // 日曆／天氣／事件的停車需求（連假、活動日），再乘共用客流（活動場地、會議中心的場次與旅館住客）
+  const income = (parkingDailyIncome(s) * demandMult(s, "parking", s.tick) * parkingLinkMult(s, time.day)) / hours / TICKS_PER_HOUR;
   if (income <= 0) return;
   settleOwn(s, f, "parking", income, 0, 0);
 }

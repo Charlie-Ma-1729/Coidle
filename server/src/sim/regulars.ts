@@ -1,5 +1,6 @@
 import {
   CATEGORY_BY_ID,
+  FACILITY_DEFS,
   FAN_AFFINITY,
   FAN_DAILY_IDX,
   GIFT_COOLDOWN_TICKS,
@@ -41,6 +42,7 @@ import {
   type VoiceTopic,
 } from "@coidle/shared";
 import { applyPersonaIndex } from "./events";
+import { facilityWalkIn } from "./facilities";
 import type { GuestResult } from "./guests";
 import { promoRegularGain } from "./promos";
 import { createRng, hash32, type Rng } from "./rng";
@@ -120,21 +122,44 @@ export function gain(s: MallState, reg: RegularState, def: RegularDef, rawAmount
 }
 
 /** 每個 tick：每位常客有小機率上門（頻率隨親密度、專屬座位、平假日與時段而變） */
+const FACILITY_CATEGORIES = new Set(FACILITY_DEFS.map((d) => d.legacyCategory).filter((c): c is string => !!c && c !== "parking"));
+
 export function runRegulars(s: MallState, rng: Rng, time: TimeInfo, open: Shop[], sale: SaleFn): number {
   let units = 0;
   for (const reg of s.regulars) {
     const def = REGULAR_BY_ID[reg.id];
     if (!def) continue;
     const cands = open.filter((x) => x.category === def.fav || x.category === def.alt);
-    if (cands.length === 0) continue;
+    const facCat = cands.length === 0 ? [def.fav, def.alt].find((c) => c && FACILITY_CATEGORIES.has(c)) : undefined;
+    if (cands.length === 0 && !facCat) continue;
     const p = PERSONA_BY_ID[def.persona];
     const share = (time.offDay ? p.weekendHourShare : p.hourShare)[time.hour] ?? 0;
     const perDay = (0.35 + (0.9 * reg.affinity) / 100) * (reg.knowsPrefs ? KNOWN_VISIT_MULT : 1) * kindHourMult(def.kind, time.hour, time.offDay) * (time.offDay ? Math.sqrt(p.weekendMult) : 1);
     const prob = Math.min(0.5, (perDay * share) / TICKS_PER_HOUR);
     if (!rng.chance(prob)) continue;
-    units += visit(s, rng, reg, def, p, cands, sale);
+    units += facCat ? visitFacility(s, rng, reg, def, p, facCat) : visit(s, rng, reg, def, p, cands, sale);
   }
   return units;
+}
+
+/** 設施業態（影城、保齡球館…）沒有店面：常客愛去的是設施，進場收費走設施帳（店面的缺貨、客滿、價格檢查用不上，只看價格接受度） */
+function visitFacility(s: MallState, rng: Rng, reg: RegularState, def: RegularDef, p: PersonaDef, category: string): number {
+  const want = rng.int(1, p.party[1] >= 2 ? 2 : 1);
+  const got = facilityWalkIn(s, category, want);
+  if (got < 1) return 0;
+  const cat = CATEGORY_BY_ID[category];
+  if (!reg.met) {
+    reg.met = true;
+    reg.affinity = REGULAR_START_AFFINITY;
+    addLog(s, "info", `🆕 新常客登場：「${def.name}」第一次來到「${cat?.name ?? category}」！`);
+    note(s, `新常客登場：「${def.name}」第一次上門！`);
+  }
+  reg.lastVisitTick = s.tick;
+  reg.visits++;
+  s.today.regularVisits++;
+  reg.mood = "happy";
+  gain(s, reg, def, 0.75 * 1.2);
+  return got;
 }
 
 function visit(s: MallState, rng: Rng, reg: RegularState, def: RegularDef, p: PersonaDef, cands: Shop[], sale: SaleFn): number {

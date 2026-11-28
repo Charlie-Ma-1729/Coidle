@@ -86,6 +86,7 @@ export type Command =
   /** 研發工坊：開始研發（每間店同時一件）、取消、處理試吃結果、菜單上下架 */
   | { type: "startRnd"; shopId: string; picks: Partial<Record<SlotKind, string>>; /** 小遊戲的輸入（沒有＝自動，不加成） */ play?: PlayInput }
   | { type: "cancelRnd"; shopId: string }
+  | { type: "resolveRndEvent"; shopId: string; optionId: string }
   | { type: "tastingAction"; uid: string; action: "list" | "keep" | "discard"; slotIndex?: number }
   | { type: "listDish"; shopId: string; dishId: string; slotIndex?: number }
   | { type: "unlistDish"; shopId: string; slotIndex: number }

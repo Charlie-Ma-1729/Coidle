@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   STARTER_QUESTS,
   CATEGORY_BY_ID,
+  MID_BY_ID,
   RND_TICKS,
   SLOT_KINDS,
   TAG_BY_ID,
@@ -289,5 +290,57 @@ describe("unlocking and migration", () => {
     expect(m.shops.every((x) => Array.isArray(x.menu))).toBe(true);
     expect(m.workshop.ingredients.length).toBeGreaterThan(10);
     expect(m.workshop.dishes).toEqual([]);
+  });
+});
+
+describe("research mid-wait event", () => {
+  const startOne = () => {
+    const s0 = levelUp(mk(), 2);
+    const shop = shopOf(s0, "kushikatsu");
+    return { s: apply(s0, { type: "startRnd", shopId: shop.id, picks: ZESTY }), shop };
+  };
+
+  it("appears at half progress, never before, and does not stop the clock", () => {
+    const { s, shop } = startOne();
+    const job = s.workshop.jobs[0]!;
+    const total = job.endTick - job.startTick;
+    const early = advanceTo(structuredClone(s), job.startTick + Math.floor(total * 0.4));
+    expect(early.workshop.jobs[0]!.mid).toBeUndefined();
+    const mid = advanceTo(structuredClone(s), job.startTick + Math.floor(total * 0.6));
+    expect(mid.workshop.jobs[0]!.mid).toBeDefined();
+    expect(mid.tick).toBe(job.startTick + Math.floor(total * 0.6)); // 沒有因為事件暫停
+    expect(shop.id).toBe(mid.workshop.jobs[0]!.shopId);
+  });
+
+  it("a chosen option costs money and is applied once; unresolved events fall back to the default", () => {
+    const { s, shop } = startOne();
+    const job = s.workshop.jobs[0]!;
+    const mid = advanceTo(structuredClone(s), job.startTick + Math.floor((job.endTick - job.startTick) * 0.6));
+    const ev = MID_BY_ID[mid.workshop.jobs[0]!.mid!.kind]!;
+    expect(fails(mid, { type: "resolveRndEvent", shopId: shop.id, optionId: "nope" })).toContain("沒有這個選項");
+    const paid = ev.options.find((o) => o.costPct > 0);
+    if (paid) {
+      const poor = { ...structuredClone(mid), funds: 1 };
+      expect(fails(poor, { type: "resolveRndEvent", shopId: shop.id, optionId: paid.id })).toContain("資金不足");
+      const done = apply(mid, { type: "resolveRndEvent", shopId: shop.id, optionId: paid.id });
+      expect(done.funds).toBeLessThan(mid.funds);
+      expect(done.workshop.jobs[0]!.mid!.skill).toBe(paid.skill);
+      expect(fails(done, { type: "resolveRndEvent", shopId: shop.id, optionId: paid.id })).toContain("處理過");
+    }
+    // 沒人處理：研發結束時自動採預設，結果出得來
+    const end = advanceTo(structuredClone(mid), job.endTick + 2);
+    expect(end.workshop.jobs).toHaveLength(0);
+    expect(end.workshop.tastings.length).toBeGreaterThan(0);
+  });
+
+  it("is deterministic: same state and choice give the same result", () => {
+    const { s, shop } = startOne();
+    const job = s.workshop.jobs[0]!;
+    const mid = advanceTo(structuredClone(s), job.startTick + Math.floor((job.endTick - job.startTick) * 0.6));
+    const ev = MID_BY_ID[mid.workshop.jobs[0]!.mid!.kind]!;
+    const o = ev.options.find((x) => x.risk) ?? ev.options[0]!;
+    const a = apply(structuredClone(mid), { type: "resolveRndEvent", shopId: shop.id, optionId: o.id });
+    const b = apply(structuredClone(mid), { type: "resolveRndEvent", shopId: shop.id, optionId: o.id });
+    expect(a.workshop.jobs[0]!.mid).toEqual(b.workshop.jobs[0]!.mid);
   });
 });

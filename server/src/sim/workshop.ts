@@ -8,6 +8,9 @@ import {
   MENU_LIST_FRESHNESS,
   MENU_NOVELTY_DECAY,
   MENU_NOVELTY_FLOOR,
+  MID_AT,
+  MID_BY_ID,
+  midEventFor,
   PERSONA_IDS,
   REGULAR_BY_ID,
   REGULAR_SIGNATURE_BONUS,
@@ -53,7 +56,7 @@ import {
   type RecipeData,
   type Unlock,
 } from "./recipes";
-import type { Rng } from "./rng";
+import { createRng, hash32, type Rng } from "./rng";
 import { bump } from "./meta";
 import { addLog, nextId } from "./state";
 
@@ -376,6 +379,51 @@ export function startRnd(s: MallState, shopId: string, picks: Picks, play?: Play
   return { ok: true, note: `開始研發（花 ${cost}）${result ? `，手藝 ${Math.round(result.score * 100)} 分` : ""}` };
 }
 
+/** 研發過半時出中途事件（只看研發編號與種子；不暫停時間、不用小遊戲，沒人理就採預設） */
+function maybeStartMid(s: MallState, job: RndJob): void {
+  if (job.mid) return;
+  const total = job.endTick - job.startTick;
+  if (total < 8 || s.tick < job.startTick + Math.floor(total * MID_AT)) return;
+  const h = hash32(s.seed ^ 0x3b1d, [...job.uid].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7));
+  const ev = midEventFor(h);
+  job.mid = { kind: ev.id, skill: 0 };
+  const shop = s.shops.find((x) => x.id === job.shopId);
+  addLog(s, "info", `${ev.icon} 「${shop?.name ?? "工坊"}」的研發出了狀況：${ev.title}。到完成前都可以處理，沒處理就照預設。`);
+}
+
+/** 把選項套用在研發上：扣費、加減廚藝經驗；風險用雜湊決定（重放結果相同） */
+function applyMid(s: MallState, job: RndJob, optionId: string, auto: boolean): GuestResult {
+  const mid = job.mid;
+  const ev = mid && MID_BY_ID[mid.kind];
+  const opt = ev?.options.find((o) => o.id === optionId);
+  if (!mid || !ev || !opt) return { ok: false, error: "沒有這個選項" };
+  if (mid.pick) return { ok: false, error: "這件事已經處理過了" };
+  const cost = Math.round(job.cost * opt.costPct);
+  if (cost > 0) {
+    if (s.funds < cost) return { ok: false, error: `資金不足（要 ¥${cost.toLocaleString("en-US")}）` };
+    s.funds -= cost;
+    s.today.purchases += cost;
+  }
+  let skill = opt.skill;
+  if (opt.risk) {
+    const roll = createRng(hash32(hash32(s.seed ^ 0x77e1, job.startTick), opt.id.length * 977 + opt.id.charCodeAt(0))).next();
+    if (roll < opt.risk.p) skill += opt.risk.skill;
+  }
+  mid.pick = opt.id;
+  mid.skill = skill;
+  if (auto) mid.auto = true;
+  const shop = s.shops.find((x) => x.id === job.shopId);
+  addLog(s, "info", `${ev.icon} 「${shop?.name ?? "工坊"}」：${ev.title}→${opt.label}${skill > 0 ? "，進展順利" : skill < 0 ? "，不太順" : ""}。`);
+  return { ok: true, note: `${opt.label}${cost > 0 ? `（花 ¥${cost.toLocaleString("en-US")}）` : ""}` };
+}
+
+export function resolveRndEvent(s: MallState, shopId: string, optionId: string): GuestResult {
+  const job = s.workshop.jobs.find((j) => j.shopId === shopId);
+  if (!job) return { ok: false, error: "這間店沒有進行中的研發" };
+  if (!job.mid) return { ok: false, error: "研發還沒出狀況" };
+  return applyMid(s, job, String(optionId), false);
+}
+
 export function cancelRnd(s: MallState, shopId: string): GuestResult {
   const i = s.workshop.jobs.findIndex((j) => j.shopId === shopId);
   const job = s.workshop.jobs[i];
@@ -411,7 +459,7 @@ function resolveJob(s: MallState, job: RndJob, rng: Rng): void {
   const cat = shop && CATEGORY_BY_ID[shop.category];
   if (!shop || !cat) return;
   const first = !(job.sig in ws.tried);
-  const res = evaluate(shop.category, job.picks, chefLevel(s, shop) + (job.play?.bonus ?? 0), rng, ws.discovered, job.play);
+  const res = evaluate(shop.category, job.picks, chefLevel(s, shop) + (job.play?.bonus ?? 0) + (job.mid?.skill ?? 0), rng, ws.discovered, job.play);
   ws.tried[job.sig] = res.outcome;
   bump(s, "research");
   if (res.outcome === "signature") bump(s, "signatures");
@@ -487,8 +535,10 @@ function resolveJob(s: MallState, job: RndJob, rng: Rng): void {
 export function workshopTick(s: MallState, rng: Rng): void {
   const ws = s.workshop;
   if (ws.jobs.length === 0 && ws.tastings.length === 0) return;
+  for (const j of ws.jobs) if (!j.mid && j.endTick > s.tick) maybeStartMid(s, j);
   if (ws.jobs.some((j) => j.endTick <= s.tick)) {
     const due = ws.jobs.filter((j) => j.endTick <= s.tick);
+    for (const j of due) if (j.mid && !j.mid.pick) applyMid(s, j, MID_BY_ID[j.mid.kind]?.defaultOption ?? "", true);
     ws.jobs = ws.jobs.filter((j) => j.endTick > s.tick);
     for (const j of due) resolveJob(s, j, rng);
   }
